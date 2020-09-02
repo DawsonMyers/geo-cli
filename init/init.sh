@@ -38,3 +38,10 @@ alias zrc=". ~/.zshrc"
 # # Get list of completions separated by spaces (required as imput to complete command)
 # comp_string=`echo "${completions[@]}"`
 # complete -W "$comp_string" geo
+
+export GEO_SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
+export GEO_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
+# echo $GEO_CLI_DIR
+
+# Import the handlers for geo.
+. $GEO_SRC_DIR/geo-cli.sh

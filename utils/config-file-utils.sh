@@ -3,8 +3,8 @@ sed_escape() {
 }
 
 cfg_write() { # path, key, value
-  if [[ $2 = 'MLO_REPO_DIR' && $3 = '' ]]; then
-    echo "Warning: config-file-utils:cfg_write: preventing '' from being writen to MLO_REPO_DIR"
+  if [[ $2 = 'GEO_REPO_DIR' && $3 = '' ]]; then
+    echo "Warning: config-file-utils:cfg_write: preventing '' from being writen to GEO_REPO_DIR"
     exit
   fi
   cfg_delete "$1" "$2"

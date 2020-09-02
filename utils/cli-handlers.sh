@@ -2,70 +2,16 @@
 # echo 'init handlers'
 # GEO_REPO_DIR=~/menlolab
 # GEO_CLI_DIR=$HOME/.geo-cli/cli
-. $GEO_CLI_DIR/utils/colors.sh
+. $GEO_SRC_DIR/utils/colors.sh
 # . $GEO_CLI_DIR/utils/secrets.sh
-. $GEO_CLI_DIR/utils/config-file-utils.sh
+. $GEO_SRC_DIR/utils/config-file-utils.sh
 
 # ENV_CONF_FILE=$GEO_CLI_DIR/src/config/env.conf
 
 IMAGE=postgres11
 CONTAINER="geo_${IMAGE}"
 CONTAINER_NAME=""
-function geodb()
-{
-    VOL_NAME="geo_db_${1}"
-    CONTAINER_NAME="${CONTAINER}_${1}"
 
-    # docker run -v 2002:/var/lib/postgresql/11/main -p 5432:5432 postgres11
-
-    VOLUME=`docker volume ls | grep " $VOL_NAME"`
-
-    geostop $1
-    CONTAINER_ID=`docker ps -aqf "name=$CONTAINER_NAME"`
-    
-    if [ -z "$VOLUME" ]; then
-        docker volume create "$VOL_NAME"
-
-        if [ -n "$CONTAINER_ID" ]; then
-            docker start $CONTAINER_ID
-        else
-            docker run -v $VOL_NAME:/var/lib/postgresql/11/main -p 5432:5432 --name=$CONTAINER_NAME -d $IMAGE
-        fi
-        sleep 10
-        geo_init_db
-    else
-        if [ -n "$CONTAINER_ID" ]; then
-            docker start $CONTAINER_ID
-        else
-            docker run -v $VOL_NAME:/var/lib/postgresql/11/main -p 5432:5432 --name=$CONTAINER_NAME -d $IMAGE
-        fi
-    fi
-}
-
-function geostop()
-{
-    CONTAINER_NAME="${CONTAINER}_${1}"
-    ID=`docker ps -qf "name=$CONTAINER_NAME"`
-
-    if [ -n "$ID" ]; then
-        docker stop $ID
-    fi
-}
-
-function geo_db_init()
-{
-    cd ~/repos/MyGeotab/Checkmate/bin/Debug/netcoreapp3.1/
-    dotnet CheckmateServer.dll CreateDatabase postgres companyName=geotabdemo administratorUser=dawsonmyers@geotab.com administratorPassword=password sqluser=geotabuser sqlpassword=vircom43
-}
-
-function geo_db_rm()
-{
-    CONTAINER_NAME="${CONTAINER}_${1}"
-    VOL_NAME="geo_db_${1}"
-    docker container rm $CONTAINER_NAME
-    docker volume rm $VOL_NAME
-
-}
 
 # A list of all of the commands
 export COMMANDS=()
@@ -92,9 +38,95 @@ export COMMANDS=()
 # }
 ###############################################################################
 
-
 ###########################################################
 COMMANDS+=('db')
+geo_db_doc() {
+    doc_cmd 'db'
+    doc_cmd_desc 'Database commands'
+}
+geo_db() {
+    if [ -z "$1" ]; then
+        error "No database version provided."
+        return
+    fi
+    VOL_NAME="geo_db_${1}"
+    CONTAINER_NAME="${CONTAINER}_${1}"
+
+    # docker run -v 2002:/var/lib/postgresql/11/main -p 5432:5432 postgres11
+
+    VOLUME=`docker volume ls | grep " $VOL_NAME"`
+
+    geo_stop $1
+    CONTAINER_ID=`docker ps -aqf "name=$CONTAINER_NAME"`
+    
+    if [ -z "$VOLUME" ]; then
+        docker volume create "$VOL_NAME"
+
+        if [ -n "$CONTAINER_ID" ]; then
+            docker start $CONTAINER_ID
+        else
+            docker run -v $VOL_NAME:/var/lib/postgresql/11/main -p 5432:5432 --name=$CONTAINER_NAME -d $IMAGE
+        fi
+        sleep 10
+        geo_db_init
+    else
+        if [ -n "$CONTAINER_ID" ]; then
+            docker start $CONTAINER_ID
+        else
+            docker run -v $VOL_NAME:/var/lib/postgresql/11/main -p 5432:5432 --name=$CONTAINER_NAME -d $IMAGE
+        fi
+    fi
+}
+
+function geo_db_init()
+{
+    user=`geo_get GEO_USER`
+    password=`geo_get GEO_PASSWORD`
+
+    if [ -z "$user" ]; then
+        prompt_n "Enter DB username: "
+        read user
+        geo_set GEO_USER $user
+    fi
+    if [ -z "$password" ]; then
+        prompt_n "Enter DB passord: "
+        read password
+        geo_set GEO_USER $password
+    fi
+    path=~/repos/MyGeotab/Checkmate/bin/Debug/netcoreapp3.1
+    dotnet $path/CheckmateServer.dll CreateDatabase postgres companyName=geotabdemo administratorUser=$user administratorPassword=$password sqluser=geotabuser sqlpassword=vircom43
+}
+
+function geo_db_rm()
+{
+    CONTAINER_NAME="${CONTAINER}_${1}"
+    VOL_NAME="geo_db_${1}"
+    CONTAINER_ID=`docker ps -aqf "name=$CONTAINER_NAME"`
+    [ -n "$CONTAINER_ID" ] && docker stop $CONTAINER_ID
+    docker container rm $CONTAINER_NAME
+    docker volume rm $VOL_NAME
+
+}
+
+###########################################################
+COMMANDS+=('stop')
+geo_stop_doc() {
+    doc_cmd 'stop [db]'
+    doc_cmd_examples_title
+    doc_cmd_example 'geo stop web'
+}
+geo_stop() {
+    CONTAINER_NAME="${CONTAINER}_${1}"
+    ID=`docker ps -qf "name=$CONTAINER_NAME"`
+
+    if [ -n "$ID" ]; then
+        docker stop $ID
+    fi
+}
+
+
+###########################################################
+COMMANDS+=('init')
 geo_init_doc() {
     doc_cmd 'db'
     doc_cmd_desc 'Initiallize repo directory'
@@ -134,30 +166,30 @@ geo_start() {
     fi
 }
 
-###########################################################
-COMMANDS+=('stop')
-geo_stop_doc() {
-    doc_cmd 'stop <service>'
-    doc_cmd_examples_title
-    doc_cmd_example 'geo stop web'
-}
-geo_stop() {
-    exit_if_repo_dir_uninit
-    if [ -z $1 ]; then 
-        dc_geo stop
-        return
-    fi
-    if [ -n "${SERVICES_DICT[$1]}" ]; then
-        if [[ $1 = 'runner' ]]; then
-            pm2 stop runner
-        else
-            cd $GEO_REPO_DIR/env/full
-            dc_geo stop "$1"
-        fi
-    else
-        error "$1 is not a service"
-    fi
-}
+# ###########################################################
+# COMMANDS+=('stop')
+# geo_stop_doc() {
+#     doc_cmd 'stop <service>'
+#     doc_cmd_examples_title
+#     doc_cmd_example 'geo stop web'
+# }
+# geo_stop() {
+#     exit_if_repo_dir_uninit
+#     if [ -z $1 ]; then 
+#         dc_geo stop
+#         return
+#     fi
+#     if [ -n "${SERVICES_DICT[$1]}" ]; then
+#         if [[ $1 = 'runner' ]]; then
+#             pm2 stop runner
+#         else
+#             cd $GEO_REPO_DIR/env/full
+#             dc_geo stop "$1"
+#         fi
+#     else
+#         error "$1 is not a service"
+#     fi
+# }
 
 ###########################################################
 COMMANDS+=('restart')
@@ -218,7 +250,8 @@ geo_get_doc() {
 }
 geo_get() {
     # Get value of env var
-    
+    value=`cfg_read $GEO_CONF_FILE $1`
+    [[ -z $value ]] && return
     verbose `cfg_read $GEO_CONF_FILE $1`
 }
 
@@ -233,7 +266,7 @@ geo_update_doc() {
 }
 geo_update() {
    
-    echo "NOT IMPLEMENTED"
+    bash $GEO_CLI_DIR/install.sh
 }
 
 ###########################################################
@@ -246,7 +279,7 @@ geo_version_doc() {
     doc_cmd_example 'geo version'
 }
 geo_version() {
-    verbose `geo_get GEO_VERSION`
+    verbose `geo_get GEO_CLI_VERSION`
 }
 
 ###########################################################
@@ -331,11 +364,12 @@ geo_is_outdated() {
 # using a regex in the if (i.e., if [[ $outdated =~ true ]]) which was the only
 # way it would work.
 geo_show_msg_if_outdated() {
-    # outdated=`geo_get GEO_OUTDATED`
-    if geo_is_outdated ; then
-    # if [[ $outdated =~ true ]]; then
-        warn_bi "New version of geo available. Use 'geo update' to get it."
-    fi
+    echo "" > /dev/null
+    # # outdated=`geo_get GEO_OUTDATED`
+    # if geo_is_outdated ; then
+    # # if [[ $outdated =~ true ]]; then
+    #     warn_bi "New version of geo available. Use 'geo update' to get it."
+    # fi
 }
 
 # This was the only way I could get semver version comparisons to work with 
@@ -552,7 +586,7 @@ doc_cmd_option_desc() {
 prompt_continue_or_exit() {
     prompt_n "Do you want to continue? [Y|n]: "
     read answer
-    [[ "$answer" =~ [nN] ]] && exit
+    [[ "$answer" =~ [nN] ]] && return 1 || return 0
 }
 prompt_continue() {
     prompt_n "Do you want to continue? [Y|n]: "
@@ -561,14 +595,42 @@ prompt_continue() {
 }
 
 geo_logo() {
-echo "NOT IMPLEMENTED"
+    detail '  ___  ____  __         ___  __    __ '
+    detail ' / __)(  __)/  \  ___  / __)(  )  (  )'
+    detail '( (_ \ ) _)(  O )(___)( (__ / (_/\ )( '
+    detail ' \___/(____)\__/       \___)\____/(__)'
 }
 
-menlolab_logo() {
+geotab_logo() 
+{
     detail ''
-    detail '=============================================================================='
-    node $GEO_CLI_DIR/src/cli/logo/logo.js
+    detail '===================================================='
     detail ''
-    detail '=============================================================================='
-    # detail ''
+    detail ' ██████  ███████  ██████  ████████  █████  ██████ '
+    detail '██       ██      ██    ██    ██    ██   ██ ██   ██'
+    detail '██   ███ █████   ██    ██    ██    ███████ ██████ '
+    detail '██    ██ ██      ██    ██    ██    ██   ██ ██   ██'
+    detail ' ██████  ███████  ██████     ██    ██   ██ ██████ '
+    detail ''
+    detail '===================================================='
 }
+# geo_logo() {
+#     detail ''
+#     detail '=============================================================================='
+#     node $GEO_CLI_DIR/src/cli/logo/logo.js
+#     detail ''
+#     detail '=============================================================================='
+#     # detail ''
+# }
+
+# Auto-complete for commands
+completions=(
+    "${COMMANDS[@]}"
+    )
+
+# Doesn't work for some reason
+# complete -W "${completions[@]}" geo
+
+# Get list of completions separated by spaces (required as imput to complete command)
+comp_string=`echo "${completions[@]}"`
+complete -W "$comp_string" geo
