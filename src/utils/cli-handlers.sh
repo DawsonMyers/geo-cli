@@ -125,6 +125,7 @@ geo_stop() {
 }
 
 
+
 ###########################################################
 COMMANDS+=('init')
 geo_init_doc() {
@@ -140,7 +141,72 @@ geo_init_doc() {
     doc_cmd_example 'geo init --here'
 }
 geo_init() {
-    echo "NOT IMPLEMENTED"
+    # if [ -z $MLO_REPO_DIR ]; then
+    #     dir=`cfg_read $MLO_CONF_FILE MLO_REPO_DIR`
+    #     [ -z $dir ] && export MLO_REPO_DIR=~/menlolab
+    # fi
+
+    # Check if mlo system is running, shut it down if it is. This is done by
+    # checking the length of output from the mlo ps command; which will be
+    # shorter than 200 characters if no containers are running.
+    # if [ -d $MLO_REPO_DIR/env/full ]; then
+    #     mps=`mlo ps`
+    #     [ ${#mps} -gt 200 ] && mlo down
+    # fi
+
+    # local init_here=''
+
+    # local declare -A options
+    # Read all arguments
+    # while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do case $1 in
+    #     --here )
+    #         options[here]=true
+    #         init_here='here'
+    #         shift
+    #         ;;
+    #     # Delete entire repo dir if it exists
+    #     -c | --clean )
+    #         shift;
+    #         if [ -d $MLO_REPO_DIR ] && [ -d $MLO_REPO_DIR/env ]; then
+    #             info "WARNING: Repo directory at $MLO_REPO_DIR will be deleted (any unpushed commits will be PERMANENTLY removed)"
+    #             if prompt_continue ; then
+    #                 debug "REMOVING $MLO_REPO_DIR"
+    #                 sudo rm -rf $MLO_REPO_DIR
+    #             else
+    #                 verbose "Skipping repo directory removal"
+    #             fi
+    #         fi
+    #         ;;
+    #     # Delete all node_modules directories from repo dir
+    #     --clean-npm )
+    #         shift;
+    #         if [[ -d $MLO_REPO_DIR && -d $MLO_REPO_DIR/env ]]; then
+    #             cd $MLO_REPO_DIR
+    #             info "WARNING: All node_modules directories in $MLO_REP_DIR will be PERMANENTLY removed"
+    #             # find ./*/**/node_modules
+    #             if prompt_continue ; then
+    #                 debug "REMOVING node_modules:"
+    #                 sudo rm -rf $MLO_REPO_DIR/*/**/node_modules
+    #             else
+    #                 verbose "Skipping node_modules directories removal"
+    #             fi
+    #         fi
+    #         ;;
+    #     --build | -b )
+    #             options[build]=true
+    #         ;;
+    # esac; shift; done
+
+    if [[ "$1" == '--' ]]; then shift; fi
+
+    case $1 in
+        'repo' | '' )
+            local repo_dir=`pwd`
+            geo_set GEO_CLI_MYGEOTAB_REPO_DIR "$repo_dir"
+            verbose "MyGeotab base repo (Development) path set to:"
+            detail "    $repo_dir"
+            ;;
+    esac
 }
 
 ###########################################################
@@ -224,6 +290,36 @@ geo_restart() {
 }
 
 ###########################################################
+COMMANDS+=('config')
+geo_config_doc() {
+    doc_cmd 'set <ENV_VAR> <value>'
+    doc_cmd_desc 'Set geo environment variable'
+    doc_cmd_examples_title
+    doc_cmd_example 'geo set GEO_REPO_DIR ~/menlolab'
+}
+geo_config() {
+    if [[ -z $1 ]]; then
+        geo_config_doc
+        return
+    fi
+
+    case $1 in
+        'set' )
+            shift
+            geo_set "$@"
+            ;;
+        'get' )
+            shift
+            geo_get "$@"
+            ;;
+        'ls' )
+            local env_vars=`cat $GEO_CONF_FILE`
+            detail "$env_vars"
+            ;;
+    esac 
+}
+
+###########################################################
 COMMANDS+=('set')
 geo_set_doc() {
     doc_cmd 'set <ENV_VAR> <value>'
@@ -253,6 +349,10 @@ geo_get() {
     value=`cfg_read $GEO_CONF_FILE $1`
     [[ -z $value ]] && return
     verbose `cfg_read $GEO_CONF_FILE $1`
+}
+
+geo_haskey() {
+    cfg_haskey $GEO_CONF_FILE $1
 }
 
 ###########################################################
@@ -330,6 +430,10 @@ dc_geo() {
 
 # Check for updates. Return true (0 return value) if updates are available.
 geo_check_for_updates() {
+    # pu
+    pushd $GEO_CLI_DIR
+    [ ! git pull > /dev/null ] && error 'Unable to pull changes from remote'
+    popd
     # The sed cmds filter out any colour codes that might be in the text
     local v_current=`geo_get GEO_CLI_VERSION  | sed -r "s/[[:cntrl:]]\[[0-9]{1,3}m//g"`
     # local v_npm=`npm show @geo/geo-cli version  | sed -r "s/[[:cntrl:]]\[[0-9]{1,3}m//g"`

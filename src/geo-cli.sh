@@ -70,6 +70,15 @@ export GEO_SRC_DIR="${GEO_CLI_DIR}/src"
 
 function geo()
 {
+    # Check for updates in background process
+    ( geo_check_for_updates >& /dev/null & )
+
+    # Check if the MyGeotab base repo dir has been set.
+    if ! geo_haskey GEO_CLI_MYGEOTAB_REPO_DIR && [ "$1 $2" != "init repo" ]; then
+        warn 'MyGeotab repo directory not set.'
+        detail 'Fix: Navigate to MyGeotab base repo (Development) directory, then run "geo init repo"'
+    fi
+
     # Save the first argument in cmd var, then shift all other args.
     # So the 2nd arg becomes the 1st, 3rd becomes the 2nd, and so on.
     cmd=$1
