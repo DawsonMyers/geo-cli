@@ -1,5 +1,49 @@
 #!/bin/bash
+# This file is sourced from ~/.bashrc to make geo cli available from any bash terminal.
 if [[ `whoami` = 'root' ]]; then echo 'ERROR: Do not run geo as root (sudo)'; exit; fi
+
+# Init geo config directory if it doesn't exist.
+export GEO_CONFIG_DIR="$HOME/.geo-cli"
+[ ! -d $GEO_CONFIG_DIR ] && mkdir -p $GEO_CONFIG_DIR
+
+# Init geo config file if it doesn't exist. This file stores key-value settings (i.e. username and password used to
+# initialize geotabdemo database) for geo.
+export GEO_CONF_FILE="$GEO_CONFIG_DIR/.geo.conf"
+[ ! -f $GEO_CONF_FILE ] && touch $GEO_CONF_FILE
+
+# Load all saved key-value settings into the environment.
+while read line; do
+    # Skip lines less than 3 characters long (i.e. the minimum key-value can be of the form x=1).
+    [[ ${#line} < 3 ]] && continue
+    # Expand env vars, then export
+    export `eval echo $line`
+done < $GEO_CONF_FILE
+
+# [ -z $GEO_REPO_DIR ] && echo REPO DIRECTORY NOT set
+
+# Import cli handlers to get access to all of the command names (through functions calls and the COMMMAND array)
+# . ~/.geo-cli/cli/utils/cli-handlers.sh
+
+alias d-c='docker-compose'
+alias dcm=dc_geo
+# alias dcm="docker-compose -f $GEO_REPO_DIR/env/full/docker-compose.yml -f $GEO_REPO_DIR/env/full/docker-compose-geo.yml"
+alias brc=". ~/.bashrc"
+alias zrc=". ~/.zshrc"
+
+# # Auto-complete
+# completions=(
+#     "${COMMANDS[@]}"
+#     )
+
+# # Doesn't work for some reason
+# # complete -W "${completions[@]}" geo
+
+# # Get list of completions separated by spaces (required as imput to complete command)
+# comp_string=`echo "${completions[@]}"`
+# complete -W "$comp_string" geo
+
+export GEO_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
+export GEO_SRC_DIR="${GEO_CLI_DIR}/src"
 
 # # . lib/
 # Gives the path of the file that was passed in when the script was executed. Could be relative

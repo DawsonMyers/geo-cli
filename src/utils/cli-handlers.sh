@@ -331,10 +331,11 @@ dc_geo() {
 # Check for updates. Return true (0 return value) if updates are available.
 geo_check_for_updates() {
     # The sed cmds filter out any colour codes that might be in the text
-    local v_current=`geo_get GEO_VERSION  | sed -r "s/[[:cntrl:]]\[[0-9]{1,3}m//g"`
-    local v_npm=`npm show @geo/geo-cli version  | sed -r "s/[[:cntrl:]]\[[0-9]{1,3}m//g"`
+    local v_current=`geo_get GEO_CLI_VERSION  | sed -r "s/[[:cntrl:]]\[[0-9]{1,3}m//g"`
+    # local v_npm=`npm show @geo/geo-cli version  | sed -r "s/[[:cntrl:]]\[[0-9]{1,3}m//g"`
+    local v_repo=`cat $GEO_CLI_DIR/version.txt`
 
-    if [ `ver $v_current` -lt `ver $v_npm` ]; then
+    if [ `ver $v_current` -lt `ver $v_repo` ]; then
         geo_set GEO_OUTDATED true
         return 0
     else
@@ -365,11 +366,11 @@ geo_is_outdated() {
 # way it would work.
 geo_show_msg_if_outdated() {
     echo "" > /dev/null
-    # # outdated=`geo_get GEO_OUTDATED`
-    # if geo_is_outdated ; then
-    # # if [[ $outdated =~ true ]]; then
-    #     warn_bi "New version of geo available. Use 'geo update' to get it."
-    # fi
+    # outdated=`geo_get GEO_OUTDATED`
+    if geo_is_outdated ; then
+    # if [[ $outdated =~ true ]]; then
+        warn_bi "New version of geo available. Use 'geo update' to get it."
+    fi
 }
 
 # This was the only way I could get semver version comparisons to work with 
