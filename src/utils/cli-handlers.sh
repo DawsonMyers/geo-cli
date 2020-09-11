@@ -45,12 +45,19 @@ geo_db_doc() {
     doc_cmd_desc 'Database commands'
 }
 geo_db() {
-    if [ -z "$1" ]; then
-        error "No database version provided."
-        return
+    db_version="$1"
+    if [ -z "$db_version" ]; then
+        db_version=`geo_get LAST_DB_VERSION`
+        if [[ -z $db_version ]]; then
+            error "No database version provided."
+            return
+        fi
     fi
-    VOL_NAME="geo_db_${1}"
-    CONTAINER_NAME="${CONTAINER}_${1}"
+
+    geo_set LAST_DB_VERSION "$db_version"
+
+    VOL_NAME="geo_db_${db_version}"
+    CONTAINER_NAME="${CONTAINER}_${db_version}"
 
     # docker run -v 2002:/var/lib/postgresql/11/main -p 5432:5432 postgres11
 
@@ -58,40 +65,75 @@ geo_db() {
 
     geo_stop $1
     CONTAINER_ID=`docker ps -aqf "name=$CONTAINER_NAME"`
-    
-    if [ -z "$VOLUME" ]; then
-        docker volume create "$VOL_NAME"
+    local volume_created=false
 
-        if [ -n "$CONTAINER_ID" ]; then
-            docker start $CONTAINER_ID
-        else
-            docker run -v $VOL_NAME:/var/lib/postgresql/11/main -p 5432:5432 --name=$CONTAINER_NAME -d $IMAGE
-        fi
-        sleep 10
-        geo_db_init
+    if [ -z "$VOLUME" ]; then
+        verbose "Creating volume: $VOL_NAME"
+        docker volume create "$VOL_NAME" > /dev/null 
+        info OK
+        volume_created=true
+    fi
+    if [ -n "$CONTAINER_ID" ]; then
+        
+        verbose "Starting existing container:"
+        verbose "  ID: $CONTAINER_ID"
+        verbose "  NAME: $CONTAINER_NAME"
+        docker start $CONTAINER_ID > /dev/null && info OK
     else
-        if [ -n "$CONTAINER_ID" ]; then
-            docker start $CONTAINER_ID
-        else
-            docker run -v $VOL_NAME:/var/lib/postgresql/11/main -p 5432:5432 --name=$CONTAINER_NAME -d $IMAGE
+        verbose "Creating container:"
+        verbose "  ID: $CONTAINER_ID"
+        verbose "  NAME: $CONTAINER_NAME"
+        docker run -v $VOL_NAME:/var/lib/postgresql/11/main -p 5432:5432 --name=$CONTAINER_NAME -d $IMAGE > /dev/null && info OK
+        if [[ $volume_created = true ]]; then
+            verbose "Waiting for container to start..."
+            sleep 10
+            verbose "Initiallizing geotab demo"
+            geo_db_init
         fi
     fi
+        
+    # else
+    #     if [ -n "$CONTAINER_ID" ]; then
+    #         docker start $CONTAINER_ID
+    #     else
+    #         docker run -v $VOL_NAME:/var/lib/postgresql/11/main -p 5432:5432 --name=$CONTAINER_NAME -d $IMAGE
+    #     fi
+    # fi
 }
 
 function geo_db_init()
 {
-    user=`geo_get GEO_USER`
-    password=`geo_get GEO_PASSWORD`
-
-    if [ -z "$user" ]; then
+    local user=`geo_get DB_USER`
+    local password=`geo_get DB_PASSWORD`
+    local answer =''
+    get_user() {
         prompt_n "Enter DB username: "
         read user
-        geo_set GEO_USER $user
-    fi
-    if [ -z "$password" ]; then
-        prompt_n "Enter DB passord: "
+        geo_set DB_USER $user
+    }
+
+    get_password() {
+        prompt_n "Enter DB password: "
         read password
-        geo_set GEO_USER $password
+        geo_set DB_PASSWORD $password
+    }
+
+    if [ -z "$user" ]; then
+        get_user
+    else
+        verbose "Stored DB user: $user"
+        prompt_n "Use stored user? (Y|n)"
+        read answer
+        [[ "$answer" =~ [nN] ]] && get_user
+    fi
+
+    if [ -z "$password" ]; then
+        get_password
+    else
+        verbose "Stored DB password: $password"
+        prompt_n "Use stored password? (Y|n)"
+        read answer
+        [[ "$answer" =~ [nN] ]] && get_password
     fi
     path=~/repos/MyGeotab/Checkmate/bin/Debug/netcoreapp3.1
     dotnet $path/CheckmateServer.dll CreateDatabase postgres companyName=geotabdemo administratorUser=$user administratorPassword=$password sqluser=geotabuser sqlpassword=vircom43
@@ -123,8 +165,6 @@ geo_stop() {
         docker stop $ID
     fi
 }
-
-
 
 ###########################################################
 COMMANDS+=('init')
@@ -331,8 +371,11 @@ geo_set() {
     # Set value of env var
     # $1 - name of env var in conf file
     # $2 - value 
-    cfg_write $GEO_CONF_FILE $1 $2
-    export $1=$2
+    local key="$1"
+    [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
+
+    cfg_write $GEO_CONF_FILE $key $2
+    export $key=$2
 }
 
 ###########################################################
@@ -346,9 +389,12 @@ geo_get_doc() {
 }
 geo_get() {
     # Get value of env var
-    value=`cfg_read $GEO_CONF_FILE $1`
+    local key="$1"
+    [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
+
+    value=`cfg_read $GEO_CONF_FILE $key`
     [[ -z $value ]] && return
-    verbose `cfg_read $GEO_CONF_FILE $1`
+    verbose `cfg_read $GEO_CONF_FILE $key`
 }
 
 geo_haskey() {
@@ -689,12 +735,12 @@ doc_cmd_option_desc() {
 }
 
 prompt_continue_or_exit() {
-    prompt_n "Do you want to continue? [Y|n]: "
+    prompt_n "Do you want to continue? (Y|n): "
     read answer
     [[ "$answer" =~ [nN] ]] && return 1 || return 0
 }
 prompt_continue() {
-    prompt_n "Do you want to continue? [Y|n]: "
+    prompt_n "Do you want to continue? (Y|n): "
     read answer
     [[ "$answer" =~ [nN] ]] && return 1 || return 0
 }
