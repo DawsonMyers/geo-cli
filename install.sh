@@ -48,6 +48,40 @@ envsubst < $GEO_CLI_DIR/src/init/bashrc.sh >> ~/.bashrc
 # cat $GEO_CLI_DIR/src/init/bashrc.sh >> ~/.profile
 # cat $GEO_CLI_DIR/src/init/zshrc.sh >> ~/.zshrc
 
+
+# Install Docker and Docker Compose if needed
+if ! type docker > /dev/null; then
+    warn 'Docker not installed'
+    info_b -p 'Install Docker and Docker Compose (Y|n)?: '
+    read answer
+    if [[ ! $answer =~ [n|N]]]; then
+        info 'Installing Docker and Docker Compose'
+        # sudo apt-get remove docker docker-engine docker.io
+        sudo apt update
+        sudo apt upgrade
+        sudo apt-get install \
+            apt-transport-https \
+            ca-certificates \
+            curl \
+            software-properties-common
+        sudo apt-get install -y build-essential make gcc g++ python
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+        sudo curl -L "https://github.com/docker/compose/releases/download/1.27.3/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        sudo apt-key fingerprint 0EBFCD88
+        sudo add-apt-repository \
+        "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
+        $(lsb_release -cs) \
+        stable"
+
+        sudo apt-get update
+        sudo apt-get install -y docker-ce
+
+        sudo chmod +x /usr/local/bin/docker-compose
+        docker-compose --version
+        info_b 'OK'
+    fi
+fi
+
 geo_logo
 echo
 verbose_bi "geo-cli updated to verion $GEO_CLI_VERSION"

@@ -105,7 +105,7 @@ function geo_db_init()
 {
     local user=`geo_get DB_USER`
     local password=`geo_get DB_PASSWORD`
-    local answer =''
+    local answer=''
     get_user() {
         prompt_n "Enter DB username: "
         read user
@@ -135,8 +135,15 @@ function geo_db_init()
         read answer
         [[ "$answer" =~ [nN] ]] && get_password
     fi
-    path=~/repos/MyGeotab/Checkmate/bin/Debug/netcoreapp3.1
-    dotnet $path/CheckmateServer.dll CreateDatabase postgres companyName=geotabdemo administratorUser=$user administratorPassword=$password sqluser=geotabuser sqlpassword=vircom43
+    path=$HOME/repos/MyGeotab/Checkmate/bin/Debug/netcoreapp3.1
+    # pushd $path
+    debug $path
+    debug $user
+    # dotnet CheckmateServer.dll CreateDatabase postgres companyName=geotabdemo administratorUser=<your email address> administratorPassword=<choose a password> sqluser=geotabuser sqlpassword=vircom43
+    # debug "${path}/CheckmateServer.dll" CreateDatabase postgres companyName=geotabdemo administratorUser="$user" administratorPassword="$password" sqluser=geotabuser sqlpassword=vircom43
+    dotnet "${path}/CheckmateServer.dll" CreateDatabase postgres companyName=geotabdemo administratorUser="$user" administratorPassword="$password" sqluser=geotabuser sqlpassword=vircom43
+    # dotnet CheckmateServer.dll CreateDatabase postgres companyName=geotabdemo administratorUser="$user" administratorPassword="$password" sqluser=geotabuser sqlpassword=vircom43
+    # popd
 }
 
 function geo_db_rm()
@@ -394,7 +401,7 @@ geo_get() {
 
     value=`cfg_read $GEO_CONF_FILE $key`
     [[ -z $value ]] && return
-    verbose `cfg_read $GEO_CONF_FILE $key`
+    echo `cfg_read $GEO_CONF_FILE $key`
 }
 
 geo_haskey() {
@@ -644,13 +651,32 @@ make_logger_function() {
     # and echo them out with green text colour. This is done by first echoing the
     # non-printable char for green text stored in the var $Green, then echoing the
     # text, and finally, echoing the remove all format char stored in $Off.
-    eval "${1}() { echo -e \"\${${2}}\$@\${Off}\"; }"
-    # Variants are created by creating var names through multiple passes of string
-    # interpolation.
-    eval "${1}_b() { echo -e \"\${B${2}}\$@\${Off}\"; }"
-    eval "${1}_i() { echo -e \"\${I${2}}\$@\${Off}\"; }"
-    eval "${1}_bi() { echo -e \"\${BI${2}}\$@\${Off}\"; }"
-    eval "${1}_u() { echo -e \"\${U${2}}\$@\${Off}\"; }"
+    
+    # Creates log functions that take -p as an arg if you want the output to be on the same line (used when prompting the user for information).
+    name=$1
+    color=$2
+    eval "${name}() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"\${${color}}\${args[@]}\${Off}\"; }"
+    eval "${name}_b() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"\${B${color}}\${args[@]}\${Off}\"; }"
+    eval "${name}_i() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"\${I${color}}\${args[@]}\${Off}\"; }"
+    eval "${name}_bi() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"\${BI${color}}\${args[@]}\${Off}\"; }"
+    eval "${name}_u() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"\${U${color}}\${args[@]}\${Off}\"; }"
+    
+    # local variants=("e " "en _prompt")
+    # for variant in "${variants[@]}"; do
+    #     read -a args <<< "$variant"
+    #     local options=${args[0]}
+    #     local suffix=${args[1]}
+
+    #     echo "${1}${suffix}() { echo -${options} \"\${${2}}\$@\${Off}\"; }"
+    #     eval "${1}${suffix}() { echo -${options} \"\${${2}}\$@\${Off}\"; }"
+    #     # Variants are created by creating var names through multiple passes of string
+    #     # interpolation.
+    #     eval "${1}_b${suffix}() { echo -${options} \"\${B${2}}\$@\${Off}\"; }"
+    #     eval "${1}_i${suffix}() { echo -${options} \"\${I${2}}\$@\${Off}\"; }"
+    #     eval "${1}_bi${suffix}() { echo -${options} \"\${BI${2}}\$@\${Off}\"; }"
+    #     eval "${1}_u${suffix}() { echo -${options} \"\${U${2}}\$@\${Off}\"; }"
+    # done
+
     # Note: echoing FUNCNAME[@] will print the call stack of cmds.
 }
 
@@ -665,6 +691,7 @@ error() {
 
 make_logger_function warn Red
 make_logger_function info Green
+make_logger_function success Green
 make_logger_function detail Yellow
 make_logger_function data White
 # make_logger_function warn Purple
