@@ -52,7 +52,7 @@ function geo()
     # Check if the MyGeotab base repo dir has been set.
     if ! geo_haskey DEVELOPMENT_REPO_DIR && [ "$1 $2" != "init repo" ]; then
         warn 'MyGeotab repo directory not set.'
-        detail 'Fix: Navigate to MyGeotab base repo (Development) directory, then run "geo init repo"'
+        detail 'Fix: Navigate to MyGeotab base repo (Development) directory, then run "geo init repo".'
     fi
 
     # Save the first argument in cmd var, then shift all other args.
@@ -82,6 +82,7 @@ function geo()
     #   geo --version
     if [[ $cmd =~ ^-*v(ersion)? ]]; then
         geo_version
+        geo_show_msg_if_outdated
         return
     fi
         
@@ -121,6 +122,8 @@ function geo()
 
     # At this point we know that the command is valid and command help isn't being 
     # requested. So run the command.
-    "geo_${cmd}" $1 $2 $3 $4 $5 $6 $7 $8
+    "geo_${cmd}" $1 $2 $3 $4 $5 $6 $7 $8 
+    
+    geo_show_msg_if_outdated
 }
 

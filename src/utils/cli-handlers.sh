@@ -489,7 +489,9 @@ geo_get() {
 }
 
 geo_haskey() {
-    cfg_haskey $GEO_CONF_FILE $1
+    local key="$1"
+    [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
+    cfg_haskey $GEO_CONF_FILE $key
 }
 
 ###########################################################
@@ -567,9 +569,8 @@ cmd_exists() {
 
 # Check for updates. Return true (0 return value) if updates are available.
 geo_check_for_updates() {
-    # pu
     pushd $GEO_CLI_DIR
-    [ ! git pull > /dev/null ] && Error 'Unable to pull changes from remote'
+    ! git pull > /dev/null && Error 'Unable to pull changes from remote'
     popd
     # The sed cmds filter out any colour codes that might be in the text
     local v_current=`geo_get VERSION  | sed -r "s/[[:cntrl:]]\[[0-9]{1,3}m//g"`
@@ -606,11 +607,10 @@ geo_is_outdated() {
 # using a regex in the if (i.e., if [[ $outdated =~ true ]]) which was the only
 # way it would work.
 geo_show_msg_if_outdated() {
-    echo "" > /dev/null
     # outdated=`geo_get OUTDATED`
     if geo_is_outdated ; then
     # if [[ $outdated =~ true ]]; then
-        warn_bi "New version of geo available. Use 'geo update' to get it."
+        warn_bi "New version of geo-cli available. Run 'geo update' to get it."
     fi
 }
 
@@ -622,12 +622,12 @@ geo_show_msg_if_outdated() {
 ver() { 
     # Input would be a semvar like 1.1.2. Each part is extracted into its own var.
     # Then make sure that any char values of 27 are replaced with a '1' char (fix_char).
-    v1=`fix_char $(echo "$1" | gawk -F. '{ printf("%s", $1) }')`
-    v2=`fix_char $(echo "$1" | gawk -F. '{ printf("%s", $2) }')`
-    v3=`fix_char $(echo "$1" | gawk -F. '{ printf("%s", $3) }')`
+    v1=`fix_char $(echo "$1" | awk -F. '{ printf("%s", $1) }')`
+    v2=`fix_char $(echo "$1" | awk -F. '{ printf("%s", $2) }')`
+    v3=`fix_char $(echo "$1" | awk -F. '{ printf("%s", $3) }')`
 
     # The parts are reconstructed in a new string (without the \027 char)
-    echo "$v1.$v2.$v3" | gawk -F. '{ printf("%03d%03d%03d\n", $1,$2,$3); }'; 
+    echo "$v1.$v2.$v3" | awk -F. '{ printf("%03d%03d%03d\n", $1,$2,$3); }'; 
     # echo "$@" | gawk -F. '{ printf("%03d%03d%03d\n", $1,$2,$3); }'; 
 }
 
