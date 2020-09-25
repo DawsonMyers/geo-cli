@@ -25,27 +25,13 @@ done < $GEO_CONF_FILE
 # . ~/.geo-cli/cli/utils/cli-handlers.sh
 
 alias d-c='docker-compose'
-alias dcm=dc_geo
-# alias dcm="docker-compose -f $GEO_REPO_DIR/env/full/docker-compose.yml -f $GEO_REPO_DIR/env/full/docker-compose-geo.yml"
+# alias dcm=dc_geo
 alias brc=". ~/.bashrc"
 alias zrc=". ~/.zshrc"
-
-# # Auto-complete
-# completions=(
-#     "${COMMANDS[@]}"
-#     )
-
-# # Doesn't work for some reason
-# # complete -W "${completions[@]}" geo
-
-# # Get list of completions separated by spaces (required as imput to complete command)
-# comp_string=`echo "${completions[@]}"`
-# complete -W "$comp_string" geo
 
 export GEO_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
 export GEO_SRC_DIR="${GEO_CLI_DIR}/src"
 
-# # . lib/
 # Gives the path of the file that was passed in when the script was executed. Could be relative
 # SOURCE="${BASH_SOURCE[0]}"
 # DIR_NAME=`dirname $SOURCE`
@@ -56,16 +42,6 @@ export GEO_SRC_DIR="${GEO_CLI_DIR}/src"
 
 # ThisScriptPath="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")" 
 
-# echo $GEO_CLI_DIR
-
-# function geo
-# {
-#     echo 'geo'
-# }
-
-# . $GEO_CLI_DIR/init/init.sh
-# . $GEO_CLI_DIR/utils/colors.sh
-# . $GEO_CLI_DIR/utils/config-file-utils.sh
 . $GEO_SRC_DIR/utils/cli-handlers.sh
 
 function geo()
@@ -74,7 +50,7 @@ function geo()
     ( geo_check_for_updates >& /dev/null & )
 
     # Check if the MyGeotab base repo dir has been set.
-    if ! geo_haskey GEO_CLI_MYGEOTAB_REPO_DIR && [ "$1 $2" != "init repo" ]; then
+    if ! geo_haskey DEVELOPMENT_REPO_DIR && [ "$1 $2" != "init repo" ]; then
         warn 'MyGeotab repo directory not set.'
         detail 'Fix: Navigate to MyGeotab base repo (Development) directory, then run "geo init repo"'
     fi

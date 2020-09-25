@@ -8,10 +8,7 @@
 
 # ENV_CONF_FILE=$GEO_CLI_DIR/src/config/env.conf
 
-IMAGE=postgres11
-CONTAINER="geo_${IMAGE}"
-CONTAINER_NAME=""
-
+export IMAGE=geo_cli_db_postgres11
 
 # A list of all of the commands
 export COMMANDS=()
@@ -38,67 +35,172 @@ export COMMANDS=()
 # }
 ###############################################################################
 
+geo_check_db_image() {
+    local image=`docker image ls | grep "$IMAGE"`
+    if [[ -z $image ]]; then
+        if ! prompt_continue "geo-cli db image not found. Do you want to create one? (Y|n): "; then
+            return 1
+        fi
+        geo_image create
+    fi
+}
+
+###########################################################
+COMMANDS+=('image')
+geo_image_doc() {
+    doc_cmd 'image'
+    doc_cmd_desc 'Commands for working with db images'
+    doc_cmd_options_title
+    doc_cmd_option 'create'
+    doc_cmd_option_desc 'Creates the base Postgres image configured to be used with geotabdemo'
+    doc_cmd_option 'remove'
+    doc_cmd_option_desc 'Removes the base Postgres image'
+    doc_cmd_option 'ls'
+    doc_cmd_option_desc 'List existing geo-cli Postgres images'
+}
+geo_image() {
+    case "$1" in
+        rm | remove )
+            docker image rm "$IMAGE"
+            # if [[ -z $2 ]]; then
+            #     Error "No database version provided for removal"
+            #     return
+            # fi
+            # geo_db_rm "$2"
+            return
+            ;;
+        create )
+            verbose 'Building image...'
+            local dir=`geo_get DEVELOPMENT_REPO_DIR`
+            dir="${dir}/Checkmate/Docker/postgres"
+            local dockerfile="Debug.Dockerfile"
+            pushd "$dir"
+            docker build --file "$dockerfile" -t "$IMAGE" . && success 'geo-cli Postgres image created' || warn 'Failed to create geo-cli Postgres image'
+            popd
+            return
+            ;;
+        ls )
+            docker image ls | grep "$IMAGE"
+            ;;
+    esac
+
+}
+
 ###########################################################
 COMMANDS+=('db')
 geo_db_doc() {
     doc_cmd 'db'
     doc_cmd_desc 'Database commands'
+    doc_cmd_options_title
+    doc_cmd_option 'start [version]'
+    doc_cmd_option_desc 'Starts (creating if neccessary) a versioned db container and volume. If no version is provided, the most recent db version is started.'
+    doc_cmd_option 'rm, remove <version>'
+    doc_cmd_option_desc 'Removes the container and volume associated with the provided version (e.g. 2004)'
+    doc_cmd_option 'stop [version]'
+    doc_cmd_option_desc 'Stop geo-cli db container'
+    doc_cmd_option 'ls'
+    doc_cmd_option_desc 'List geo-cli images, containers, and volumes'
+    doc_cmd_option 'ps'
+    doc_cmd_option_desc 'List runner geo-cli containers'
 }
 geo_db() {
-    db_version="$1"
-    if [ -z "$db_version" ]; then
-        db_version=`geo_get LAST_DB_VERSION`
-        if [[ -z $db_version ]]; then
-            error "No database version provided."
-            return
-        fi
-    fi
-
-    geo_set LAST_DB_VERSION "$db_version"
-
-    VOL_NAME="geo_db_${db_version}"
-    CONTAINER_NAME="${CONTAINER}_${db_version}"
-
-    # docker run -v 2002:/var/lib/postgresql/11/main -p 5432:5432 postgres11
-
-    VOLUME=`docker volume ls | grep " $VOL_NAME"`
-
-    geo_stop $1
-    CONTAINER_ID=`docker ps -aqf "name=$CONTAINER_NAME"`
-    local volume_created=false
-
-    if [ -z "$VOLUME" ]; then
-        verbose "Creating volume: $VOL_NAME"
-        docker volume create "$VOL_NAME" > /dev/null 
-        info OK
-        volume_created=true
-    fi
-    if [ -n "$CONTAINER_ID" ]; then
-        
-        verbose "Starting existing container:"
-        verbose "  ID: $CONTAINER_ID"
-        verbose "  NAME: $CONTAINER_NAME"
-        docker start $CONTAINER_ID > /dev/null && info OK
-    else
-        verbose "Creating container:"
-        verbose "  ID: $CONTAINER_ID"
-        verbose "  NAME: $CONTAINER_NAME"
-        docker run -v $VOL_NAME:/var/lib/postgresql/11/main -p 5432:5432 --name=$CONTAINER_NAME -d $IMAGE > /dev/null && info OK
-        if [[ $volume_created = true ]]; then
-            verbose "Waiting for container to start..."
-            sleep 10
-            verbose "Initiallizing geotab demo"
+    case "$1" in
+        init )
             geo_db_init
-        fi
-    fi
-        
-    # else
-    #     if [ -n "$CONTAINER_ID" ]; then
-    #         docker start $CONTAINER_ID
-    #     else
-    #         docker run -v $VOL_NAME:/var/lib/postgresql/11/main -p 5432:5432 --name=$CONTAINER_NAME -d $IMAGE
-    #     fi
-    # fi
+            return
+            ;;
+        ls )
+            info Images
+            docker image ls geo_cli*
+            echo
+            info Containers
+            docker container ls -a -f name=geo_cli
+            echo
+            info Volumes
+            docker volume ls -f name=geo_cli
+            return
+            ;;
+        ps )
+            docker ps --filter name="$IMAGE*"
+            return
+            ;;
+        stop )
+            db_version="$2"
+            if [[ -z $db_version ]]; then
+                container_id=`docker ps --filter name="$IMAGE*" --filter status=running -aq`
+            else
+                container_id=`docker ps --filter name="${IMAGE}_${db_version}" --filter status=running -aq`
+            fi
+            if [[ -z $container_id ]]; then
+                warn 'No geo-cli db containers running'
+                return
+            fi
+            echo $container_id | xargs docker stop && success OK
+            return
+            ;;
+        rm | remove )
+            db_version="$2"
+            if [[ -z $db_version ]]; then
+                Error "No database version provided for removal"
+                return
+            fi
+            geo_db_rm "$db_version"
+            return
+            ;;
+        # create )
+        start )
+            db_version="$2"
+            if [ -z "$db_version" ]; then
+                db_version=`geo_get LAST_DB_VERSION`
+                if [[ -z $db_version ]]; then
+                    Error "No database version provided."
+                    return
+                fi
+            fi
+
+            if ! geo_check_db_image; then
+                Error "Cannot start db without image. Run 'geo image create' to create a db image"
+                return 1
+            fi
+
+            geo_set LAST_DB_VERSION "$db_version"
+
+            # VOL_NAME="geo_cli_db_${db_version}"
+            local container_name=`geo_container_name $db_version`
+
+            # docker run -v 2002:/var/lib/postgresql/11/main -p 5432:5432 postgres11
+
+            local volume=`docker volume ls | grep " $container_name"`
+
+            geo_stop $1
+            local container_id=`docker ps -aqf "name=$container_name"`
+            local volume_created=false
+
+            if [ -z "$volume" ]; then
+                verbose_bi "Creating volume: $container_name"
+                docker volume create "$container_name" > /dev/null 
+                success OK
+                volume_created=true
+            fi
+            if [ -n "$container_id" ]; then
+                
+                verbose_bi "Starting existing container:"
+                verbose "  ID: $container_id"
+                verbose "  NAME: $container_name"
+                docker start $container_id > /dev/null && success OK
+            else
+                verbose_bi "Creating container:"
+                verbose "  NAME: $container_name"
+                docker run -v $container_name:/var/lib/postgresql/11/main -p 5432:5432 --name=$container_name -d $IMAGE > /dev/null && success OK
+                if [[ $volume_created = true ]]; then
+                    verbose_bi "Waiting for container to start..."
+                    sleep 10
+                    verbose_bi "Initiallizing geotab demo"
+                    geo_db_init
+                fi
+            fi
+            ;;
+    esac
 }
 
 function geo_db_init()
@@ -106,14 +208,15 @@ function geo_db_init()
     local user=`geo_get DB_USER`
     local password=`geo_get DB_PASSWORD`
     local answer=''
+
     get_user() {
-        prompt_n "Enter DB username: "
+        prompt_n "Enter db username: "
         read user
         geo_set DB_USER $user
     }
 
     get_password() {
-        prompt_n "Enter DB password: "
+        prompt_n "Enter db password: "
         read password
         geo_set DB_PASSWORD $password
     }
@@ -121,8 +224,8 @@ function geo_db_init()
     if [ -z "$user" ]; then
         get_user
     else
-        verbose "Stored DB user: $user"
-        prompt_n "Use stored user? (Y|n)"
+        verbose "Stored db user: $user"
+        prompt_n "Use stored user? (Y|n): "
         read answer
         [[ "$answer" =~ [nN] ]] && get_user
     fi
@@ -130,30 +233,68 @@ function geo_db_init()
     if [ -z "$password" ]; then
         get_password
     else
-        verbose "Stored DB password: $password"
-        prompt_n "Use stored password? (Y|n)"
+        verbose "Stored db password: $password"
+        prompt_n "Use stored password? (Y|n): "
         read answer
         [[ "$answer" =~ [nN] ]] && get_password
     fi
-    path=$HOME/repos/MyGeotab/Checkmate/bin/Debug/netcoreapp3.1
-    # pushd $path
-    debug $path
-    debug $user
-    # dotnet CheckmateServer.dll CreateDatabase postgres companyName=geotabdemo administratorUser=<your email address> administratorPassword=<choose a password> sqluser=geotabuser sqlpassword=vircom43
-    # debug "${path}/CheckmateServer.dll" CreateDatabase postgres companyName=geotabdemo administratorUser="$user" administratorPassword="$password" sqluser=geotabuser sqlpassword=vircom43
+    # path=$HOME/repos/MyGeotab/Checkmate/bin/Debug/netcoreapp3.1
+
+    if ! geo_check_for_dev_repo_dir; then
+        warn "Unable to init db with geotabdemo. Run 'geo db init' to try again on a running db container."
+        return
+    fi
+
+    local dev_repo=`geo_get DEVELOPMENT_REPO_DIR`
+    path="${dev_repo}/Checkmate/bin/Debug/netcoreapp3.1"
+    
     dotnet "${path}/CheckmateServer.dll" CreateDatabase postgres companyName=geotabdemo administratorUser="$user" administratorPassword="$password" sqluser=geotabuser sqlpassword=vircom43
-    # dotnet CheckmateServer.dll CreateDatabase postgres companyName=geotabdemo administratorUser="$user" administratorPassword="$password" sqluser=geotabuser sqlpassword=vircom43
-    # popd
 }
 
+geo_container_name() {
+    echo "${IMAGE}_${1}"
+}
 function geo_db_rm()
 {
-    CONTAINER_NAME="${CONTAINER}_${1}"
-    VOL_NAME="geo_db_${1}"
-    CONTAINER_ID=`docker ps -aqf "name=$CONTAINER_NAME"`
-    [ -n "$CONTAINER_ID" ] && docker stop $CONTAINER_ID
-    docker container rm $CONTAINER_NAME
-    docker volume rm $VOL_NAME
+    local container_name=`geo_container_name $1`
+    # VOL_NAME=`geo_cli_db_${1}"
+    local container_id=`docker ps -aqf "name=$container_name"`
+    [ -n "$container_id" ] && docker stop $container_id
+    docker container rm $container_name
+    docker volume rm $container_name
+
+}
+
+geo_check_for_dev_repo_dir() {
+    local dev_repo=`geo_get DEVELOPMENT_REPO_DIR`
+
+    is_valid_repo_dir() {
+        test -d "${1}/Checkmate"
+    }
+
+    get_dev_repo_dir() {
+        prompt 'Enter the full path (e.g. ~/repos/Development or /home/username/repos/Development) to the Development repo directory. This directory must contain the Checkmate directory:'
+        read dev_repo
+        # Expand home directory (i.e. ~/repo to /home/user/repo).
+        dev_repo=${dev_repo/\~/$HOME}
+        if [[ ! -d $dev_repo ]]; then
+            warn "The provided path is not a directory"
+            return 1
+        fi
+        if [[ ! -d "$dev_repo/Checkmate" ]]; then
+            warn "The provided path does not contain the Checkmate directory"
+            return 1
+        fi
+        echo $dev_repo
+    }
+
+    while ! is_valid_repo_dir "$dev_repo"; do
+        get_dev_repo_dir
+    done
+
+    success "Checkmate directory found"
+
+    geo_get DEVELOPMENT_REPO_DIR "$dev_repo"
 
 }
 
@@ -165,8 +306,8 @@ geo_stop_doc() {
     doc_cmd_example 'geo stop web'
 }
 geo_stop() {
-    CONTAINER_NAME="${CONTAINER}_${1}"
-    ID=`docker ps -qf "name=$CONTAINER_NAME"`
+    local container_name="${IMAGE}_${1}"
+    ID=`docker ps -qf "name=$container_name"`
 
     if [ -n "$ID" ]; then
         docker stop $ID
@@ -176,80 +317,23 @@ geo_stop() {
 ###########################################################
 COMMANDS+=('init')
 geo_init_doc() {
-    doc_cmd 'db'
+    doc_cmd 'init'
     doc_cmd_desc 'Initiallize repo directory'
 
     doc_cmd_options_title
-    doc_cmd_option '--here'
-    doc_cmd_option_desc 'Init repo directory using the current directory'
+    doc_cmd_option 'repo'
+    doc_cmd_option_desc 'Init Development repo directory using the current directory'
     
     doc_cmd_examples_title
-    doc_cmd_example 'geo init'
-    doc_cmd_example 'geo init --here'
+    doc_cmd_example 'geo init repo'
 }
 geo_init() {
-    # if [ -z $MLO_REPO_DIR ]; then
-    #     dir=`cfg_read $MLO_CONF_FILE MLO_REPO_DIR`
-    #     [ -z $dir ] && export MLO_REPO_DIR=~/menlolab
-    # fi
-
-    # Check if mlo system is running, shut it down if it is. This is done by
-    # checking the length of output from the mlo ps command; which will be
-    # shorter than 200 characters if no containers are running.
-    # if [ -d $MLO_REPO_DIR/env/full ]; then
-    #     mps=`mlo ps`
-    #     [ ${#mps} -gt 200 ] && mlo down
-    # fi
-
-    # local init_here=''
-
-    # local declare -A options
-    # Read all arguments
-    # while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do case $1 in
-    #     --here )
-    #         options[here]=true
-    #         init_here='here'
-    #         shift
-    #         ;;
-    #     # Delete entire repo dir if it exists
-    #     -c | --clean )
-    #         shift;
-    #         if [ -d $MLO_REPO_DIR ] && [ -d $MLO_REPO_DIR/env ]; then
-    #             info "WARNING: Repo directory at $MLO_REPO_DIR will be deleted (any unpushed commits will be PERMANENTLY removed)"
-    #             if prompt_continue ; then
-    #                 debug "REMOVING $MLO_REPO_DIR"
-    #                 sudo rm -rf $MLO_REPO_DIR
-    #             else
-    #                 verbose "Skipping repo directory removal"
-    #             fi
-    #         fi
-    #         ;;
-    #     # Delete all node_modules directories from repo dir
-    #     --clean-npm )
-    #         shift;
-    #         if [[ -d $MLO_REPO_DIR && -d $MLO_REPO_DIR/env ]]; then
-    #             cd $MLO_REPO_DIR
-    #             info "WARNING: All node_modules directories in $MLO_REP_DIR will be PERMANENTLY removed"
-    #             # find ./*/**/node_modules
-    #             if prompt_continue ; then
-    #                 debug "REMOVING node_modules:"
-    #                 sudo rm -rf $MLO_REPO_DIR/*/**/node_modules
-    #             else
-    #                 verbose "Skipping node_modules directories removal"
-    #             fi
-    #         fi
-    #         ;;
-    #     --build | -b )
-    #             options[build]=true
-    #         ;;
-    # esac; shift; done
-
     if [[ "$1" == '--' ]]; then shift; fi
 
     case $1 in
         'repo' | '' )
             local repo_dir=`pwd`
-            geo_set GEO_CLI_MYGEOTAB_REPO_DIR "$repo_dir"
+            geo_set DEVELOPMENT_REPO_DIR "$repo_dir"
             verbose "MyGeotab base repo (Development) path set to:"
             detail "    $repo_dir"
             ;;
@@ -257,27 +341,27 @@ geo_init() {
 }
 
 ###########################################################
-COMMANDS+=('start')
-geo_start_doc() {
-    doc_cmd 'start <service>'
-    doc_cmd_desc 'Start individual service.'
-    doc_cmd_examples_title
-    doc_cmd_example 'geo start web'
-}
-geo_start() {
-    exit_if_repo_dir_uninit
-    if [ -n "${SERVICES_DICT[$1]}" ]; then
-        if [[ $1 = 'runner' ]]; then
-            # pm2-runtime start $GEO_REPO_DIR/runner/.geo-cli/ecosystem.config.js
-            geo_runner start
-        else
-            cd $GEO_REPO_DIR/env/full
-            dc_geo start $1
-        fi
-    else
-        error "$1 is not a service"
-    fi
-}
+# COMMANDS+=('start')
+# geo_start_doc() {
+#     doc_cmd 'start <service>'
+#     doc_cmd_desc 'Start individual service.'
+#     doc_cmd_examples_title
+#     doc_cmd_example 'geo start web'
+# }
+# geo_start() {
+#     exit_if_repo_dir_uninit
+#     if [ -n "${SERVICES_DICT[$1]}" ]; then
+#         if [[ $1 = 'runner' ]]; then
+#             # pm2-runtime start $GEO_REPO_DIR/runner/.geo-cli/ecosystem.config.js
+#             geo_runner start
+#         else
+#             cd $GEO_REPO_DIR/env/full
+#             dc_geo start $1
+#         fi
+#     else
+#         Error "$1 is not a service"
+#     fi
+# }
 
 # ###########################################################
 # COMMANDS+=('stop')
@@ -300,71 +384,71 @@ geo_start() {
 #             dc_geo stop "$1"
 #         fi
 #     else
-#         error "$1 is not a service"
+#         Error "$1 is not a service"
 #     fi
 # }
 
 ###########################################################
-COMMANDS+=('restart')
-geo_restart_doc() {
-    doc_cmd 'restart [service]'
-    doc_cmd_desc 'Restart container [service] or the entire system if no service is provided.'
-    doc_cmd_examples_title
-    doc_cmd_example 'geo restart web'
-    doc_cmd_example 'geo restart'
-}
-geo_restart() {
-    exit_if_repo_dir_uninit
-    if [ -z $1 ]; then 
-        # geo_down
-        geo_stop
-        geo_up
-        geo_runner restart
-        return
-    fi
+# COMMANDS+=('restart')
+# geo_restart_doc() {
+#     doc_cmd 'restart [service]'
+#     doc_cmd_desc 'Restart container [service] or the entire system if no service is provided.'
+#     doc_cmd_examples_title
+#     doc_cmd_example 'geo restart web'
+#     doc_cmd_example 'geo restart'
+# }
+# geo_restart() {
+#     exit_if_repo_dir_uninit
+#     if [ -z $1 ]; then 
+#         # geo_down
+#         geo_stop
+#         geo_up
+#         geo_runner restart
+#         return
+#     fi
     
-    if [ -n "${SERVICES_DICT[$1]}" ]; then
-        if [[ $1 = 'runner' ]]; then
-            # pm2 restart runner
-            geo_runner restart
-        else
-            cd $GEO_REPO_DIR/env/full
-            dc_geo restart "$1"
-        fi
-    else
-        error "$1 is not a service"
-    fi
-}
+#     if [ -n "${SERVICES_DICT[$1]}" ]; then
+#         if [[ $1 = 'runner' ]]; then
+#             # pm2 restart runner
+#             geo_runner restart
+#         else
+#             cd $GEO_REPO_DIR/env/full
+#             dc_geo restart "$1"
+#         fi
+#     else
+#         Error "$1 is not a service"
+#     fi
+# }
 
 ###########################################################
-COMMANDS+=('config')
-geo_config_doc() {
-    doc_cmd 'set <ENV_VAR> <value>'
-    doc_cmd_desc 'Set geo environment variable'
-    doc_cmd_examples_title
-    doc_cmd_example 'geo set GEO_REPO_DIR ~/menlolab'
-}
-geo_config() {
-    if [[ -z $1 ]]; then
-        geo_config_doc
-        return
-    fi
+# COMMANDS+=('config')
+# geo_config_doc() {
+#     doc_cmd 'set <ENV_VAR> <value>'
+#     doc_cmd_desc 'Set geo environment variable'
+#     doc_cmd_examples_title
+#     doc_cmd_example 'geo set DEVELOPMENT_REPO_DIR /home/username/repos/Development'
+# }
+# geo_config() {
+#     if [[ -z $1 ]]; then
+#         geo_config_doc
+#         return
+#     fi
 
-    case $1 in
-        'set' )
-            shift
-            geo_set "$@"
-            ;;
-        'get' )
-            shift
-            geo_get "$@"
-            ;;
-        'ls' )
-            local env_vars=`cat $GEO_CONF_FILE`
-            detail "$env_vars"
-            ;;
-    esac 
-}
+#     case $1 in
+#         'set' )
+#             shift
+#             geo_set "$@"
+#             ;;
+#         'get' )
+#             shift
+#             geo_get "$@"
+#             ;;
+#         'ls' )
+#             local env_vars=`cat $GEO_CONF_FILE`
+#             detail "$env_vars"
+#             ;;
+#     esac 
+# }
 
 ###########################################################
 COMMANDS+=('set')
@@ -372,7 +456,7 @@ geo_set_doc() {
     doc_cmd 'set <ENV_VAR> <value>'
     doc_cmd_desc 'Set geo environment variable'
     doc_cmd_examples_title
-    doc_cmd_example 'geo set GEO_REPO_DIR ~/menlolab'
+    doc_cmd_example 'geo set DEVELOPMENT_REPO_DIR /home/username/repos/Development'
 }
 geo_set() {
     # Set value of env var
@@ -426,13 +510,13 @@ geo_update() {
 COMMANDS+=('version')
 geo_version_doc() {
     doc_cmd 'version, -v, --version'
-    doc_cmd_desc 'Update geo to latest version'
+    doc_cmd_desc 'Gets geo-cli version'
     
     doc_cmd_examples_title
     doc_cmd_example 'geo version'
 }
 geo_version() {
-    verbose `geo_get GEO_CLI_VERSION`
+    verbose `geo_get VERSION`
 }
 
 ###########################################################
@@ -475,35 +559,35 @@ cmd_exists() {
 }
 
 # Docker Compose using the geo config file
-dc_geo() {
-    local dir=$GEO_REPO_DIR/env/full
-    docker-compose -f $dir/docker-compose.yml -f $dir/docker-compose-geo.yml $@
-    # docker-compose -f $GEO_REPO_DIR/env/full/docker-compose-geo.yml $1
-}
+# dc_geo() {
+#     local dir=$GEO_REPO_DIR/env/full
+#     docker-compose -f $dir/docker-compose.yml -f $dir/docker-compose-geo.yml $@
+#     # docker-compose -f $GEO_REPO_DIR/env/full/docker-compose-geo.yml $1
+# }
 
 # Check for updates. Return true (0 return value) if updates are available.
 geo_check_for_updates() {
     # pu
     pushd $GEO_CLI_DIR
-    [ ! git pull > /dev/null ] && error 'Unable to pull changes from remote'
+    [ ! git pull > /dev/null ] && Error 'Unable to pull changes from remote'
     popd
     # The sed cmds filter out any colour codes that might be in the text
-    local v_current=`geo_get GEO_CLI_VERSION  | sed -r "s/[[:cntrl:]]\[[0-9]{1,3}m//g"`
+    local v_current=`geo_get VERSION  | sed -r "s/[[:cntrl:]]\[[0-9]{1,3}m//g"`
     # local v_npm=`npm show @geo/geo-cli version  | sed -r "s/[[:cntrl:]]\[[0-9]{1,3}m//g"`
     local v_repo=`cat $GEO_CLI_DIR/version.txt`
 
     if [ `ver $v_current` -lt `ver $v_repo` ]; then
-        geo_set GEO_OUTDATED true
+        geo_set OUTDATED true
         return 0
     else
-        geo_set GEO_OUTDATED false
+        geo_set OUTDATED false
         return 1
     fi
     
 }
 
 geo_is_outdated() {
-    outdated=`geo_get GEO_OUTDATED`
+    outdated=`geo_get OUTDATED`
     # [ -z $outdated ] && outdated=false
     # debug "o=$outdated"
     if [[ $outdated =~ true ]]; then
@@ -523,7 +607,7 @@ geo_is_outdated() {
 # way it would work.
 geo_show_msg_if_outdated() {
     echo "" > /dev/null
-    # outdated=`geo_get GEO_OUTDATED`
+    # outdated=`geo_get OUTDATED`
     if geo_is_outdated ; then
     # if [[ $outdated =~ true ]]; then
         warn_bi "New version of geo available. Use 'geo update' to get it."
@@ -685,11 +769,12 @@ red() {
 }
 
 
-error() {
+Error() {
     echo -e "${BIRed}Error: $@${Off}"
 }
 
 make_logger_function warn Red
+make_logger_function error Red
 make_logger_function info Green
 make_logger_function success Green
 make_logger_function detail Yellow
@@ -707,13 +792,13 @@ prompt_n() {
     echo -en "${BCyan}$@${Off}"
 }
 
-valid_repo() {
-    if [ ${REPOS_DICT[$1]+_} ]; then
-        return 0
-    else
-        return 1
-    fi
-}
+# valid_repo() {
+#     if [ ${REPOS_DICT[$1]+_} ]; then
+#         return 0
+#     else
+#         return 1
+#     fi
+# }
 
 # Documentation helpers
 ###########################################################
@@ -767,9 +852,23 @@ prompt_continue_or_exit() {
     [[ "$answer" =~ [nN] ]] && return 1 || return 0
 }
 prompt_continue() {
-    prompt_n "Do you want to continue? (Y|n): "
+    if [[ -z $1 ]]; then
+        prompt_n "Do you want to continue? (Y|n): "
+    else
+        prompt_n "$1"
+    fi
     read answer
     [[ "$answer" =~ [nN] ]] && return 1 || return 0
+}
+prompt_for_info() {
+    prompt "$1"
+    read answer
+    echo $answer
+}
+prompt_for_info_n() {
+    prompt_n "$1"
+    read answer
+    echo $answer
 }
 
 geo_logo() {
