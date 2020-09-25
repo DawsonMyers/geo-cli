@@ -64,7 +64,7 @@ if ! type docker > /dev/null; then
 
         sudo chmod +x /usr/local/bin/docker-compose
         docker-compose --version
-        info_b 'OK'
+        success 'OK'
     fi
 fi
 
