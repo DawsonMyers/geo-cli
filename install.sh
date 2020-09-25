@@ -75,6 +75,6 @@ echo
 
 geo_check_for_dev_repo_dir
 
-success "Open an new terminal or run '. ~/.bashrc' in this one to start using geo-cli"
+success "Open a new terminal or run '. ~/.bashrc' in this one to start using geo-cli"
 
 

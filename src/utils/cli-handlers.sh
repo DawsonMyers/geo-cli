@@ -1,12 +1,6 @@
 #!/bin/bash
-# echo 'init handlers'
-# GEO_REPO_DIR=~/menlolab
-# GEO_CLI_DIR=$HOME/.geo-cli/cli
 . $GEO_SRC_DIR/utils/colors.sh
-# . $GEO_CLI_DIR/utils/secrets.sh
 . $GEO_SRC_DIR/utils/config-file-utils.sh
-
-# ENV_CONF_FILE=$GEO_CLI_DIR/src/config/env.conf
 
 export IMAGE=geo_cli_db_postgres11
 
@@ -52,11 +46,13 @@ geo_image_doc() {
     doc_cmd_desc 'Commands for working with db images'
     doc_cmd_options_title
     doc_cmd_option 'create'
-    doc_cmd_option_desc 'Creates the base Postgres image configured to be used with geotabdemo'
+    doc_cmd_option_desc 'Creates the base Postgres image configured to be used with geotabdemo.'
     doc_cmd_option 'remove'
-    doc_cmd_option_desc 'Removes the base Postgres image'
+    doc_cmd_option_desc 'Removes the base Postgres image.'
     doc_cmd_option 'ls'
-    doc_cmd_option_desc 'List existing geo-cli Postgres images'
+    doc_cmd_option_desc 'List existing geo-cli Postgres images.'
+    doc_cmd_examples_title
+    doc_cmd_example 'geo image create'
 }
 geo_image() {
     case "$1" in
@@ -95,13 +91,19 @@ geo_db_doc() {
     doc_cmd_option 'start [version]'
     doc_cmd_option_desc 'Starts (creating if neccessary) a versioned db container and volume. If no version is provided, the most recent db version is started.'
     doc_cmd_option 'rm, remove <version>'
-    doc_cmd_option_desc 'Removes the container and volume associated with the provided version (e.g. 2004)'
+    doc_cmd_option_desc 'Removes the container and volume associated with the provided version (e.g. 2004).'
     doc_cmd_option 'stop [version]'
-    doc_cmd_option_desc 'Stop geo-cli db container'
+    doc_cmd_option_desc 'Stop geo-cli db container.'
     doc_cmd_option 'ls'
-    doc_cmd_option_desc 'List geo-cli images, containers, and volumes'
+    doc_cmd_option_desc 'List geo-cli images, containers, and volumes.'
     doc_cmd_option 'ps'
-    doc_cmd_option_desc 'List runner geo-cli containers'
+    doc_cmd_option_desc 'List runner geo-cli containers.'
+    doc_cmd_option 'init'
+    doc_cmd_option_desc 'Initialize a running db container with geotabdemo (run automatically when creating a db).'
+    doc_cmd_examples_title
+    doc_cmd_example 'geo db start 2004'
+    doc_cmd_example 'geo db rm 2004'
+    doc_cmd_example 'geo db ls'
 }
 geo_db() {
     case "$1" in
@@ -125,23 +127,32 @@ geo_db() {
             return
             ;;
         stop )
+            local container_name=`geo_container_name $db_version`
+            local silent=false
+            
+            if [[ $2 =~ -s ]]; then
+                silent=true
+                shift
+            fi
+
             db_version="$2"
+
             if [[ -z $db_version ]]; then
                 container_id=`docker ps --filter name="$IMAGE*" --filter status=running -aq`
             else
-                container_id=`docker ps --filter name="${IMAGE}_${db_version}" --filter status=running -aq`
+                container_id=`docker ps --filter name="${container_name}" --filter status=running -aq`
             fi
             if [[ -z $container_id ]]; then
                 warn 'No geo-cli db containers running'
                 return
             fi
-            echo $container_id | xargs docker stop && success OK
+            echo $container_id | xargs docker stop > /dev/null && success 'Running container stopped'
             return
             ;;
         rm | remove )
             db_version="$2"
             if [[ -z $db_version ]]; then
-                Error "No database version provided for removal"
+                [[ $silent = false ]] && Error "No database version provided for removal"
                 return
             fi
             geo_db_rm "$db_version"
@@ -172,7 +183,8 @@ geo_db() {
 
             local volume=`docker volume ls | grep " $container_name"`
 
-            geo_stop $1
+            geo_db stop -s
+
             local container_id=`docker ps -aqf "name=$container_name"`
             local volume_created=false
 
@@ -224,7 +236,7 @@ function geo_db_init()
     if [ -z "$user" ]; then
         get_user
     else
-        verbose "Stored db user: $user"
+        data "Stored db user: $user"
         prompt_n "Use stored user? (Y|n): "
         read answer
         [[ "$answer" =~ [nN] ]] && get_user
@@ -233,7 +245,7 @@ function geo_db_init()
     if [ -z "$password" ]; then
         get_password
     else
-        verbose "Stored db password: $password"
+        data "Stored db password: $password"
         prompt_n "Use stored password? (Y|n): "
         read answer
         [[ "$answer" =~ [nN] ]] && get_password
@@ -254,14 +266,14 @@ function geo_db_init()
 geo_container_name() {
     echo "${IMAGE}_${1}"
 }
-function geo_db_rm()
+
+geo_db_rm()
 {
     local container_name=`geo_container_name $1`
-    # VOL_NAME=`geo_cli_db_${1}"
     local container_id=`docker ps -aqf "name=$container_name"`
-    [ -n "$container_id" ] && docker stop $container_id
-    docker container rm $container_name
-    docker volume rm $container_name
+    [ -n "$container_id" ] && docker stop $container_id > /dev/null && success "Container stopped"
+    docker container rm $container_name > /dev/null  && success "Container $1 removed"
+    docker volume rm $container_name > /dev/null && success "Volume $1 removed"
 
 }
 
@@ -294,8 +306,7 @@ geo_check_for_dev_repo_dir() {
 
     success "Checkmate directory found"
 
-    geo_get DEVELOPMENT_REPO_DIR "$dev_repo"
-
+    geo_set DEVELOPMENT_REPO_DIR "$dev_repo"
 }
 
 ###########################################################
@@ -303,7 +314,7 @@ COMMANDS+=('stop')
 geo_stop_doc() {
     doc_cmd 'stop [db]'
     doc_cmd_examples_title
-    doc_cmd_example 'geo stop web'
+    doc_cmd_example 'geo stop 2002'
 }
 geo_stop() {
     local container_name="${IMAGE}_${1}"
@@ -476,7 +487,7 @@ geo_get_doc() {
     doc_cmd_desc 'Get geo environment variable.'
 
     doc_cmd_examples_title
-    doc_cmd_example 'geo get GEO_REPO_DIR'
+    doc_cmd_example 'geo get DEVELOPMENT_REPO_DIR'
 }
 geo_get() {
     # Get value of env var
@@ -813,9 +824,9 @@ doc_cmd() {
 
 # Command description
 doc_cmd_desc() {
-    local indent=8
+    local indent=6
     local txt=$(fmt_text "$@" $indent)
-    info_i "$txt"
+    data_i "$txt"
 }
 
 doc_cmd_examples_title() {
@@ -828,12 +839,13 @@ doc_cmd_examples_title() {
 doc_cmd_example() {
     local indent=12
     local txt=$(fmt_text "$@" $indent)
-    info_i "$txt"
+    data "$txt"
 }
 doc_cmd_options_title() {
     local indent=8
     local txt=$(fmt_text "Options:" $indent)
     info_i "$txt"
+    # data_bi "$txt"
 }
 doc_cmd_option() {
     local indent=12
@@ -843,7 +855,7 @@ doc_cmd_option() {
 doc_cmd_option_desc() {
     local indent=16
     local txt=$(fmt_text "$@" $indent)
-    info_i "$txt"
+    data "$txt"
 }
 
 prompt_continue_or_exit() {
