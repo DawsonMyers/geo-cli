@@ -111,8 +111,8 @@ function geo()
     #  geo up --h
     #  geo up --help
     #  geo up help
-    if [[ $1 =~ ^-h$ ]] || [[ $1 =~ ^--help$ ]]; then
-    # if [[ $1 =~ ^-*h(elp)? ]]; then
+    # if [[ $1 =~ ^-h$ ]] || [[ $1 =~ ^--help$ ]]; then
+    if [[ $1 =~ ^-*h(elp)? ]]; then
         "geo_${cmd}_doc"
         echo ''
         geo_show_msg_if_outdated

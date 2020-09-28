@@ -19,6 +19,7 @@ geo_set GEO_SRC_DIR $GEO_SRC_DIR
 
 export GEO_CLI_VERSION=`cat $GEO_CLI_DIR/version.txt`
 geo_set GEO_CLI_VERSION $GEO_CLI_VERSION
+geo_set OUTDATED false
 
 # Remove previous aliases/config from ~/.profile for geo command.
 # Remove content starting at "#geo-cli-start" and ending
@@ -62,8 +63,13 @@ if ! type docker > /dev/null; then
         sudo apt-get update
         sudo apt-get install -y docker-ce
 
+        # Add user to the docker group to allow docker to be run without sudo.
+        sudo usermod -a -G docker $USER
+
         sudo chmod +x /usr/local/bin/docker-compose
         docker-compose --version
+
+        warn 'You must completely log out of your account and log back in again to begin using docker.'
         success 'OK'
     fi
 fi

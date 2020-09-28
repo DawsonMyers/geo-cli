@@ -106,20 +106,28 @@ geo_db_doc() {
     doc_cmd_example 'geo db ls'
 }
 geo_db() {
+    # Check to make sure that the current user is added to the docker group. All subcommands in this command need to use docker.
+    if ! geo_check_docker_permissions; then
+        return
+    fi
+
     case "$1" in
         init )
             geo_db_init
             return
             ;;
         ls )
-            info Images
-            docker image ls geo_cli*
-            echo
-            info Containers
-            docker container ls -a -f name=geo_cli
-            echo
-            info Volumes
-            docker volume ls -f name=geo_cli
+            geo_db_ls_images
+            geo_db_ls_containers
+            geo_db_ls_volumes
+            # info Images
+            # docker image ls geo_cli*
+            # echo
+            # info Containers
+            # docker container ls -a -f name=geo_cli
+            # echo
+            # info Volumes
+            # docker volume ls -f name=geo_cli
             return
             ;;
         ps )
@@ -138,14 +146,19 @@ geo_db() {
             db_version="$2"
 
             if [[ -z $db_version ]]; then
-                container_id=`docker ps --filter name="$IMAGE*" --filter status=running -aq`
+                container_id=`geo_get_running_container_id`
+                # container_id=`docker ps --filter name="$IMAGE*" --filter status=running -aq`
             else
-                container_id=`docker ps --filter name="${container_name}" --filter status=running -aq`
+                container_id=`geo_get_running_container_id "${container_name}"`
+                # container_id=`docker ps --filter name="${container_name}" --filter status=running -aq`
             fi
+
             if [[ -z $container_id ]]; then
                 warn 'No geo-cli db containers running'
                 return
             fi
+
+            # Stop all running containers.
             echo $container_id | xargs docker stop > /dev/null && success 'Running container stopped'
             return
             ;;
@@ -215,11 +228,52 @@ geo_db() {
     esac
 }
 
+geo_db_ls_images() {
+    info Images
+    docker image ls geo_cli*
+}
+geo_db_ls_containers() {
+    info Containers
+    docker container ls -a -f name=geo_cli
+}
+geo_db_ls_volumes() {
+    info Volumes
+    docker volume ls -a -f name=geo_cli
+}
+
+geo_get_running_container_id() {
+    local name=$1
+    [[ -z $name ]] && name="$IMAGE*"
+    echo `docker ps --filter name="$name" --filter status=running -aq`
+}
+
+geo_check_docker_permissions() {
+    local ps_error_output=`docker ps | grep docker.sock`
+    if [[ -n $ps_error_output ]]; then
+        Error "The current user does not have permission to use the docker command."
+        info "Fix: Add the current user to the docker group."
+        if prompt_n 'Would you like to fix this now? (Y|n): '; then
+            sudo usermod -a -G docker $USER
+            warn 'You must completely log out of you account and then log back in again for the changes to take effect.'
+        fi
+        return 1
+    fi
+}
+
 function geo_db_init()
 {
     local user=`geo_get DB_USER`
     local password=`geo_get DB_PASSWORD`
     local answer=''
+
+    # Make sure there's a running db container to initiallize.
+    local container_id=`geo_get_running_container_id`
+    if [[ -z $container_id ]]; then
+        Error "There isn't a running geo-cli db container to initiallize with geotab demo."
+        info 'Start one of the following db containers and try again:'
+        geo_db_ls_containers
+        retrun
+    fi
 
     get_user() {
         prompt_n "Enter db username: "
@@ -300,6 +354,7 @@ geo_check_for_dev_repo_dir() {
         echo $dev_repo
     }
 
+    # Ask repeatedly for the dev repo dir until a valid one is provided.
     while ! is_valid_repo_dir "$dev_repo"; do
         get_dev_repo_dir
     done
@@ -325,6 +380,10 @@ geo_stop() {
     fi
 }
 
+geo_is_valid_repo_dir() {
+    test -d "${1}/Checkmate"
+}
+
 ###########################################################
 COMMANDS+=('init')
 geo_init_doc() {
@@ -344,6 +403,18 @@ geo_init() {
     case $1 in
         'repo' | '' )
             local repo_dir=`pwd`
+            if ! geo_is_valid_repo_dir "$repo_dir"; then
+                Error "The current directory does not contain the Development repo since it is missing the Checkmate folder."
+                return
+            fi
+            local current_repo_dir=`geo_get DEVELOPMENT_REPO_DIR`
+            if [[ -n $current_repo_dir ]]; then
+                info_bi "The current Development repo directory is:"
+                info "    $current_repo_dir"
+                if ! prompt_continue "Would you like to replace that with the current directory? (Y|n): "; then
+                    return
+                fi
+            fi
             geo_set DEVELOPMENT_REPO_DIR "$repo_dir"
             verbose "MyGeotab base repo (Development) path set to:"
             detail "    $repo_dir"
@@ -517,6 +588,34 @@ geo_update_doc() {
 geo_update() {
    
     bash $GEO_CLI_DIR/install.sh
+    . ~/.bashrc
+}
+
+###########################################################
+COMMANDS+=('uninstall')
+geo_uninstall_doc() {
+    doc_cmd 'uninstall'
+    doc_cmd_desc "Remove geo-cli installation. This prevents geo-cli from being loaded into new bash terminals, but does not remove the geo-cli repo directory. Navigate to the geo-cli repo directory and run 'bash install.sh' to reinstall."
+
+    doc_cmd_examples_title
+    doc_cmd_example 'geo uninstall'
+}
+geo_uninstall() {
+   
+    if ! prompt_continue "Are you sure that you want to remove geo-cli? (Y|n)"; then
+        return
+    fi
+
+    # Remove lines from .bashrc that load geo-cli into terminals.
+    sed -i '/#geo-cli-start/,/#geo-cli-end/d' ~/.bashrc
+    sed -i '/#geo-cli-start/,/#geo-cli-end/d' ~/.profile
+    
+    # Re-source .bashrc to remove geo-cli from current terminal (it will still be loaded into other existing ones though).
+    . ~/.bashrc
+
+    success OK
+    info 'geo-cli will not be loaded into any new terminals.'
+    info "Navigate to the geo-cli repo directory and run 'bash install.sh' to reinstall it."
 }
 
 ###########################################################
@@ -789,10 +888,15 @@ make_logger_function error Red
 make_logger_function info Green
 make_logger_function success Green
 make_logger_function detail Yellow
+# make_logger_function detail Yellow
 make_logger_function data White
 # make_logger_function warn Purple
 make_logger_function verbose Cyan
 make_logger_function debug Purple
+
+success() {
+    echo -e "${BIGreen}$@${Off}"
+}
 
 prompt() {
     echo -e "${BCyan}$@${Off}"
