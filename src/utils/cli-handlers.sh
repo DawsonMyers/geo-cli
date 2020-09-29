@@ -160,7 +160,7 @@ geo_db() {
             fi
 
             if [[ -z $container_id ]]; then
-                [[ $silent = true ]] && warn 'No geo-cli db containers running'
+                [[ $silent = false ]] && warn 'No geo-cli db containers running'
                 return
             fi
 
@@ -176,7 +176,7 @@ geo_db() {
                 return
             fi
 
-            if [[ $db_version = * ]]; then
+            if [[ $db_version = '*' ]]; then
                 prompt_continue "Do you want to remove all db contaners? (Y|n): " || return
                 # Get list of contianer names
                 names=`docker container ls -a -f name=geo_cli --format "{{.Names}}"`
@@ -282,6 +282,7 @@ geo_db() {
                     geo_db_init
                 fi
             fi
+            success OK
             ;;
     esac
 }
@@ -366,13 +367,13 @@ function geo_db_init()
     get_sql_user() {
         prompt_n "Enter sql username: "
         read sql_user
-        geo_set SQL_USER $user
+        geo_set SQL_USER $sql_user
     }
 
     get_sql_password() {
         prompt_n "Enter db sql password: "
         read sql_password
-        geo_set SQL_PASSWORD $password
+        geo_set SQL_PASSWORD $sql_password
     }
 
     # Get sql user.
@@ -409,8 +410,13 @@ function geo_db_init()
     local dev_repo=`geo_get DEVELOPMENT_REPO_DIR`
     path="${dev_repo}/Checkmate/bin/Debug/netcoreapp3.1"
     
-    dotnet "${path}/CheckmateServer.dll" CreateDatabase postgres companyName=geotabdemo administratorUser="$user" administratorPassword="$password" sqluser="$sql_user" sqlpassword="$sql_password"
-    success OK
+    if dotnet "${path}/CheckmateServer.dll" CreateDatabase postgres companyName=geotabdemo administratorUser="$user" administratorPassword="$password" sqluser="$sql_user" sqlpassword="$sql_password"; then
+        success OK
+    else
+        Error 'Failed to initialize geotabdemo on contianer'
+        error 'Have you built the assembly for the current branch?'
+    fi
+    
 }
 
 geo_container_name() {
