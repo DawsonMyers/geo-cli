@@ -682,7 +682,11 @@ geo_update_doc() {
     doc_cmd_example 'geo update'
 }
 geo_update() {
-   pushd $GEO_CLI_DIR
+    if ! geo_is_outdated; then
+        Error 'The latest version of geo-cli is already installed'
+        return
+    fi
+    pushd $GEO_CLI_DIR
     if ! git pull > /dev/null; then
         Error 'Unable to pull changes from remote'
         popd
@@ -799,6 +803,7 @@ geo_check_for_updates() {
         v_remote='0.0.0'
     else
         v_remote=`cat version.txt`
+        geo_set REMOTE_VERSION "$v_remote"
     fi
     popd
 
