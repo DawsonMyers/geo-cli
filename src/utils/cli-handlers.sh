@@ -682,8 +682,16 @@ geo_update_doc() {
     doc_cmd_example 'geo update'
 }
 geo_update() {
-   
+   pushd $GEO_CLI_DIR
+    if ! git pull > /dev/null; then
+        Error 'Unable to pull changes from remote'
+        popd
+        return
+    fi
+    popd
+
     bash $GEO_CLI_DIR/install.sh
+    # Re-source .bashrc to reload geo in this terminal
     . ~/.bashrc
 }
 
@@ -795,7 +803,8 @@ geo_check_for_updates() {
     popd
 
     # The sed cmds filter out any colour codes that might be in the text
-    local v_current=`geo_get VERSION  | sed -r "s/[[:cntrl:]]\[[0-9]{1,3}m//g"`
+    # local v_current=`geo_get VERSION  | sed -r "s/[[:cntrl:]]\[[0-9]{1,3}m//g"`
+    local v_current=`cat "$GEO_CLI_DIR/version.txt"`
 
     # ver converts semver to int (e.g. 1.2.3 => 001002003) so that it can easliy be compared
     if [ `ver $v_current` -lt `ver $v_remote` ]; then
