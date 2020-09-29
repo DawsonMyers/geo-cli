@@ -66,7 +66,7 @@ geo_image() {
             return
             ;;
         create )
-            verbose 'Building image...'
+            status 'Building image...'
             local dir=`geo_get DEVELOPMENT_REPO_DIR`
             dir="${dir}/Checkmate/Docker/postgres"
             local dockerfile="Debug.Dockerfile"
@@ -117,9 +117,15 @@ geo_db() {
             return
             ;;
         ls )
-            geo_db_ls_images
             geo_db_ls_containers
-            geo_db_ls_volumes
+            
+            if [[ $2 = -a ]]; then
+                echo
+                docker container ls -a -f name=geo_cli
+                geo_db_ls_images
+                echo
+                geo_db_ls_volumes
+            fi
             # info Images
             # docker image ls geo_cli*
             # echo
@@ -154,7 +160,7 @@ geo_db() {
             fi
 
             if [[ -z $container_id ]]; then
-                warn 'No geo-cli db containers running'
+                [[ $silent = true ]] && warn 'No geo-cli db containers running'
                 return
             fi
 
@@ -164,10 +170,23 @@ geo_db() {
             ;;
         rm | remove )
             db_version="$2"
+
             if [[ -z $db_version ]]; then
-                [[ $silent = false ]] && Error "No database version provided for removal"
+                Error "No database version provided for removal"
                 return
             fi
+
+            if [[ $db_version = * ]]; then
+                prompt_continue "Do you want to remove all db contaners? (Y|n): " || return
+                # Get list of contianer names
+                names=`docker container ls -a -f name=geo_cli --format "{{.Names}}"`
+                for name in "$names"; do
+                    # Remove image prefix from container name; leaving just the version/identier (e.g. geo_cli_db_postgres11_2008 => 2008).
+                    geo_db_rm "${name#${IMAGE}_}"
+                done
+                return
+            fi
+
             geo_db_rm "$db_version"
             return
             ;;
@@ -201,26 +220,65 @@ geo_db() {
             local container_id=`docker ps -aqf "name=$container_name"`
             local volume_created=false
 
-            if [ -z "$volume" ]; then
-                verbose_bi "Creating volume: $container_name"
-                docker volume create "$container_name" > /dev/null 
-                success OK
-                volume_created=true
-            fi
             if [ -n "$container_id" ]; then
                 
-                verbose_bi "Starting existing container:"
-                verbose "  ID: $container_id"
-                verbose "  NAME: $container_name"
-                docker start $container_id > /dev/null && success OK
+                status_bi "Starting existing container:"
+                status "  ID: $container_id"
+                status "  NAME: $container_name"
+                # docker start $container_id > /dev/null && success OK
+                output=`docker start $container_id 2>&1 | grep 'listen tcp 0.0.0.0:5432: bind: address already in use'`
+                if [[ -n $output ]]; then
+                    Error "Port 5432 is already in use."
+                    info "Fix: Stop postgresql"
+                    if prompt_continue "Do you want to try to stop the postgresql service? (Y|n): "; then
+                        sudo service postgresql stop
+                        sleep 2
+                        status_bi "Trying to start existing container again"
+                        output=`docker start $container_id 2>&1 | grep 'listen tcp 0.0.0.0:5432: bind: address already in use'`
+                        if [[ -n $output ]]; then
+                            Error "Port 5432 is still in use. It's not possible to start a db container until this port is available."
+                            return 1
+                        fi
+                        success OK
+                    fi
+                fi
             else
-                verbose_bi "Creating container:"
-                verbose "  NAME: $container_name"
-                docker run -v $container_name:/var/lib/postgresql/11/main -p 5432:5432 --name=$container_name -d $IMAGE > /dev/null && success OK
+                db_version="$2"
+                prompt_continue "Db container ${db_version} doesn't exist. Would you like to create it? (Y|n): " || return
+                
+                if [ -z "$volume" ]; then
+                    status_bi "Creating volume: $container_name"
+                    docker volume create "$container_name" > /dev/null 
+                    success OK
+                    volume_created=true
+                fi
+                
+                status_bi "Creating container:"
+                status "  NAME: $container_name"
+                # docker run -v $container_name:/var/lib/postgresql/11/main -p 5432:5432 --name=$container_name -d $IMAGE > /dev/null && success OK
+                local vol_mount="$container_name:/var/lib/postgresql/11/main"
+                local port=5432:5432
+                output=`docker run -v $vol_mount -p $port --name=$container_name -d $IMAGE 2>&1 | grep 'listen tcp 0.0.0.0:5432: bind: address already in use'`
+
+                if [[ -n $output ]]; then
+                    Error "Port 5432 is already in use."
+                    info "Fix: Stop postgresql"
+                    if prompt_continue "Do you want to try to stop the postgresql service? (Y|n): "; then
+                        sudo service postgresql stop
+                        sleep 2
+                        status_bi "Trying to start new container"
+                        output=`docker run -v $vol_mount -p $port --name=$container_name -d $IMAGE 2>&1 | grep 'listen tcp 0.0.0.0:5432: bind: address already in use'`
+                        if [[ -n $output ]]; then
+                            Error "Port 5432 is still in use. It's not possible to start a db container until this port is available."
+                            return 1
+                        fi
+                        success OK
+                    fi
+                fi
+
                 if [[ $volume_created = true ]]; then
-                    verbose_bi "Waiting for container to start..."
+                    status_bi "Waiting for container to start..."
                     sleep 10
-                    verbose_bi "Initiallizing geotab demo"
                     geo_db_init
                 fi
             fi
@@ -230,15 +288,26 @@ geo_db() {
 
 geo_db_ls_images() {
     info Images
-    docker image ls geo_cli*
+    docker image ls geo_cli* #--format 'table {{.Names}}\t{{.ID}}\t{{.Image}}'
 }
 geo_db_ls_containers() {
-    info Containers
+    info DB Containers
     docker container ls -a -f name=geo_cli
+    if [[ $1 = -a ]]; then
+        docker container ls -a -f name=geo_cli
+        return
+    fi
+    local output=`docker container ls -a -f name=geo_cli --format '{{.Names}}\t{{.ID}}\t{{.Image}}'`
+    local header=`printf "%-24s %-16s %-24s\n" "Image" "Container ID" "geo-cli Name"`
+    local filtered=`echo $"$output" | awk '{ gsub($3"_","",$1);  printf "%-24s %-16s %-24s\n",$3,$2,$1 } '`
+    # filtered=`echo $"$output" | awk 'BEGIN { format="%-24s %-24s %-24s\n"; ; printf format, "Name","Container ID","Image" } { gsub($3"_","",$1);  printf " %-24s %-24s %-24s\n",$1,$2,$3 } '`
+
+    info_bi "$header"
+    data "$filtered"
 }
 geo_db_ls_volumes() {
     info Volumes
-    docker volume ls -a -f name=geo_cli
+    docker volume ls -f name=geo_cli
 }
 
 geo_get_running_container_id() {
@@ -262,59 +331,86 @@ geo_check_docker_permissions() {
 
 function geo_db_init()
 {
+    status_bi 'Initializing geotabdemo'
     local user=`geo_get DB_USER`
     local password=`geo_get DB_PASSWORD`
+    local sql_user=`geo_get SQL_USER`
+    local sql_password=`geo_get SQL_PASSWORD`
     local answer=''
+    
+    # Assign default values for sql user/passord.
+    [[ -z $sql_user ]] && sql_user=geotabuser
+    [[ -z $sql_password ]] && sql_password=vircom43
 
-    # Make sure there's a running db container to initiallize.
+    # Make sure there's a running db container to initialize.
     local container_id=`geo_get_running_container_id`
     if [[ -z $container_id ]]; then
-        Error "There isn't a running geo-cli db container to initiallize with geotab demo."
+        Error "There isn't a running geo-cli db container to initialize with geotabdemo."
         info 'Start one of the following db containers and try again:'
         geo_db_ls_containers
-        retrun
+        return
     fi
 
     get_user() {
-        prompt_n "Enter db username: "
+        prompt_n "Enter db admin username: "
         read user
         geo_set DB_USER $user
     }
 
     get_password() {
-        prompt_n "Enter db password: "
+        prompt_n "Enter db admin password: "
         read password
         geo_set DB_PASSWORD $password
     }
 
-    if [ -z "$user" ]; then
+    get_sql_user() {
+        prompt_n "Enter sql username: "
+        read sql_user
+        geo_set SQL_USER $user
+    }
+
+    get_sql_password() {
+        prompt_n "Enter db sql password: "
+        read sql_password
+        geo_set SQL_PASSWORD $password
+    }
+
+    # Get sql user.
+    data "Stored sql user: $sql_user"
+    prompt_continue "Use stored user? (Y|n): " || get_sql_user
+    
+    # Get sql password.
+    data "Stored sql password: $sql_password"
+    prompt_continue "Use stored password? (Y|n): " || get_sql_password
+
+    # Get db admin user.
+    if [[ -z $user ]]; then
         get_user
     else
-        data "Stored db user: $user"
-        prompt_n "Use stored user? (Y|n): "
-        read answer
-        [[ "$answer" =~ [nN] ]] && get_user
+        data "Stored db admin user: $user"
+        prompt_continue "Use stored user? (Y|n): " || get_user
     fi
 
-    if [ -z "$password" ]; then
+    # Get db admin passord
+    if [[ -z $password ]]; then
         get_password
     else
-        data "Stored db password: $password"
-        prompt_n "Use stored password? (Y|n): "
-        read answer
-        [[ "$answer" =~ [nN] ]] && get_password
+        data "Stored db admin password: $password"
+        prompt_continue "Use stored password? (Y|n): " || get_password
     fi
+
     # path=$HOME/repos/MyGeotab/Checkmate/bin/Debug/netcoreapp3.1
 
     if ! geo_check_for_dev_repo_dir; then
-        warn "Unable to init db with geotabdemo. Run 'geo db init' to try again on a running db container."
-        return
+        Error "Unable to init db with geotabdemo. Run 'geo db init' to try again on a running db container."
+        return 1
     fi
 
     local dev_repo=`geo_get DEVELOPMENT_REPO_DIR`
     path="${dev_repo}/Checkmate/bin/Debug/netcoreapp3.1"
     
-    dotnet "${path}/CheckmateServer.dll" CreateDatabase postgres companyName=geotabdemo administratorUser="$user" administratorPassword="$password" sqluser=geotabuser sqlpassword=vircom43
+    dotnet "${path}/CheckmateServer.dll" CreateDatabase postgres companyName=geotabdemo administratorUser="$user" administratorPassword="$password" sqluser="$sql_user" sqlpassword="$sql_password"
+    success OK
 }
 
 geo_container_name() {
@@ -416,7 +512,7 @@ geo_init() {
                 fi
             fi
             geo_set DEVELOPMENT_REPO_DIR "$repo_dir"
-            verbose "MyGeotab base repo (Development) path set to:"
+            status "MyGeotab base repo (Development) path set to:"
             detail "    $repo_dir"
             ;;
     esac
@@ -679,17 +775,32 @@ cmd_exists() {
 
 # Check for updates. Return true (0 return value) if updates are available.
 geo_check_for_updates() {
-    pushd $GEO_CLI_DIR
-    ! git pull > /dev/null && Error 'Unable to pull changes from remote'
+    # local auto_update=`geo_get AUTO_UPDATE`
+    # [[ -z $auto_update ]] && geo_set AUTO_UPDATE true
+    # [[ $auto_update = false ]] && return
+
+    pushd $GEO_CLI_DIR/tmp
+    # ! git pull > /dev/null && Error 'Unable to pull changes from remote'
+    local v_remote
+    #  Outputs contents of version.txt to stdout
+    #  git archive --remote=git@git.geotab.com:dawsonmyers/geo-cli.git HEAD version.txt | tar -xO
+
+    # if ! v_repo=`git archive --remote=git@git.geotab.com:dawsonmyers/geo-cli.git HEAD version.txt | tar -xO`; then
+    if ! `git archive --remote=git@git.geotab.com:dawsonmyers/geo-cli.git HEAD version.txt | tar -x`; then
+        Error 'Unable to pull geo-cli remote version'
+        v_remote='0.0.0'
+    else
+        v_remote=`cat version.txt`
+    fi
     popd
+
     # The sed cmds filter out any colour codes that might be in the text
     local v_current=`geo_get VERSION  | sed -r "s/[[:cntrl:]]\[[0-9]{1,3}m//g"`
-    # local v_npm=`npm show @geo/geo-cli version  | sed -r "s/[[:cntrl:]]\[[0-9]{1,3}m//g"`
-    local v_repo=`cat $GEO_CLI_DIR/version.txt`
 
-    if [ `ver $v_current` -lt `ver $v_repo` ]; then
+    # ver converts semver to int (e.g. 1.2.3 => 001002003) so that it can easliy be compared
+    if [ `ver $v_current` -lt `ver $v_remote` ]; then
         geo_set OUTDATED true
-        return 0
+        return
     else
         geo_set OUTDATED false
         return 1
@@ -703,7 +814,7 @@ geo_is_outdated() {
     # debug "o=$outdated"
     if [[ $outdated =~ true ]]; then
         # debug outdated
-        return 0
+        return
     else
         return 1
     fi
@@ -878,9 +989,9 @@ red() {
     echo -e "${Red}$@${Off}"
 }
 
-
+# ✘
 Error() {
-    echo -e "${BIRed}Error: $@${Off}"
+    echo -e "❌ ${BIRed}Error: $@${Off}"
 }
 
 make_logger_function warn Red
@@ -891,11 +1002,20 @@ make_logger_function detail Yellow
 # make_logger_function detail Yellow
 make_logger_function data White
 # make_logger_function warn Purple
+make_logger_function status Cyan
 make_logger_function verbose Cyan
 make_logger_function debug Purple
+make_logger_function purple Purple
+make_logger_function red Red
+make_logger_function cyan Cyan
+make_logger_function yellow Yellow
+make_logger_function green Green
+make_logger_function white White
+
+
 
 success() {
-    echo -e "${BIGreen}$@${Off}"
+    echo -e "${BIGreen}✔️ $@${Off}"
 }
 
 prompt() {
@@ -988,24 +1108,24 @@ prompt_for_info_n() {
 }
 
 geo_logo() {
-    detail '  ___  ____  __         ___  __    __ '
-    detail ' / __)(  __)/  \  ___  / __)(  )  (  )'
-    detail '( (_ \ ) _)(  O )(___)( (__ / (_/\ )( '
-    detail ' \___/(____)\__/       \___)\____/(__)'
+    green_bi '  ___  ____  __         ___  __    __ '
+    green_bi ' / __)(  __)/  \  ___  / __)(  )  (  )'
+    green_bi '( (_ \ ) _)(  O )(___)( (__ / (_/\ )( '
+    green_bi ' \___/(____)\__/       \___)\____/(__)'
 }
 
 geotab_logo() 
 {
-    detail ''
-    detail '===================================================='
-    detail ''
-    detail ' ██████  ███████  ██████  ████████  █████  ██████ '
-    detail '██       ██      ██    ██    ██    ██   ██ ██   ██'
-    detail '██   ███ █████   ██    ██    ██    ███████ ██████ '
-    detail '██    ██ ██      ██    ██    ██    ██   ██ ██   ██'
-    detail ' ██████  ███████  ██████     ██    ██   ██ ██████ '
-    detail ''
-    detail '===================================================='
+    cyan_bi ''
+    cyan_bi '===================================================='
+    cyan_bi ''
+    cyan_bi ' ██████  ███████  ██████  ████████  █████  ██████ '
+    cyan_bi '██       ██      ██    ██    ██    ██   ██ ██   ██'
+    cyan_bi '██   ███ █████   ██    ██    ██    ███████ ██████ '
+    cyan_bi '██    ██ ██      ██    ██    ██    ██   ██ ██   ██'
+    cyan_bi ' ██████  ███████  ██████     ██    ██   ██ ██████ '
+    cyan_bi ''
+    cyan_bi '===================================================='
 }
 # geo_logo() {
 #     detail ''

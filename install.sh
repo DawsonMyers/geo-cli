@@ -38,8 +38,8 @@ envsubst < $GEO_CLI_DIR/src/init/bashrc.sh >> ~/.bashrc
 
 # Install Docker and Docker Compose if needed
 if ! type docker > /dev/null; then
-    warn 'Docker not installed'
-    info_b -p 'Install Docker and Docker Compose (Y|n)?: '
+    warn 'Docker is not installed'
+    info_b -p 'Install Docker and Docker Compose? (Y|n): '
     read answer
     if [[ ! $answer =~ [n|N] ]]; then
         info 'Installing Docker and Docker Compose'
@@ -74,6 +74,7 @@ if ! type docker > /dev/null; then
     fi
 fi
 
+geotab_logo
 geo_logo
 echo
 verbose_bi "geo-cli $GEO_CLI_VERSION installed"
