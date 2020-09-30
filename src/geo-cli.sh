@@ -3,13 +3,13 @@
 if [[ `whoami` = 'root' ]]; then echo 'ERROR: Do not run geo as root (sudo)'; exit; fi
 
 # Init geo config directory if it doesn't exist.
-export GEO_CONFIG_DIR="$HOME/.geo-cli"
-[ ! -d $GEO_CONFIG_DIR ] && mkdir -p $GEO_CONFIG_DIR
+export GEO_CLI_CONFIG_DIR="$HOME/.geo-cli"
+[ ! -d $GEO_CLI_CONFIG_DIR ] && mkdir -p $GEO_CLI_CONFIG_DIR
 
 # Init geo config file if it doesn't exist. This file stores key-value settings (i.e. username and password used to
 # initialize geotabdemo database) for geo.
-export GEO_CONF_FILE="$GEO_CONFIG_DIR/.geo.conf"
-[ ! -f $GEO_CONF_FILE ] && touch $GEO_CONF_FILE
+export GEO_CLI_CONF_FILE="$GEO_CLI_CONFIG_DIR/.geo.conf"
+[ ! -f $GEO_CLI_CONF_FILE ] && touch $GEO_CLI_CONF_FILE
 
 # Load all saved key-value settings into the environment.
 while read line; do
@@ -17,9 +17,9 @@ while read line; do
     [[ ${#line} < 3 ]] && continue
     # Expand env vars, then export
     export `eval echo $line`
-done < $GEO_CONF_FILE
+done < $GEO_CLI_CONF_FILE
 
-# [ -z $GEO_REPO_DIR ] && echo REPO DIRECTORY NOT set
+# [ -z $GEO_CLI_REPO_DIR ] && echo REPO DIRECTORY NOT set
 
 # Import cli handlers to get access to all of the command names (through functions calls and the COMMMAND array)
 # . ~/.geo-cli/cli/utils/cli-handlers.sh
@@ -29,8 +29,8 @@ alias d-c='docker-compose'
 alias brc=". ~/.bashrc"
 alias zrc=". ~/.zshrc"
 
-export GEO_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
-export GEO_SRC_DIR="${GEO_CLI_DIR}/src"
+export GEO_CLI_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
+export GEO_CLI_SRC_DIR="${GEO_CLI_CLI_DIR}/src"
 
 # Gives the path of the file that was passed in when the script was executed. Could be relative
 # SOURCE="${BASH_SOURCE[0]}"
@@ -38,11 +38,11 @@ export GEO_SRC_DIR="${GEO_CLI_DIR}/src"
 # echo $SOURCE
 
 # Gets the absolute path of the directory this script is in.
-# export GEO_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" 
+# export GEO_CLI_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" 
 
 # ThisScriptPath="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")" 
 
-. $GEO_SRC_DIR/utils/cli-handlers.sh
+. $GEO_CLI_SRC_DIR/utils/cli-handlers.sh
 
 function geo()
 {
@@ -50,7 +50,7 @@ function geo()
     ( geo_check_for_updates >& /dev/null & )
 
     # Check if the MyGeotab base repo dir has been set.
-    if ! geo_haskey DEVELOPMENT_REPO_DIR && [ "$1 $2" != "init repo" ]; then
+    if ! geo_haskey DEV_REPO_DIR && [ "$1 $2" != "init repo" ]; then
         warn 'MyGeotab repo directory not set.'
         detail 'Fix: Navigate to MyGeotab base repo (Development) directory, then run "geo init repo".'
     fi

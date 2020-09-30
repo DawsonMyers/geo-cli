@@ -1,6 +1,6 @@
 #!/bin/bash
-. $GEO_SRC_DIR/utils/colors.sh
-. $GEO_SRC_DIR/utils/config-file-utils.sh
+. $GEO_CLI_SRC_DIR/utils/colors.sh
+. $GEO_CLI_SRC_DIR/utils/config-file-utils.sh
 
 export IMAGE=geo_cli_db_postgres11
 
@@ -67,7 +67,7 @@ geo_image() {
             ;;
         create )
             status 'Building image...'
-            local dir=`geo_get DEVELOPMENT_REPO_DIR`
+            local dir=`geo_get DEV_REPO_DIR`
             dir="${dir}/Checkmate/Docker/postgres"
             local dockerfile="Debug.Dockerfile"
             pushd "$dir"
@@ -94,15 +94,16 @@ geo_db_doc() {
     doc_cmd_option_desc 'Removes the container and volume associated with the provided version (e.g. 2004).'
     doc_cmd_option 'stop [version]'
     doc_cmd_option_desc 'Stop geo-cli db container.'
-    doc_cmd_option 'ls'
-    doc_cmd_option_desc 'List geo-cli images, containers, and volumes.'
+    doc_cmd_option 'ls [option]'
+    doc_cmd_option_desc 'List geo-cli db containers. Use "-a" as an option to display all geo images, containers, and volumes.'
     doc_cmd_option 'ps'
     doc_cmd_option_desc 'List runner geo-cli containers.'
     doc_cmd_option 'init'
-    doc_cmd_option_desc 'Initialize a running db container with geotabdemo (run automatically when creating a db).'
+    doc_cmd_option_desc 'Initialize a running db container with geotabdemo (runs automatically when creating a db).'
     doc_cmd_examples_title
     doc_cmd_example 'geo db start 2004'
     doc_cmd_example 'geo db rm 2004'
+    doc_cmd_example 'geo db rm *'
     doc_cmd_example 'geo db ls'
 }
 geo_db() {
@@ -407,7 +408,7 @@ function geo_db_init()
         return 1
     fi
 
-    local dev_repo=`geo_get DEVELOPMENT_REPO_DIR`
+    local dev_repo=`geo_get DEV_REPO_DIR`
     path="${dev_repo}/Checkmate/bin/Debug/netcoreapp3.1"
     
     if dotnet "${path}/CheckmateServer.dll" CreateDatabase postgres companyName=geotabdemo administratorUser="$user" administratorPassword="$password" sqluser="$sql_user" sqlpassword="$sql_password"; then
@@ -434,7 +435,7 @@ geo_db_rm()
 }
 
 geo_check_for_dev_repo_dir() {
-    local dev_repo=`geo_get DEVELOPMENT_REPO_DIR`
+    local dev_repo=`geo_get DEV_REPO_DIR`
 
     is_valid_repo_dir() {
         test -d "${1}/Checkmate"
@@ -463,23 +464,19 @@ geo_check_for_dev_repo_dir() {
 
     success "Checkmate directory found"
 
-    geo_set DEVELOPMENT_REPO_DIR "$dev_repo"
+    geo_set DEV_REPO_DIR "$dev_repo"
 }
 
 ###########################################################
 COMMANDS+=('stop')
 geo_stop_doc() {
-    doc_cmd 'stop [db]'
+    doc_cmd 'stop'
+    doc_cmd_desc 'Stops all geo-cli containers'
     doc_cmd_examples_title
-    doc_cmd_example 'geo stop 2002'
+    doc_cmd_example 'geo stop'
 }
 geo_stop() {
-    local container_name="${IMAGE}_${1}"
-    ID=`docker ps -qf "name=$container_name"`
-
-    if [ -n "$ID" ]; then
-        docker stop $ID
-    fi
+    geo_db stop "$1"
 }
 
 geo_is_valid_repo_dir() {
@@ -509,7 +506,7 @@ geo_init() {
                 Error "The current directory does not contain the Development repo since it is missing the Checkmate folder."
                 return
             fi
-            local current_repo_dir=`geo_get DEVELOPMENT_REPO_DIR`
+            local current_repo_dir=`geo_get DEV_REPO_DIR`
             if [[ -n $current_repo_dir ]]; then
                 info_bi "The current Development repo directory is:"
                 info "    $current_repo_dir"
@@ -517,7 +514,7 @@ geo_init() {
                     return
                 fi
             fi
-            geo_set DEVELOPMENT_REPO_DIR "$repo_dir"
+            geo_set DEV_REPO_DIR "$repo_dir"
             status "MyGeotab base repo (Development) path set to:"
             detail "    $repo_dir"
             ;;
@@ -604,13 +601,66 @@ geo_init() {
 #     fi
 # }
 
-###########################################################
+##########################################################
+COMMANDS+=('env')
+geo_env_doc() {
+    doc_cmd 'env <cmd> [arg1] [arg2]'
+    doc_cmd_desc 'Get, set, or list geo environment variable'
+    doc_cmd_options_title
+    
+    doc_cmd_option 'get <env_var>'
+    doc_cmd_option_desc 'Gets the value for the env var'
+    
+    doc_cmd_option 'set <env_var> <value>'
+    doc_cmd_option_desc 'Sets the value for the env var'
+    
+    doc_cmd_option 'ls'
+    doc_cmd_option_desc 'Lists all env vars'
+
+    doc_cmd_examples_title
+    doc_cmd_example 'geo env get DEV_REPO_DIR'
+    doc_cmd_example 'geo env set DEV_REPO_DIR /home/username/repos/Development'
+    doc_cmd_example 'geo env ls'
+}
+geo_env() {
+    if [[ -z $1 ]]; then
+        geo_env_doc
+        return
+    fi
+
+    case $1 in
+        'set' )
+            # Create an array out of the arguments.
+            local args=($@)
+            # Remove the first arg, which is "set".
+            unset "args[0]"
+            # Get the key from the second arg, then remove it from the array.
+            local key="${args[1]}"
+            unset "args[1]"
+            # Get the new value by concatenating the rest of the args together.
+            local value="${args[@]}"
+            geo_set "$key" "$value"
+            ;;
+        'get' )
+            shift
+            geo_get "$2"
+            ;;
+        'ls' )
+            local header=`printf "%-26s %-26s\n" 'Variable' 'Value'`
+            local env_vars=`awk -F= '{ gsub("GEO_CLI_","",$1); printf "%-26s %-26s\n",$1,$2 } ' $GEO_CLI_CONF_FILE`
+            info_bi "$header"
+            data "$env_vars"
+            ;;
+    esac 
+}
+
+# ##########################################################
 # COMMANDS+=('config')
 # geo_config_doc() {
 #     doc_cmd 'set <ENV_VAR> <value>'
 #     doc_cmd_desc 'Set geo environment variable'
 #     doc_cmd_examples_title
-#     doc_cmd_example 'geo set DEVELOPMENT_REPO_DIR /home/username/repos/Development'
+#     doc_cmd_example 'geo set DEV_REPO_DIR /home/username/repos/Development'
 # }
 # geo_config() {
 #     if [[ -z $1 ]]; then
@@ -637,10 +687,10 @@ geo_init() {
 ###########################################################
 COMMANDS+=('set')
 geo_set_doc() {
-    doc_cmd 'set <ENV_VAR> <value>'
+    doc_cmd 'set <env_var> <value>'
     doc_cmd_desc 'Set geo environment variable'
     doc_cmd_examples_title
-    doc_cmd_example 'geo set DEVELOPMENT_REPO_DIR /home/username/repos/Development'
+    doc_cmd_example 'geo set DEV_REPO_DIR /home/username/repos/Development'
 }
 geo_set() {
     # Set value of env var
@@ -648,34 +698,39 @@ geo_set() {
     # $2 - value 
     local key="$1"
     [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
-
-    cfg_write $GEO_CONF_FILE $key $2
-    export $key=$2
+    local old=`cfg_read $GEO_CLI_CONF_FILE "$key"`
+    cfg_write $GEO_CLI_CONF_FILE "$key" "$2"
+    info_bi "$1"
+    info -p '  New value: ' && data "$2"
+    if [[ -n $old ]]; then
+        info -p '  Old value: ' && data "$old"
+    fi
+    export $key="$2"
 }
 
 ###########################################################
 COMMANDS+=('get')
 geo_get_doc() {
-    doc_cmd 'get <ENV_VAR>'
+    doc_cmd 'get <env_var>'
     doc_cmd_desc 'Get geo environment variable.'
 
     doc_cmd_examples_title
-    doc_cmd_example 'geo get DEVELOPMENT_REPO_DIR'
+    doc_cmd_example 'geo get DEV_REPO_DIR'
 }
 geo_get() {
     # Get value of env var
     local key="$1"
     [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
 
-    value=`cfg_read $GEO_CONF_FILE $key`
+    value=`cfg_read $GEO_CLI_CONF_FILE $key`
     [[ -z $value ]] && return
-    echo `cfg_read $GEO_CONF_FILE $key`
+    echo "$value"
 }
 
 geo_haskey() {
     local key="$1"
     [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
-    cfg_haskey $GEO_CONF_FILE $key
+    cfg_haskey $GEO_CLI_CONF_FILE "$key"
 }
 
 ###########################################################
@@ -796,6 +851,8 @@ geo_check_for_updates() {
     # local auto_update=`geo_get AUTO_UPDATE`
     # [[ -z $auto_update ]] && geo_set AUTO_UPDATE true
     # [[ $auto_update = false ]] && return
+
+    [[ ! -d $GEO_CLI_DIR/tmp ]] && mkdir $GEO_CLI_DIR/tmp
 
     pushd $GEO_CLI_DIR/tmp
     # ! git pull > /dev/null && Error 'Unable to pull changes from remote'

@@ -1,21 +1,21 @@
 #!/bin/bash
 # Import config file utils for writing to the geo config file (~/.geo-cli/.geo.conf).
 export GEO_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" 
-export GEO_SRC_DIR="${GEO_CLI_DIR}/src"
+export GEO_CLI_SRC_DIR="${GEO_CLI_DIR}/src"
 
-. $GEO_SRC_DIR/utils/cli-handlers.sh
+. $GEO_CLI_SRC_DIR/utils/cli-handlers.sh
 
-export GEO_CONFIG_DIR=$HOME/.geo-cli
-export GEO_CONF_FILE=$GEO_CONFIG_DIR/.geo.conf
+export GEO_CLI_CONFIG_DIR=$HOME/.geo-cli
+export GEO_CLI_CONF_FILE=$GEO_CLI_CONFIG_DIR/.geo.conf
 
 # Create config dir if it doesn't exist.
-[ ! -d "$GEO_CONFIG_DIR" ] && mkdir -p $GEO_CONFIG_DIR
+[ ! -d "$GEO_CLI_CONFIG_DIR" ] && mkdir -p $GEO_CLI_CONFIG_DIR
 
 # Create .geo.conf file if it doesn't exist. 
 # This file contains environment vars for geo cli.
-[ ! -f "$GEO_CONFIG_DIR/.geo.conf" ] && (cp ./src/config/.geo.conf $GEO_CONFIG_DIR)
+[ ! -f "$GEO_CLI_CONFIG_DIR/.geo.conf" ] && (cp ./src/config/.geo.conf $GEO_CLI_CONFIG_DIR)
 geo_set GEO_CLI_DIR $GEO_CLI_DIR
-geo_set GEO_SRC_DIR $GEO_SRC_DIR
+geo_set GEO_CLI_SRC_DIR $GEO_CLI_SRC_DIR
 
 export GEO_CLI_VERSION=`cat $GEO_CLI_DIR/version.txt`
 geo_set GEO_CLI_VERSION $GEO_CLI_VERSION
