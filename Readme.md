@@ -55,4 +55,129 @@ A simple install (where I already have Docker installed and have created the bas
 
 Now you can open a new terminal or run `. ~/.bashrc` in your current one to begin using `geo`.
 
+## Help
+Get help for a specific command by entering `geo [command] help`.
 
+Example:
+```
+geo db help
+```
+Gives you the following:
+```
+    db
+      Database commands
+        Options:
+            start [version]
+                Starts (creating if neccessary) a versioned db container and volume. If no version
+                is provided, the most recent db version is started.
+            rm, remove <version>
+                Removes the container and volume associated with the provided version (e.g. 2004).
+            stop [version]
+                Stop geo-cli db container.
+            ls [option]
+                List geo-cli db containers. Use "-a" as an option to display all geo images,
+                containers, and volumes.
+            ps
+                List runner geo-cli containers.
+            init
+                Initialize a running db container with geotabdemo (runs automatically when creating
+                a db).
+        Example:
+            geo db start 2004
+            geo db rm 2004
+            geo db rm *
+            geo db ls
+
+```
+
+While running the following results in all help being printed:
+```
+geo help
+```
+```
+Available commands:
+    image
+      Commands for working with db images
+        Options:
+            create
+                Creates the base Postgres image configured to be used with geotabdemo.
+            remove
+                Removes the base Postgres image.
+            ls
+                List existing geo-cli Postgres images.
+        Example:
+            geo image create
+    db
+      Database commands
+        Options:
+            start [version]
+                Starts (creating if neccessary) a versioned db container and volume. If no version
+                is provided, the most recent db version is started.
+            rm, remove <version>
+                Removes the container and volume associated with the provided version (e.g. 2004).
+            stop [version]
+                Stop geo-cli db container.
+            ls [option]
+                List geo-cli db containers. Use "-a" as an option to display all geo images,
+                containers, and volumes.
+            ps
+                List runner geo-cli containers.
+            init
+                Initialize a running db container with geotabdemo (runs automatically when creating
+                a db).
+        Example:
+            geo db start 2004
+            geo db rm 2004
+            geo db rm *
+            geo db ls
+    stop
+      Stops all geo-cli containers
+        Example:
+            geo stop
+    init
+      Initiallize repo directory
+        Options:
+            repo
+                Init Development repo directory using the current directory
+        Example:
+            geo init repo
+    env <cmd> [arg1] [arg2]
+      Get, set, or list geo environment variable
+        Options:
+            get <env_var>
+                Gets the value for the env var
+            set <env_var> <value>
+                Sets the value for the env var
+            ls
+                Lists all env vars
+        Example:
+            geo env get DEV_REPO_DIR
+            geo env set DEV_REPO_DIR /home/username/repos/Development
+            geo env ls
+    set <env_var> <value>
+      Set geo environment variable
+        Example:
+            geo set DEV_REPO_DIR /home/username/repos/Development
+    get <env_var>
+      Get geo environment variable.
+        Example:
+            geo get DEV_REPO_DIR
+    update
+      Update geo to latest version.
+        Example:
+            geo update
+    uninstall
+      Remove geo-cli installation. This prevents geo-cli from being loaded into new bash terminals,
+      but does not remove the geo-cli repo directory. Navigate to the geo-cli repo directory
+      and run 'bash install.sh' to reinstall.
+        Example:
+            geo uninstall
+    version, -v, --version
+      Gets geo-cli version
+        Example:
+            geo version
+    help, -h, --help
+      Prints out help for all commands.
+
+
+```

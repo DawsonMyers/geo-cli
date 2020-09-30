@@ -43,7 +43,7 @@ geo_check_db_image() {
 COMMANDS+=('image')
 geo_image_doc() {
     doc_cmd 'image'
-    doc_cmd_desc 'Commands for working with db images'
+    doc_cmd_desc 'Commands for working with db images.'
     doc_cmd_options_title
     doc_cmd_option 'create'
     doc_cmd_option_desc 'Creates the base Postgres image configured to be used with geotabdemo.'
@@ -86,7 +86,7 @@ geo_image() {
 COMMANDS+=('db')
 geo_db_doc() {
     doc_cmd 'db'
-    doc_cmd_desc 'Database commands'
+    doc_cmd_desc 'Database commands.'
     doc_cmd_options_title
     doc_cmd_option 'start [version]'
     doc_cmd_option_desc 'Starts (creating if neccessary) a versioned db container and volume. If no version is provided, the most recent db version is started.'
@@ -471,7 +471,7 @@ geo_check_for_dev_repo_dir() {
 COMMANDS+=('stop')
 geo_stop_doc() {
     doc_cmd 'stop'
-    doc_cmd_desc 'Stops all geo-cli containers'
+    doc_cmd_desc 'Stops all geo-cli containers.'
     doc_cmd_examples_title
     doc_cmd_example 'geo stop'
 }
@@ -487,11 +487,11 @@ geo_is_valid_repo_dir() {
 COMMANDS+=('init')
 geo_init_doc() {
     doc_cmd 'init'
-    doc_cmd_desc 'Initiallize repo directory'
+    doc_cmd_desc 'Initiallize repo directory.'
 
     doc_cmd_options_title
     doc_cmd_option 'repo'
-    doc_cmd_option_desc 'Init Development repo directory using the current directory'
+    doc_cmd_option_desc 'Init Development repo directory using the current directory.'
     
     doc_cmd_examples_title
     doc_cmd_example 'geo init repo'
@@ -605,17 +605,17 @@ geo_init() {
 COMMANDS+=('env')
 geo_env_doc() {
     doc_cmd 'env <cmd> [arg1] [arg2]'
-    doc_cmd_desc 'Get, set, or list geo environment variable'
+    doc_cmd_desc 'Get, set, or list geo environment variable.'
     doc_cmd_options_title
     
     doc_cmd_option 'get <env_var>'
-    doc_cmd_option_desc 'Gets the value for the env var'
+    doc_cmd_option_desc 'Gets the value for the env var.'
     
     doc_cmd_option 'set <env_var> <value>'
-    doc_cmd_option_desc 'Sets the value for the env var'
+    doc_cmd_option_desc 'Sets the value for the env var.'
     
     doc_cmd_option 'ls'
-    doc_cmd_option_desc 'Lists all env vars'
+    doc_cmd_option_desc 'Lists all env vars.'
 
     doc_cmd_examples_title
     doc_cmd_example 'geo env get DEV_REPO_DIR'
@@ -688,7 +688,7 @@ geo_env() {
 COMMANDS+=('set')
 geo_set_doc() {
     doc_cmd 'set <env_var> <value>'
-    doc_cmd_desc 'Set geo environment variable'
+    doc_cmd_desc 'Set geo environment variable.'
     doc_cmd_examples_title
     doc_cmd_example 'geo set DEV_REPO_DIR /home/username/repos/Development'
 }
@@ -791,7 +791,7 @@ geo_uninstall() {
 COMMANDS+=('version')
 geo_version_doc() {
     doc_cmd 'version, -v, --version'
-    doc_cmd_desc 'Gets geo-cli version'
+    doc_cmd_desc 'Gets geo-cli version.'
     
     doc_cmd_examples_title
     doc_cmd_example 'geo version'
@@ -984,7 +984,7 @@ fmt_text() {
     local indent_len=0
     local indent_str=' '
     # Replace 2 or more spaces with a single space and \n with a single space.
-    local txt=$(echo $1 | sed -E 's/ {2,}/ /g' | tr '\n' ' ')
+    local txt=$(echo "$1" | sed -E 's/ {2,}/ /g' | tr '\n' ' ')
     # Check if args 2 and 3 were provided.
     [ "$2" ] && indent=$2
     [ "$3" ] && indent_str=$3
@@ -1007,7 +1007,7 @@ fmt_text() {
     sed_pattern+="/g"
     # Text is piped into fmt to format the text to the correct width, then
     # indented using the sed substitution.
-    echo $txt | fmt -w $width | sed "$sed_pattern"
+    echo "$txt" | fmt -w $width | sed "$sed_pattern"
     # echo $1 | fmt -w $width | sed "s/^/$(printf '$%.0s' `seq 1 $indent`)/g"
 }
 
