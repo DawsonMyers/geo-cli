@@ -18,7 +18,7 @@ geo_set GEO_CLI_DIR $GEO_CLI_DIR
 geo_set GEO_CLI_SRC_DIR $GEO_CLI_SRC_DIR
 
 export GEO_CLI_VERSION=`cat $GEO_CLI_DIR/version.txt`
-geo_set GEO_CLI_VERSION $GEO_CLI_VERSION
+geo_set GEO_CLI_VERSION "$GEO_CLI_VERSION"
 geo_set OUTDATED false
 
 # Remove previous aliases/config from ~/.profile for geo command.
