@@ -122,7 +122,7 @@ geo_db() {
             
             if [[ $2 = -a ]]; then
                 echo
-                docker container ls -a -f name=geo_cli
+                # docker container ls -a -f name=geo_cli
                 geo_db_ls_images
                 echo
                 geo_db_ls_volumes
@@ -294,7 +294,7 @@ geo_db_ls_images() {
 }
 geo_db_ls_containers() {
     info DB Containers
-    docker container ls -a -f name=geo_cli
+    # docker container ls -a -f name=geo_cli
     if [[ $1 = -a ]]; then
         docker container ls -a -f name=geo_cli
         return
@@ -639,7 +639,7 @@ geo_env() {
             unset "args[1]"
             # Get the new value by concatenating the rest of the args together.
             local value="${args[@]}"
-            geo_set "$key" "$value"
+            geo_set -s "$key" "$value"
             ;;
         'get' )
             shift
@@ -696,14 +696,22 @@ geo_set() {
     # Set value of env var
     # $1 - name of env var in conf file
     # $2 - value 
+    local show_status=false
+    [[ $1 == -s ]] && show_status=true && shift
+
     local key="$1"
     [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
+
     local old=`cfg_read $GEO_CLI_CONF_FILE "$key"`
+
     cfg_write $GEO_CLI_CONF_FILE "$key" "$2"
-    info_bi "$1"
-    info -p '  New value: ' && data "$2"
-    if [[ -n $old ]]; then
-        info -p '  Old value: ' && data "$old"
+    
+    if [[ $show_status == true ]]; then
+        info_bi "$1"
+        info -p '  New value: ' && data "$2"
+        if [[ -n $old ]]; then
+            info -p '  Old value: ' && data "$old"
+        fi
     fi
     export $key="$2"
 }
@@ -852,28 +860,32 @@ geo_check_for_updates() {
     # [[ -z $auto_update ]] && geo_set AUTO_UPDATE true
     # [[ $auto_update = false ]] && return
 
-    [[ ! -d $GEO_CLI_DIR/tmp ]] && mkdir $GEO_CLI_DIR/tmp
+    # local tmp=/tmp/geo-cli
 
-    pushd $GEO_CLI_DIR/tmp
+    # [[ ! -d $tmp ]] && mkdir $tmp
+
+    # pushd $tmp
     # ! git pull > /dev/null && Error 'Unable to pull changes from remote'
-    local v_remote
+    local v_remote=`git archive --remote=git@git.geotab.com:dawsonmyers/geo-cli.git HEAD version.txt | tar -xO`
+
     #  Outputs contents of version.txt to stdout
     #  git archive --remote=git@git.geotab.com:dawsonmyers/geo-cli.git HEAD version.txt | tar -xO
 
     # if ! v_repo=`git archive --remote=git@git.geotab.com:dawsonmyers/geo-cli.git HEAD version.txt | tar -xO`; then
-    if ! `git archive --remote=git@git.geotab.com:dawsonmyers/geo-cli.git HEAD version.txt | tar -x`; then
+    if [[ -z $v_remote ]]; then
         Error 'Unable to pull geo-cli remote version'
         v_remote='0.0.0'
     else
-        v_remote=`cat version.txt`
         geo_set REMOTE_VERSION "$v_remote"
     fi
-    popd
+    # popd
 
     # The sed cmds filter out any colour codes that might be in the text
-    # local v_current=`geo_get VERSION  | sed -r "s/[[:cntrl:]]\[[0-9]{1,3}m//g"`
-    local v_current=`cat "$GEO_CLI_DIR/version.txt"`
-
+    local v_current=`geo_get VERSION` #  | sed -r "s/[[:cntrl:]]\[[0-9]{1,3}m//g"`
+    if [[ -z $v_current ]]; then
+        v_current=`cat "$GEO_CLI_DIR/version.txt"`
+        geo_set VERSION "$v_current"
+    fi
     # ver converts semver to int (e.g. 1.2.3 => 001002003) so that it can easliy be compared
     if [ `ver $v_current` -lt `ver $v_remote` ]; then
         geo_set OUTDATED true
