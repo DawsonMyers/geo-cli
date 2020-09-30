@@ -4,7 +4,7 @@ A tool that makes MyGeotab development easier. Specifically, this tool aims to s
 > `geo-cli` is only supported on Ubuntu.
 
 ## Example
-Lets say that you're developing a new feature on a `2004` branch of MyGeotab, but have to switch to a `2002` branch for a high priority bug fix that requires the use of `geotabdemo` (or any compatible database, for that matter). Switching to a compatible database is as simple as checking out the branch, **building project** (only required when creating a new db container), and then running the following in a terminal:
+Lets say that you're developing a new feature on a `2004` branch of MyGeotab, but have to switch to a `2002` branch for a high priority bug fix that requires the use of `geotabdemo` (or any compatible database, for that matter). Switching to a compatible database is as simple as checking out the branch, **building the project** (only required when creating a new db container), and then running the following in a terminal:
 ```bash
 geo db start 2002
 ```
