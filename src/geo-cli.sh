@@ -124,6 +124,7 @@ function geo()
     # requested. So run the command.
     "geo_${cmd}" $1 $2 $3 $4 $5 $6 $7 $8 
     
-    geo_show_msg_if_outdated
+    # Don't show outdated msg if update was just run.
+    [[ $cmd != update ]] && geo_show_msg_if_outdated
 }
 

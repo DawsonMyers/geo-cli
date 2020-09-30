@@ -5,15 +5,15 @@ export GEO_CLI_SRC_DIR="${GEO_CLI_DIR}/src"
 
 . $GEO_CLI_SRC_DIR/utils/cli-handlers.sh
 
-export GEO_CLI_CONFIG_DIR=$HOME/.geo-cli
-export GEO_CLI_CONF_FILE=$GEO_CLI_CONFIG_DIR/.geo.conf
+export GEO_CLI_CONFIG_DIR="$HOME/.geo-cli"
+export GEO_CLI_CONF_FILE="$GEO_CLI_CONFIG_DIR/.geo.conf"
 
 # Create config dir if it doesn't exist.
 [ ! -d "$GEO_CLI_CONFIG_DIR" ] && mkdir -p $GEO_CLI_CONFIG_DIR
 
 # Create .geo.conf file if it doesn't exist. 
 # This file contains environment vars for geo cli.
-[ ! -f "$GEO_CLI_CONFIG_DIR/.geo.conf" ] && (cp ./src/config/.geo.conf $GEO_CLI_CONFIG_DIR)
+[ ! -f "$GEO_CLI_CONFIG_DIR/.geo.conf" ] && (cp $GEO_CLI_SRC_DIR/config/.geo.conf $GEO_CLI_CONFIG_DIR)
 geo_set GEO_CLI_DIR $GEO_CLI_DIR
 geo_set GEO_CLI_SRC_DIR $GEO_CLI_SRC_DIR
 
