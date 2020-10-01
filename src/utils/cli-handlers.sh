@@ -91,13 +91,14 @@ geo_db_doc() {
     doc_cmd_options_title
 
     doc_cmd_option 'start [option] [name]'
-    doc_cmd_option_desc 'Starts (creating if neccessary) a versioned db container and volume. If no name is provided, the most recent db container name is started.'
-    doc_cmd_sub_options_title
-    doc_cmd_sub_option '--no-init'
-    doc_cmd_sub_option_desc 'Does not install geotabdemo in the new database.'
+    doc_cmd_option_desc 'Starts (creating if neccessary) a versioned db container and volume. If no name is provided, 
+                         the most recent db container name is started.'
 
     doc_cmd_option 'rm, remove <version>'
     doc_cmd_option_desc 'Removes the container and volume associated with the provided version (e.g. 2004).'
+    doc_cmd_sub_options_title
+    doc_cmd_sub_option '-a, --all'
+    doc_cmd_sub_option_desc 'Remove all db containers and volumes.'
 
     doc_cmd_option 'stop [version]'
     doc_cmd_option_desc 'Stop geo-cli db container.'
@@ -105,19 +106,20 @@ geo_db_doc() {
     doc_cmd_option 'ls [option]'
     doc_cmd_option_desc 'List geo-cli db containers.'
     doc_cmd_sub_options_title
-    doc_cmd_sub_option '-a'
+    doc_cmd_sub_option '-a, --all'
     doc_cmd_sub_option_desc 'Display all geo images, containers, and volumes.'
 
     doc_cmd_option 'ps'
-    doc_cmd_option_desc 'List runner geo-cli containers.'
+    doc_cmd_option_desc 'List running geo-cli db containers.'
 
     doc_cmd_option 'init'
-    doc_cmd_option_desc 'Initialize a running db container with geotabdemo (runs automatically when creating a db).'
+    doc_cmd_option_desc 'Initialize a running db container with geotabdemo or an empty db with a custom name.'
 
     doc_cmd_examples_title
     doc_cmd_example 'geo db start 2004'
+    doc_cmd_example 'geo db create 2004'
     doc_cmd_example 'geo db rm 2004'
-    doc_cmd_example 'geo db rm *'
+    doc_cmd_example 'geo db rm --all'
     doc_cmd_example 'geo db ls'
 }
 geo_db() {
@@ -134,7 +136,7 @@ geo_db() {
         ls )
             geo_db_ls_containers
             
-            if [[ $2 = -a ]]; then
+            if [[ $2 =~ ^-*a(ll)? ]]; then
                 echo
                 # docker container ls -a -f name=geo_cli
                 geo_db_ls_images
@@ -191,27 +193,60 @@ geo_db() {
                 return
             fi
 
-            if [[ $db_version = '*' ]]; then
-                prompt_continue "Do you want to remove all db contaners? (Y|n): " || return
-                # Get list of contianer names
-                names=`docker container ls -a -f name=geo_cli --format "{{.Names}}"`
-                for name in "$names"; do
-                    # Remove image prefix from container name; leaving just the version/identier (e.g. geo_cli_db_postgres11_2008 => 2008).
-                    geo_db_rm "${name#${IMAGE}_}"
-                done
+            geo_db_rm "$2" "$3"
+            return
+            ;;
+        create )
+            local silent=false
+            if [[ $2 == '-s' ]]; then
+                silent=true
+                shift
+            fi
+
+            db_version="$2"
+            if [ -z "$db_version" ]; then
+                Error "No database version provided."
                 return
             fi
 
-            geo_db_rm "$db_version"
-            return
-            ;;
-        # create )
-        start )
-            local no_init=false
-            if [[ $2 == '--no-init' ]]; then
-                no_init=true
-                shift
+            local container_name=`geo_container_name "$db_version"`
+
+            if geo_container_exists $container_name; then
+                Error 'Container already exists'
+                return 1
             fi
+
+            if ! geo_check_db_image; then
+                Error "Cannot create db without image. Run 'geo image create' to create a db image"
+                return 1
+            fi
+
+            prompt_continue "Create db container with name `txt_underline ${db_version}`? (Y|n): " || return
+            
+            status_bi "Creating volume:"
+            status "  NAME: $container_name"
+            docker volume create "$container_name" > /dev/null \
+                && success 'OK' || (Error 'Failed to create volume' && return 1)
+            
+            status_bi "Creating container:"
+            status "  NAME: $container_name"
+            # docker run -v $container_name:/var/lib/postgresql/11/main -p 5432:5432 --name=$container_name -d $IMAGE > /dev/null && success OK
+            local vol_mount="$container_name:/var/lib/postgresql/11/main"
+            local port=5432:5432
+            docker create -v $vol_mount -p $port --name=$container_name $IMAGE > /dev/null \
+                && success 'OK' || (Error 'Failed to create volume' && return 1)
+
+            if [[ $silent == false ]]; then
+                info "Start your new db with `txt_underline geo db start $db_version`"
+                info "Initialize it with `txt_underline geo db init $db_version`"
+            fi
+            ;;
+        start )
+            # local no_init=false
+            # if [[ $2 == '--no-init' ]]; then
+            #     no_init=true
+            #     shift
+            # fi
             
             db_version="$2"
             if [ -z "$db_version" ]; then
@@ -241,7 +276,7 @@ geo_db() {
             local container_id=`docker ps -aqf "name=$container_name"`
             local volume_created=false
 
-            if [ -n "$container_id" ]; then
+            if [[ -n $container_id ]]; then
                 
                 status_bi "Starting existing container:"
                 status "  ID: $container_id"
@@ -267,20 +302,13 @@ geo_db() {
                 db_version="$2"
                 prompt_continue "Db container ${db_version} doesn't exist. Would you like to create it? (Y|n): " || return
                 
-                if [ -z "$volume" ]; then
-                    status_bi "Creating volume: $container_name"
-                    docker volume create "$container_name" > /dev/null 
-                    success OK
-                    volume_created=true
-                fi
+                geo_db create -s "$db_version" \
+                    && success 'db created' || (Error 'Failed to create db' && return 1)
                 
-                status_bi "Creating container:"
-                status "  NAME: $container_name"
-                # docker run -v $container_name:/var/lib/postgresql/11/main -p 5432:5432 --name=$container_name -d $IMAGE > /dev/null && success OK
                 local vol_mount="$container_name:/var/lib/postgresql/11/main"
                 local port=5432:5432
                 output=`docker run -v $vol_mount -p $port --name=$container_name -d $IMAGE 2>&1 | grep 'listen tcp 0.0.0.0:5432: bind: address already in use'`
-
+                debug "$output"
                 if [[ -n $output ]]; then
                     Error "Port 5432 is already in use."
                     info "Fix: Stop postgresql"
@@ -296,14 +324,10 @@ geo_db() {
                     fi
                 fi
 
-                if [[ $no_init == true ]]; then
-                    status 'Skipping getabdemo installation'
+                if prompt_continue 'Would you like to initialize the db? (Y|n): '; then
+                    geo_db_init
                 else
-                    if [[ $volume_created = true ]]; then
-                        status_bi "Waiting for container to start..."
-                        sleep 10
-                        geo_db_init
-                    fi
+                    info "Initialize a running db anytime using 'geo db init'"
                 fi
             fi
             success OK
@@ -335,6 +359,17 @@ geo_db_ls_volumes() {
     docker volume ls -f name=geo_cli
 }
 
+geo_get_container_id() {
+    local name=$1
+    [[ -z $name ]] && name="$IMAGE*"
+    echo `docker container ls -a --filter name="$name" -aq`
+}
+
+geo_container_exists() {
+    local name=`geo_get_container_id "$1"`
+    [[ -n $name ]]
+}
+
 geo_get_running_container_id() {
     local name=$1
     [[ -z $name ]] && name="$IMAGE*"
@@ -356,7 +391,44 @@ geo_check_docker_permissions() {
 
 function geo_db_init()
 {
-    status_bi 'Initializing geotabdemo'
+    local container_id=`geo_get_running_container_id`
+    if [[ -z $container_id ]]; then
+        Error 'No geo-cli containers are running to initialize.'
+        info "Run `txt_underline geo db ls` to view available containers and `txt_underline geo db start <name>` to start one"
+        return 1
+    fi
+    local db_name='geotabdemo'
+    status 'A db can be initialized with geotabdemo or with a custom db name (just creates an empty database with provided name).'
+    if ! prompt_continue 'Would you like to initialize the db with geotabdemo? (Y|n): '; then
+        stored_name=`geo_get PREV_DB_NAME`
+        prompt_txt='Enter the name of the db you would like to create: '
+        if [[ -n $stored_name ]]; then
+            data "Stored db name: $stored_name"
+            if ! prompt_continue 'Use stored db name? (Y|n): '; then
+                prompt_for_info_n "$prompt_txt"
+                while ! prompt_continue "Create db called '$prompt_return'? (Y|n): "; do
+                    prompt_for_info_n "$prompt_txt"
+                done
+                db_name="$prompt_return"
+            else
+                db_name="$stored_name"
+            fi
+        else
+            prompt_for_info_n "$prompt_txt"
+            while ! prompt_continue "Create db called '$prompt_return'? (Y|n): "; do
+                prompt_for_info_n "$prompt_txt"
+            done
+            db_name="$prompt_return"
+        fi
+        geo_set PREV_DB_NAME "$db_name"
+    fi
+
+    if [[ -z $db_name ]]; then
+        Error 'Db name cannot be empty'
+        return 1
+    fi
+
+    status_bi "Initializing db $db_name"
     local user=`geo_get DB_USER`
     local password=`geo_get DB_PASSWORD`
     local sql_user=`geo_get SQL_USER`
@@ -427,18 +499,19 @@ function geo_db_init()
     # path=$HOME/repos/MyGeotab/Checkmate/bin/Debug/netcoreapp3.1
 
     if ! geo_check_for_dev_repo_dir; then
-        Error "Unable to init db with geotabdemo. Run 'geo db init' to try again on a running db container."
+        Error "Unable to init db: can't find CheckmateServer.dll. Run 'geo db init' to try again on a running db container."
         return 1
     fi
 
     local dev_repo=`geo_get DEV_REPO_DIR`
     path="${dev_repo}/Checkmate/bin/Debug/netcoreapp3.1"
     
-    if dotnet "${path}/CheckmateServer.dll" CreateDatabase postgres companyName=geotabdemo administratorUser="$user" administratorPassword="$password" sqluser="$sql_user" sqlpassword="$sql_password"; then
-        success geotabdebo installed
+    if dotnet "${path}/CheckmateServer.dll" CreateDatabase postgres companyName="$db_name" administratorUser="$user" administratorPassword="$password" sqluser="$sql_user" sqlpassword="$sql_password"; then
+        success "$db_name initialized"
     else
-        Error 'Failed to initialize geotabdemo on contianer'
+        Error 'Failed to initialize db'
         error 'Have you built the assembly for the current branch?'
+        return 1
     fi
     
 }
@@ -449,11 +522,58 @@ geo_container_name() {
 
 geo_db_rm()
 {
-    local container_name=`geo_container_name $1`
-    local container_id=`docker ps -aqf "name=$container_name"`
-    [ -n "$container_id" ] && docker stop $container_id > /dev/null && success "Container stopped"
-    docker container rm $container_name > /dev/null  && success "Container $1 removed"
-    docker volume rm $container_name > /dev/null && success "Volume $1 removed"
+    if [[ $1 =~ ^-*a(ll)? ]]; then
+        prompt_continue "Do you want to remove all db contaners? (Y|n): " || return
+        # Get list of contianer names
+        names=`docker container ls -a -f name=geo_cli --format "{{.Names}}"`
+        # ids=`docker container ls -a -f name=geo_cli --format "{{.ID}}"`
+        # echo "$ids" | xargs docker container rm 
+        local fail_count=0
+        for name in $names; do
+            # Remove image prefix from container name; leaving just the version/identier (e.g. geo_cli_db_postgres11_2008 => 2008).
+            geo_db_rm -n "$name" || ((fail_count++))
+            
+            # geo_db_rm "${name#${IMAGE}_}"
+            # echo "${name#${IMAGE}_}"
+        done
+        local num_dbs=`echo "$names" | wc -l`
+        num_dbs=$((num_dbs-fail_count))
+        success "Removed $num_dbs dbs"
+        [[ fail_count > 0 ]] && error "Failed to remove $fail_count dbs"
+        return
+    fi
+
+    local container_name
+    local db_name="$1"
+    if [[ $1 == -n ]]; then
+        container_name="$2"
+        db_name="${2#${IMAGE}_}"
+        shift
+    else
+        container_name=`geo_container_name "$1"`
+    fi
+
+    local container_id=`geo_get_running_container_id "$container_name"`
+
+    if [[ -n "$container_id" ]]; then
+        docker stop $container_id > /dev/null && success "Container stopped"
+    fi
+
+    # container_name=bad
+
+    if docker container rm $container_name > /dev/null; then
+        success "Container $db_name removed"
+    else
+        Error "Could not remove container $container_name"
+        return 1
+    fi
+
+    if docker volume rm $container_name > /dev/null; then
+        success "Volume $db_name removed"
+    else
+        Error "Could not remove volume $container_name"
+        return 1
+    fi
 
 }
 
@@ -821,11 +941,11 @@ geo_uninstall() {
 ###########################################################
 COMMANDS+=('analyze')
 geo_analyze_doc() {
-    doc_cmd 'version, -v, --version'
-    doc_cmd_desc 'Gets geo-cli version.'
+    doc_cmd 'analyze'
+    doc_cmd_desc 'Allows you to select and run various pre-build analyzers.'
     
     doc_cmd_examples_title
-    doc_cmd_example 'geo version'
+    doc_cmd_example 'geo analyze'
 }
 geo_analyze() {
     MYG_TEST_PROJ='Checkmate/MyGeotab.Core.Tests/MyGeotab.Core.Tests.csproj'
@@ -842,19 +962,31 @@ geo_analyze() {
     local len=${#analyzers[@]}
     local name=0
     local proj=1
+    data_header "`printf '%-4s %-30s\n' ID Name`"
     for (( i = 0; i < len; i++ )); do
         # analyzer
         read -r -a analyzer <<< "${analyzers[$i]}"
         printf '%-4d %-30s\n' $i "${analyzer[$name]}" 
         # "${analyzer[$proj]}"
     done
-    prompt_for_info 'Enter the analyzer IDs that you would like to run (separated by spaces): '
+    local dev_repo=`geo_get DEV_REPO_DIR`
+
+    # path="${dev_repo}/Checkmate/bin/Debug/netcoreapp3.1"
+    
+    
+    prompt_for_info_n 'Enter the analyzer IDs that you would like to run (separated by spaces): '
+    pushd "$dev_repo"
     for id in $prompt_return; do
-        echo $id
+        # echo $id
         read -r -a analyzer <<< "${analyzers[$id]}"
-        echo "${analyzers[$name]}"
+        ANALYZER_NAME="${analyzer[$name]}"
+        ANALYZER_PROJ="${analyzer[$proj]}"
+        status_bi "Running $ANALYZER_NAME"
+        dotnet build -p:DebugAnalyzers=${ANALYZER_NAME} -p:TreatWarningsAsErrors=false ${ANALYZER_PROJ} && success 'Done'
     done
-    # dotnet build -p:DebugAnalyzers=${ANALYZER_NAME} -p:TreatWarningsAsErrors=false ${ANALYZER_PROJ}
+    popd
+    # dotnet "${path}/CheckmateServer.dll" 
+    # 
 }
 
 ###########################################################
@@ -906,7 +1038,7 @@ geo_help() {
 cmd_exists() {
     cmd=$(echo "${COMMANDS[@]}" | tr ' ' '\n' | grep -E "`echo ^$1\$`")
     echo $cmd
-    [ -z $cmd ] && return 1
+    [[ -n $cmd ]]
 }
 
 # Docker Compose using the geo config file
@@ -961,14 +1093,7 @@ geo_check_for_updates() {
 
 geo_is_outdated() {
     outdated=`geo_get OUTDATED`
-    # [ -z $outdated ] && outdated=false
-    # debug "o=$outdated"
-    if [[ $outdated =~ true ]]; then
-        # debug outdated
-        return
-    else
-        return 1
-    fi
+    [[ $outdated =~ true ]]
 }
 
 # This was a lot of work to get working right. There were issues with comparing
@@ -1140,10 +1265,7 @@ red() {
     echo -e "${Red}$@${Off}"
 }
 
-# ✘
-Error() {
-    echo -e "❌  ${BIRed}Error: $@${Off}"
-}
+
 
 make_logger_function warn Red
 make_logger_function error Red
@@ -1163,7 +1285,17 @@ make_logger_function yellow Yellow
 make_logger_function green Green
 make_logger_function white White
 
+# ✘
+Error() {
+    echo -e "❌  ${BIRed}Error: $@${Off}"
+}
+error() {
+    echo -e "❌  ${BIRed}$@${Off}"
+}
 
+data_header() {
+    echo -e "${BIGreen}$@${Off}"
+}
 
 success() {
     echo -e "${BIGreen}✔️   $@${Off}"
@@ -1254,7 +1386,7 @@ doc_cmd_sub_option_desc() {
 prompt_continue_or_exit() {
     prompt_n "Do you want to continue? (Y|n): "
     read answer
-    [[ "$answer" =~ [nN] ]] && return 1 || return 0
+    [[ ! $answer =~ [nN] ]]
 }
 prompt_continue() {
     if [[ -z $1 ]]; then
@@ -1263,7 +1395,7 @@ prompt_continue() {
         prompt_n "$1"
     fi
     read answer
-    [[ "$answer" =~ [nN] ]] && return 1 || return 0
+    [[ ! $answer =~ [nN] ]]
 }
 prompt_for_info() {
     prompt "$1"

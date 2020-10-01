@@ -57,7 +57,7 @@ function geo()
 
     # Save the first argument in cmd var, then shift all other args.
     # So the 2nd arg becomes the 1st, 3rd becomes the 2nd, and so on.
-    cmd=$1
+    cmd="$1"
     shift
 
     # Display help for all commands and quit if it was requested.
@@ -122,7 +122,7 @@ function geo()
 
     # At this point we know that the command is valid and command help isn't being 
     # requested. So run the command.
-    "geo_${cmd}" $1 $2 $3 $4 $5 $6 $7 $8 
+    "geo_${cmd}" "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" 
     
     # Don't show outdated msg if update was just run.
     [[ $cmd != update ]] && geo_show_msg_if_outdated
