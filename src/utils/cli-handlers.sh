@@ -87,19 +87,33 @@ COMMANDS+=('db')
 geo_db_doc() {
     doc_cmd 'db'
     doc_cmd_desc 'Database commands.'
+
     doc_cmd_options_title
-    doc_cmd_option 'start [version]'
-    doc_cmd_option_desc 'Starts (creating if neccessary) a versioned db container and volume. If no version is provided, the most recent db version is started.'
+
+    doc_cmd_option 'start [option] [name]'
+    doc_cmd_option_desc 'Starts (creating if neccessary) a versioned db container and volume. If no name is provided, the most recent db container name is started.'
+    doc_cmd_sub_options_title
+    doc_cmd_sub_option '--no-init'
+    doc_cmd_sub_option_desc 'Does not install geotabdemo in the new database.'
+
     doc_cmd_option 'rm, remove <version>'
     doc_cmd_option_desc 'Removes the container and volume associated with the provided version (e.g. 2004).'
+
     doc_cmd_option 'stop [version]'
     doc_cmd_option_desc 'Stop geo-cli db container.'
+
     doc_cmd_option 'ls [option]'
-    doc_cmd_option_desc 'List geo-cli db containers. Use "-a" as an option to display all geo images, containers, and volumes.'
+    doc_cmd_option_desc 'List geo-cli db containers.'
+    doc_cmd_sub_options_title
+    doc_cmd_sub_option '-a'
+    doc_cmd_sub_option_desc 'Display all geo images, containers, and volumes.'
+
     doc_cmd_option 'ps'
     doc_cmd_option_desc 'List runner geo-cli containers.'
+
     doc_cmd_option 'init'
     doc_cmd_option_desc 'Initialize a running db container with geotabdemo (runs automatically when creating a db).'
+
     doc_cmd_examples_title
     doc_cmd_example 'geo db start 2004'
     doc_cmd_example 'geo db rm 2004'
@@ -193,6 +207,12 @@ geo_db() {
             ;;
         # create )
         start )
+            local no_init=false
+            if [[ $2 == '--no-init' ]]; then
+                no_init=true
+                shift
+            fi
+            
             db_version="$2"
             if [ -z "$db_version" ]; then
                 db_version=`geo_get LAST_DB_VERSION`
@@ -265,7 +285,7 @@ geo_db() {
                     Error "Port 5432 is already in use."
                     info "Fix: Stop postgresql"
                     if prompt_continue "Do you want to try to stop the postgresql service? (Y|n): "; then
-                        sudo service postgresql stop
+                        sudo service postgresql stop && success 'postgresql service stopped'
                         sleep 2
                         status_bi "Trying to start new container"
                         output=`docker run -v $vol_mount -p $port --name=$container_name -d $IMAGE 2>&1 | grep 'listen tcp 0.0.0.0:5432: bind: address already in use'`
@@ -273,14 +293,17 @@ geo_db() {
                             Error "Port 5432 is still in use. It's not possible to start a db container until this port is available."
                             return 1
                         fi
-                        success OK
                     fi
                 fi
 
-                if [[ $volume_created = true ]]; then
-                    status_bi "Waiting for container to start..."
-                    sleep 10
-                    geo_db_init
+                if [[ $no_init == true ]]; then
+                    status 'Skipping getabdemo installation'
+                else
+                    if [[ $volume_created = true ]]; then
+                        status_bi "Waiting for container to start..."
+                        sleep 10
+                        geo_db_init
+                    fi
                 fi
             fi
             success OK
@@ -324,7 +347,7 @@ geo_check_docker_permissions() {
         Error "The current user does not have permission to use the docker command."
         info "Fix: Add the current user to the docker group."
         if prompt_n 'Would you like to fix this now? (Y|n): '; then
-            sudo usermod -a -G docker $USER
+            sudo usermod -a -G docker "$USER"
             warn 'You must completely log out of you account and then log back in again for the changes to take effect.'
         fi
         return 1
@@ -412,7 +435,7 @@ function geo_db_init()
     path="${dev_repo}/Checkmate/bin/Debug/netcoreapp3.1"
     
     if dotnet "${path}/CheckmateServer.dll" CreateDatabase postgres companyName=geotabdemo administratorUser="$user" administratorPassword="$password" sqluser="$sql_user" sqlpassword="$sql_password"; then
-        success OK
+        success geotabdebo installed
     else
         Error 'Failed to initialize geotabdemo on contianer'
         error 'Have you built the assembly for the current branch?'
@@ -796,6 +819,45 @@ geo_uninstall() {
 }
 
 ###########################################################
+COMMANDS+=('analyze')
+geo_analyze_doc() {
+    doc_cmd 'version, -v, --version'
+    doc_cmd_desc 'Gets geo-cli version.'
+    
+    doc_cmd_examples_title
+    doc_cmd_example 'geo version'
+}
+geo_analyze() {
+    MYG_TEST_PROJ='Checkmate/MyGeotab.Core.Tests/MyGeotab.Core.Tests.csproj'
+    MYG_CORE_PROJ='Checkmate/MyGeotab.Core.csproj'
+    analyzers=(
+        "CSharp.CodeStyle $MYG_TEST_PROJ"
+        "Threading.Analyzers $MYG_TEST_PROJ"
+        "SecurityCodeScan $MYG_CORE_PROJ"
+        "CodeAnalysis.FxCopAnalyzer $MYG_TEST_PROJ"
+        "StyleCop.Analyzers $MYG_CORE_PROJ"
+        "Roslynator.Analyzers $MYG_TEST_PROJ"
+        "Meziantou.Analyzer $MYG_TEST_PROJ"
+    )
+    local len=${#analyzers[@]}
+    local name=0
+    local proj=1
+    for (( i = 0; i < len; i++ )); do
+        # analyzer
+        read -r -a analyzer <<< "${analyzers[$i]}"
+        printf '%-4d %-30s\n' $i "${analyzer[$name]}" 
+        # "${analyzer[$proj]}"
+    done
+    prompt_for_info 'Enter the analyzer IDs that you would like to run (separated by spaces): '
+    for id in $prompt_return; do
+        echo $id
+        read -r -a analyzer <<< "${analyzers[$id]}"
+        echo "${analyzers[$name]}"
+    done
+    # dotnet build -p:DebugAnalyzers=${ANALYZER_NAME} -p:TreatWarningsAsErrors=false ${ANALYZER_PROJ}
+}
+
+###########################################################
 COMMANDS+=('version')
 geo_version_doc() {
     doc_cmd 'version, -v, --version'
@@ -1080,7 +1142,7 @@ red() {
 
 # ✘
 Error() {
-    echo -e "❌ ${BIRed}Error: $@${Off}"
+    echo -e "❌  ${BIRed}Error: $@${Off}"
 }
 
 make_logger_function warn Red
@@ -1104,7 +1166,7 @@ make_logger_function white White
 
 
 success() {
-    echo -e "${BIGreen}✔️ $@${Off}"
+    echo -e "${BIGreen}✔️   $@${Off}"
 }
 
 prompt() {
@@ -1160,6 +1222,7 @@ doc_cmd_options_title() {
     info_i "$txt"
     # data_bi "$txt"
 }
+
 doc_cmd_option() {
     local indent=12
     local txt=$(fmt_text "$@" $indent)
@@ -1167,6 +1230,23 @@ doc_cmd_option() {
 }
 doc_cmd_option_desc() {
     local indent=16
+    local txt=$(fmt_text "$@" $indent)
+    data "$txt"
+}
+
+doc_cmd_sub_options_title() {
+    local indent=18
+    local txt=$(fmt_text "Options:" $indent)
+    info "$txt"
+    # data_bi "$txt"
+}
+doc_cmd_sub_option() {
+    local indent=20
+    local txt=$(fmt_text "$@" $indent)
+    verbose "$txt"
+}
+doc_cmd_sub_option_desc() {
+    local indent=22
     local txt=$(fmt_text "$@" $indent)
     data "$txt"
 }
@@ -1187,13 +1267,13 @@ prompt_continue() {
 }
 prompt_for_info() {
     prompt "$1"
-    read answer
-    echo $answer
+    read prompt_return
+    # echo $answer
 }
 prompt_for_info_n() {
     prompt_n "$1"
-    read answer
-    echo $answer
+    read prompt_return
+    # echo $answer
 }
 
 geo_logo() {

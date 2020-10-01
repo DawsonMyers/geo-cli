@@ -1,4 +1,6 @@
 CHECK_MARK="\033[0;32m\xE2\x9C\x94\033[0m"
+EMOJI_CHECK_MARK=✔️
+EMOJI_RED_X=❌
 
 # Reset
 Off='\033[0m'       # Text Reset
@@ -12,6 +14,19 @@ Blue='\033[0;34m'         # Blue
 Purple='\033[0;35m'       # Purple
 Cyan='\033[0;36m'         # Cyan
 White='\033[0;37m'        # White
+
+# 256 colors (only supported by vte terminals)
+
+for i in {1..256}; do
+    eval "VTE_Color_${i}=\"\e[38;5;${i}m\""
+done
+
+display_vte_colors() {
+    for i in {1..256}; do
+        printf '%-5s' `echo -en "\e[38;5;${i}m ${i} "`
+        (( i % 8 == 0 )) && echo
+    done
+}
 
 # Bold
 BBlack='\033[1;30m'       # Black
@@ -72,6 +87,42 @@ On_IBlue='\033[0;104m'    # Blue
 On_IPurple='\033[0;105m'  # Purple
 On_ICyan='\033[0;106m'    # Cyan
 On_IWhite='\033[0;107m'   # White
+
+# Format functions
+
+txt_bold() {
+    echo -en "\e[1m$@\e[21m"
+}
+
+# Dim/light text.
+txt_dim() {
+    echo -en "\e[2m$@\e[22m"
+}
+
+txt_italic() {
+    echo -en "\e[3m$@\e[23m"
+}
+
+txt_underline() {
+    echo -en "\e[4m$@\e[24m"
+}
+
+# Blinking text.
+txt_blink() {
+    echo -en "\e[5m$@\e[25m"
+}
+
+# Inverts foreground/background text color.
+txt_invert() {
+    echo -en "\e[7m$@\e[27m"
+}
+
+# Hides the text.
+txt_hide() {
+    echo -en "\e[8m$@\e[28m"
+}
+
+
 
 # Bash colors
 #####################
