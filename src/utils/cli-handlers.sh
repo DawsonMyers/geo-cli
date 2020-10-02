@@ -351,7 +351,8 @@ geo_db_ls_containers() {
     local filtered=`echo $"$output" | awk '{ gsub($3"_","",$1);  printf "%-24s %-16s %-24s\n",$3,$2,$1 } '`
     # filtered=`echo $"$output" | awk 'BEGIN { format="%-24s %-24s %-24s\n"; ; printf format, "Name","Container ID","Image" } { gsub($3"_","",$1);  printf " %-24s %-24s %-24s\n",$1,$2,$3 } '`
 
-    info_bi "$header"
+    data_header "$header"
+    # info_bi "$header"
     data "$filtered"
 }
 geo_db_ls_volumes() {
@@ -950,6 +951,7 @@ geo_analyze_doc() {
 geo_analyze() {
     MYG_TEST_PROJ='Checkmate/MyGeotab.Core.Tests/MyGeotab.Core.Tests.csproj'
     MYG_CORE_PROJ='Checkmate/MyGeotab.Core.csproj'
+    # Analyzer info: an array containing "name project" strings for each analyzer.
     analyzers=(
         "CSharp.CodeStyle $MYG_TEST_PROJ"
         "Threading.Analyzers $MYG_TEST_PROJ"
@@ -960,33 +962,60 @@ geo_analyze() {
         "Meziantou.Analyzer $MYG_TEST_PROJ"
     )
     local len=${#analyzers[@]}
+    local max_id=$((len-1))
     local name=0
     local proj=1
+    # Print header for analyzer table. Which has two columns, ID and Name.
     data_header "`printf '%-4s %-30s\n' ID Name`"
-    for (( i = 0; i < len; i++ )); do
-        # analyzer
-        read -r -a analyzer <<< "${analyzers[$i]}"
-        printf '%-4d %-30s\n' $i "${analyzer[$name]}" 
-        # "${analyzer[$proj]}"
+    # Print each analyzer's id and name.
+    for (( id = 0; id < len; id++ )); do
+        # Convert a string containing "name project" into an array [name, project] so that name can be printed with its id.
+        read -r -a analyzer <<< "${analyzers[$id]}"
+        printf '%-4d %-30s\n' $id "${analyzer[$name]}" 
     done
     local dev_repo=`geo_get DEV_REPO_DIR`
 
-    # path="${dev_repo}/Checkmate/bin/Debug/netcoreapp3.1"
+    status "Valid IDs from 0 to ${max_id}"
+    local prompt_txt='Enter the analyzer IDs that you would like to run (separated by spaces): '
     
-    
-    prompt_for_info_n 'Enter the analyzer IDs that you would like to run (separated by spaces): '
+    local valid_input=false
+    # Get the list of ids from the user. Asking repeatedly if invalid input is given.
+    until [[ $valid_input == true ]]; do
+        prompt_for_info_n "$prompt_txt"
+        # Make sure the input consits of only numbers separated by spaces.
+        while [[ ! $prompt_return =~ ^( *[0-9]+ *)+$ ]]; do
+            error 'Invalid input. Only space-separated integer IDs are accepted'
+            prompt_for_info_n "$prompt_txt"
+        done 
+        # Make sure the numbers are valid ids between 0 and max_id.
+        for id in $prompt_return; do
+            if (( id < 0 | id > max_id )); then
+                error "Invalid ID: ${id}. Only IDs from 0 to ${max_id} are valid"
+                # Set valid_input = false and break out of this for loop, causing the outer until loop to run again.
+                valid_input=false
+                break 
+            fi
+            valid_input=true
+        done
+    done
+
+    # The number of ids entered.
+    local id_count=`echo "$prompt_return" | wc -w`
+    local run_count=1
+    # Switch to the development repo directory so that dotnet build can be run.
     pushd "$dev_repo"
+    
+    # Run each analyzer.
     for id in $prompt_return; do
         # echo $id
         read -r -a analyzer <<< "${analyzers[$id]}"
         ANALYZER_NAME="${analyzer[$name]}"
         ANALYZER_PROJ="${analyzer[$proj]}"
-        status_bi "Running $ANALYZER_NAME"
-        dotnet build -p:DebugAnalyzers=${ANALYZER_NAME} -p:TreatWarningsAsErrors=false ${ANALYZER_PROJ} && success 'Done'
+        status_bi "Running ($((run_count++)) of $id_count): $ANALYZER_NAME"
+        dotnet build -p:DebugAnalyzers=${ANALYZER_NAME} -p:TreatWarningsAsErrors=false ${ANALYZER_PROJ} && success 'Analyzer done' || Error 'dotnet build failed'
     done
+    # Restor previous directory.
     popd
-    # dotnet "${path}/CheckmateServer.dll" 
-    # 
 }
 
 ###########################################################
@@ -1273,7 +1302,8 @@ make_logger_function info Green
 make_logger_function success Green
 make_logger_function detail Yellow
 # make_logger_function detail Yellow
-make_logger_function data White
+make_logger_function data VTE_COLOR_253
+# make_logger_function data White
 # make_logger_function warn Purple
 make_logger_function status Cyan
 make_logger_function verbose Cyan
@@ -1294,7 +1324,8 @@ error() {
 }
 
 data_header() {
-    echo -e "${BIGreen}$@${Off}"
+    echo -e "${VTE_COLOR_87}${UNDERLINE_ON}${BOLD_ON}$@${Off}"
+    # echo -e "${BIGreen}$@${Off}"
 }
 
 success() {

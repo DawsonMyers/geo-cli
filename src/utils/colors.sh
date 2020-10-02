@@ -18,7 +18,7 @@ White='\033[0;37m'        # White
 # 256 colors (only supported by vte terminals)
 
 for i in {1..256}; do
-    eval "VTE_Color_${i}=\"\e[38;5;${i}m\""
+    eval "VTE_COLOR_${i}=\"\e[38;5;${i}m\""
 done
 
 display_vte_colors() {
@@ -89,6 +89,20 @@ On_ICyan='\033[0;106m'    # Cyan
 On_IWhite='\033[0;107m'   # White
 
 # Format functions
+BOLD_ON="\e[1m"
+BOLD_OFF="\e[21m"
+DIM_ON="\e[2m"
+DIM_OFF="\e[22m"
+ITALIC_ON="\e[3m"
+ITALIC_OFF="\e[23m"
+UNDERLINE_ON="\e[4m"
+UNDERLINE_OFF="\e[24m"
+BLINK_ON="\e[5m"
+BLINK_OFF="\e[25m"
+INVERT_ON="\e[7m"
+INVERT_OFF="\e[27m"
+HIDE_ON="\e[8m"
+HIDE_OFF="\e[28m"
 
 txt_bold() {
     echo -en "\e[1m$@\e[21m"
