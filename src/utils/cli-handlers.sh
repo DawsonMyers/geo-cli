@@ -890,12 +890,16 @@ COMMANDS+=('update')
 geo_update_doc() {
     doc_cmd 'update'
     doc_cmd_desc 'Update geo to latest version.'
-
+    doc_cmd_options_title
+    doc_cmd_options '-f, --force'
+    doc_cmd_sub_option_desc 'Force update, even if already at latest version.'
     doc_cmd_examples_title
     doc_cmd_example 'geo update'
+    doc_cmd_example 'geo update --force'
 }
 geo_update() {
-    if ! geo_is_outdated; then
+    # Don't install if already at latest version unless the force flag is present (-f or --force)
+    if ! geo_is_outdated && [[ $1 != '-f' && $1 != '--force' ]]; then
         Error 'The latest version of geo-cli is already installed'
         return
     fi
@@ -1252,6 +1256,8 @@ fmt_text() {
 #       a base function with no suffix is created with the base colour (i.e. a function
 #       with the name info and colour of green is created).
 make_logger_function() {
+
+
     # The placement of the \ chars are very important for delaying the evaluation of
     # the shell vars in the strings. Notice how ${1}, ${2}, and ${Off} appear without
     # $ being prefixed with a \. This is because we want the the args to be filled in
@@ -1265,12 +1271,57 @@ make_logger_function() {
     # Creates log functions that take -p as an arg if you want the output to be on the same line (used when prompting the user for information).
     name=$1
     color=$2
+    text="$@"
     eval "${name}() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"\${${color}}\${args[@]}\${Off}\"; }"
     eval "${name}_b() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"\${B${color}}\${args[@]}\${Off}\"; }"
     eval "${name}_i() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"\${I${color}}\${args[@]}\${Off}\"; }"
     eval "${name}_bi() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"\${BI${color}}\${args[@]}\${Off}\"; }"
     eval "${name}_u() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"\${U${color}}\${args[@]}\${Off}\"; }"
     
+    # build_fn() {
+#         local format=$1
+#         read template <<EOF
+#         ${name}_1() {
+#             args=(\"\$@\")
+#             i=0
+
+#             cmd_opt=e
+
+#             while [[ \${args[i]} =~ ^- ]]; then
+#                 opts=\${args[i]/-/}
+#                 for (( j=0; j < \${#opts}; j++ )); do
+#                     op=\${opts:\$j:1}
+#                     options[\$op]=\$op
+
+#                     case $op in
+#                         p )
+#                             opt+=n
+#                             ;;
+#                         b )
+#                             color+=$BOLD_ON
+#                             ;;
+#                         u )
+#                             color+=$UNDERLINE_ON
+#                             ;;
+#                         i )
+#                             color+=$ITALIC_ON
+#                 done
+#                 unset "args[\$i]"
+#             done
+
+#             # opt=e;
+#             # if [[ \${args[0]} =~ ^-p ]]; then
+#             #     opt=en
+#             #     unset \"args[0]\"
+#             # fi
+#             echo \"-\${opt}\" \"\${${color}}\${args[@]}\${Off}\";
+# EOF
+
+#         eval "${name}_1() { $template }"
+#     }
+
+#     build_fn 
+
     # local variants=("e " "en _prompt")
     # for variant in "${variants[@]}"; do
     #     read -a args <<< "$variant"
