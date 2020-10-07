@@ -25,6 +25,7 @@ alias d-c='docker-compose'
 alias dcm=dc_geo
 # alias dcm="docker-compose -f $GEO_CLI_REPO_DIR/env/full/docker-compose.yml -f $GEO_CLI_REPO_DIR/env/full/docker-compose-geo.yml"
 alias brc=". ~/.bashrc"
+alias srcb=". ~/.bashrc"
 alias zrc=". ~/.zshrc"
 
 # # Auto-complete
