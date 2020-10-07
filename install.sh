@@ -84,4 +84,6 @@ geo_check_for_dev_repo_dir
 
 success "Open a new terminal or run '. ~/.bashrc' in this one to start using geo-cli"
 
+info_bi "Next step: create a database container"
+info "Run `txt_underline 'geo db start <name>'`, where 'name' is any alphanumeric name you want to give this db version (it could be related to the MyGeotab release, e.g., '2004')."
 
