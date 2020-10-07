@@ -158,13 +158,13 @@ geo_db() {
             return
             ;;
         stop )
-            local container_name=`geo_container_name $db_version`
             local silent=false
             
             if [[ $2 =~ -s ]]; then
                 silent=true
                 shift
             fi
+            local container_name=`geo_container_name $db_version`
 
             db_version="$2"
 
@@ -177,12 +177,16 @@ geo_db() {
             fi
 
             if [[ -z $container_id ]]; then
-                [[ $silent = false ]] && warn 'No geo-cli db containers running'
+                [[ $silent = false ]] \
+                    && warn 'No geo-cli db containers running'
                 return
             fi
 
+            status_bi 'Stopping container...'
+
             # Stop all running containers.
-            echo $container_id | xargs docker stop > /dev/null && success 'Running container stopped'
+            echo $container_id | xargs docker stop > /dev/null \
+                && success 'OK'
             return
             ;;
         rm | remove )
@@ -246,7 +250,7 @@ geo_db() {
         start )
             local db_version="$2"
             db_version=`geo_make_alphanumeric "$db_version"`
-            debug $db_version
+            # debug $db_version
             if [ -z "$db_version" ]; then
                 db_version=`geo_get LAST_DB_VERSION`
                 if [[ -z $db_version ]]; then
@@ -493,42 +497,42 @@ function geo_db_init()
     fi
 
     get_user() {
-        prompt_n "Enter db admin username: "
+        prompt_n "Enter MyGeotab admin username (your email): "
         read user
         geo_set DB_USER $user
     }
 
     get_password() {
-        prompt_n "Enter db admin password: "
+        prompt_n "Enter MyGeotab admin password: "
         read password
         geo_set DB_PASSWORD $password
     }
 
     get_sql_user() {
-        prompt_n "Enter sql username: "
+        prompt_n "Enter db admin username: "
         read sql_user
         geo_set SQL_USER $sql_user
     }
 
     get_sql_password() {
-        prompt_n "Enter db sql password: "
+        prompt_n "Enter db admin password: "
         read sql_password
         geo_set SQL_PASSWORD $sql_password
     }
 
     # Get sql user.
-    data "Stored sql user: $sql_user"
+    data "Stored db admin user: $sql_user"
     prompt_continue "Use stored user? (Y|n): " || get_sql_user
     
     # Get sql password.
-    data "Stored sql password: $sql_password"
+    data "Stored db admin password: $sql_password"
     prompt_continue "Use stored password? (Y|n): " || get_sql_password
 
     # Get db admin user.
     if [[ -z $user ]]; then
         get_user
     else
-        data "Stored db admin user: $user"
+        data "Stored MyGeotab admin user: $user"
         prompt_continue "Use stored user? (Y|n): " || get_user
     fi
 
@@ -536,7 +540,7 @@ function geo_db_init()
     if [[ -z $password ]]; then
         get_password
     else
-        data "Stored db admin password: $password"
+        data "Stored MyGeotab admin password: $password"
         prompt_continue "Use stored password? (Y|n): " || get_password
     fi
 
@@ -552,6 +556,19 @@ function geo_db_init()
     
     if dotnet "${path}/CheckmateServer.dll" CreateDatabase postgres companyName="$db_name" administratorUser="$user" administratorPassword="$password" sqluser="$sql_user" sqlpassword="$sql_password"; then
         success "$db_name initialized"
+        info_bi 'Connect with pgAdmin (if not already set up)'
+        info 'Create a new server and entering the following information:'
+        info "  Name: db (or whatever you want)"
+        info "  Host: 127.0.0.1"
+        info "  Username: $sql_user"
+        info "  Password: $sql_password"
+        echo
+        info_bi "Use geotabdemo"
+        info "1. Run MyGeotab.Core in your IDE"
+        info "2. Navigate to https://localhost:10001"
+        info "3. Log in using:"
+        info "  User: $user"
+        info "  Password: $password"
     else
         Error 'Failed to initialize db'
         error 'Have you built the assembly for the current branch?'
