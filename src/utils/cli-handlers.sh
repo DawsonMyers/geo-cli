@@ -980,7 +980,8 @@ geo_update() {
 COMMANDS+=('uninstall')
 geo_uninstall_doc() {
     doc_cmd 'uninstall'
-    doc_cmd_desc "Remove geo-cli installation. This prevents geo-cli from being loaded into new bash terminals, but does not remove the geo-cli repo directory. Navigate to the geo-cli repo directory and run 'bash install.sh' to reinstall."
+    doc_cmd_desc "Remove geo-cli installation. This prevents geo-cli from being loaded into new bash terminals, but does
+        not remove the geo-cli repo directory. Navigate to the geo-cli repo directory and run 'bash install.sh' to reinstall."
 
     doc_cmd_examples_title
     doc_cmd_example 'geo uninstall'
@@ -1093,6 +1094,36 @@ geo_version_doc() {
 }
 geo_version() {
     verbose `geo_get VERSION`
+}
+
+###########################################################
+COMMANDS+=('cd')
+geo_cd_doc() {
+    doc_cmd 'cd <dir>'
+    doc_cmd_desc 'Change to directory'
+    doc_cmd_options_title
+
+    doc_cmd_option 'dev, myg'
+    doc_cmd_option_desc 'Change to the Development repo directory.'
+    
+    doc_cmd_option 'geo, cli'
+    doc_cmd_option_desc 'Change to the geo-cli install directory.'
+
+    doc_cmd_examples_title
+    doc_cmd_example 'geo cd dev'
+    doc_cmd_example 'geo cd cli'
+}
+geo_cd() {
+    case "$1" in
+        dev | myg)
+            local path=`geo_get DEV_REPO_DIR`
+            cd "$path"
+            ;;
+        geo | cli)
+            local path=`geo_get DIR`
+            cd "$path"
+            ;;
+    esac
 }
 
 ###########################################################
