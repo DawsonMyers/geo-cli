@@ -91,8 +91,8 @@ geo_db_doc() {
     doc_cmd_options_title
 
     doc_cmd_option 'start [option] [name]'
-    doc_cmd_option_desc 'Starts (creating if neccessary) a versioned db container and volume. If no name is provided, 
-                         the most recent db container name is started.'
+    doc_cmd_option_desc 'Starts (creating if necessary) a versioned db container and volume. If no name is provided,
+                        the most recent db container name is started.'
 
     doc_cmd_option 'rm, remove <version>'
     doc_cmd_option_desc 'Removes the container and volume associated with the provided version (e.g. 2004).'
@@ -223,7 +223,7 @@ geo_db() {
                 return 1
             fi
 
-            prompt_continue "Create db container with name `txt_italic ${db_version}`? (Y|n): " || return
+            prompt_continue "Create db container with name `txt_underline ${db_version}`? (Y|n): " || return
             
             status_bi "Creating volume:"
             status "  NAME: $container_name"
@@ -934,7 +934,7 @@ geo_update_doc() {
     doc_cmd 'update'
     doc_cmd_desc 'Update geo to latest version.'
     doc_cmd_options_title
-    doc_cmd_options '-f, --force'
+    doc_cmd_option '-f, --force'
     doc_cmd_sub_option_desc 'Force update, even if already at latest version.'
     doc_cmd_examples_title
     doc_cmd_example 'geo update'
@@ -1259,7 +1259,7 @@ fmt_text() {
     local indent_len=0
     local indent_str=' '
     # Replace 2 or more spaces with a single space and \n with a single space.
-    local txt=$(echo "$1" | sed -E 's/ {2,}/ /g' | tr '\n' ' ')
+    local txt=$(echo "$1" | tr '\n' ' ' | sed -E 's/ {2,}/ /g')
     # Check if args 2 and 3 were provided.
     [ "$2" ] && indent=$2
     [ "$3" ] && indent_str=$3
