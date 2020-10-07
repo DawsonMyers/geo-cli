@@ -204,6 +204,8 @@ geo_db() {
             fi
 
             db_version="$2"
+            db_version=`geo_make_alphanumeric "$db_version"`
+
             if [ -z "$db_version" ]; then
                 Error "No database version provided."
                 return
@@ -221,7 +223,7 @@ geo_db() {
                 return 1
             fi
 
-            prompt_continue "Create db container with name `txt_underline ${db_version}`? (Y|n): " || return
+            prompt_continue "Create db container with name `txt_italic ${db_version}`? (Y|n): " || return
             
             status_bi "Creating volume:"
             status "  NAME: $container_name"
@@ -242,13 +244,9 @@ geo_db() {
             fi
             ;;
         start )
-            # local no_init=false
-            # if [[ $2 == '--no-init' ]]; then
-            #     no_init=true
-            #     shift
-            # fi
-            
-            db_version="$2"
+            local db_version="$2"
+            db_version=`geo_make_alphanumeric "$db_version"`
+            debug $db_version
             if [ -z "$db_version" ]; then
                 db_version=`geo_get LAST_DB_VERSION`
                 if [[ -z $db_version ]]; then
@@ -298,18 +296,20 @@ geo_db() {
             local volume_created=false
 
             local output=''
+
             try_to_start_db() {
                 output=''
                 output="`docker start $1 2>&1 | grep 'listen tcp 0.0.0.0:5432: bind: address already in use'`"
             }
+
             if [[ -n $container_id ]]; then
                 
                 status_bi "Starting existing container:"
                 status "  ID: $container_id"
                 status "  NAME: $container_name"
-                # docker start $container_id > /dev/null && success OK
-                # output=`docker start $container_id 2>&1 | grep 'listen tcp 0.0.0.0:5432: bind: address already in use'`
+
                 try_to_start_db $container_id
+
                 if [[ -n $output ]]; then
                     Error "Port 5432 is already in use."
                     info "Fix: Stop postgresql"
@@ -317,7 +317,6 @@ geo_db() {
                         sudo service postgresql stop
                         sleep 2
                         status_bi "Trying to start existing container again"
-                        # output=`docker start $container_id 2>&1 | grep 'listen tcp 0.0.0.0:5432: bind: address already in use'`
                         try_to_start_db $container_id
                         if [[ -n $output ]]; then
                             Error "Port 5432 is still in use. It's not possible to start a db container until this port is available."
@@ -328,20 +327,16 @@ geo_db() {
                 fi
             else
                 db_version="$2"
-                prompt_continue "Db container ${db_version} doesn't exist. Would you like to create it? (Y|n): " || return
+                db_version=`geo_make_alphanumeric "$db_version"`
+                prompt_continue "Db container `txt_italic ${db_version}` doesn't exist. Would you like to create it? (Y|n): " || return
                 
                 geo_db create -s "$db_version" \
                     || (Error 'Failed to create db' && return 1)
 
                 container_id=`docker ps -aqf "name=$container_name"`
 
-                # local vol_mount="$container_name:/var/lib/postgresql/11/main"
-                # local port=5432:5432
-                
-                # try_to_start_db
-                # output=`docker run -v $vol_mount -p $port --name=$container_name -d $IMAGE 2>&1 | grep 'listen tcp 0.0.0.0:5432: bind: address already in use'`
                 try_to_start_db $container_name
-                # debug "$output"
+
                 if [[ -n $output ]]; then
                     Error "Port 5432 is already in use."
                     info "Fix: Stop postgresql"
@@ -349,7 +344,6 @@ geo_db() {
                         sudo service postgresql stop && success 'postgresql service stopped'
                         sleep 2
                         status_bi "Trying to start new container"
-                        # output=`docker run -v $vol_mount -p $port --name=$container_name -d $IMAGE 2>&1 | grep 'listen tcp 0.0.0.0:5432: bind: address already in use'`
                         try_to_start_db $container_name
                         if [[ -n $output ]]; then
                             Error "Port 5432 is still in use. It's not possible to start a db container until this port is available."
@@ -369,12 +363,18 @@ geo_db() {
                 if prompt_continue 'Would you like to initialize the db? (Y|n): '; then
                     geo_db_init
                 else
-                    info "Initialize a running db anytime using 'geo db init'"
+                    info "Initialize a running db anytime using `txt_underline 'geo db init'`"
                 fi
             fi
             success OK
             ;;
     esac
+}
+
+geo_make_alphanumeric() {
+    # Replace any non-alphanumeric characters with '_', then replace 2 or more occurrences with a singe '_'.
+    # Ex: some>bad()name -> some_bad__name -> some_bad_name
+    echo "$@" | sed 's/[^0-9a-zA-Z]/_/g' | sed -e 's/_\{2,\}/_/g'
 }
 
 geo_db_ls_images() {
