@@ -959,15 +959,15 @@ geo_update_doc() {
 }
 geo_update() {
     # Don't install if already at latest version unless the force flag is present (-f or --force)
-    if ! geo_is_outdated && [[ $1 != '-f' && $1 != '--force' ]]; then
+    if ! geo_check_for_updates && [[ $1 != '-f' && $1 != '--force' ]]; then
         Error 'The latest version of geo-cli is already installed'
-        return
+        return 1
     fi
     pushd $GEO_CLI_DIR
     if ! git pull > /dev/null; then
         Error 'Unable to pull changes from remote'
         popd
-        return
+        return 1
     fi
     popd
 
