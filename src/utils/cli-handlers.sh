@@ -125,7 +125,7 @@ geo_db_doc() {
 geo_db() {
     # Check to make sure that the current user is added to the docker group. All subcommands in this command need to use docker.
     if ! geo_check_docker_permissions; then
-        return
+        return 1
     fi
 
     case "$1" in
@@ -273,16 +273,43 @@ geo_db() {
 
             geo_db stop -s
 
+            # Check to see if a container is running that is bound to the postgres port (5432).
+            # If it is already in use, the user will be prompted to stop it or exit.
+            local port_in_use=`docker ps --format '{{.Names}} {{.Ports}}' | grep '5432->'`
+            if [[ -n $port_in_use ]]; then
+                # Get container name by triming off the port info from docker ps output.
+                local container_name_using_postgres_port="${port_in_use%% *}"
+                Error "Postgres port 5432 is currently bound to the following container: $container_name_using_postgres_port"
+                if prompt_continue "Do you want to stop this container so that a geo db one can be started? (Y|n): "; then
+                    if docker stop "$container_name_using_postgres_port" >-; then
+                        status 'Container stopped'
+                    else
+                        Error 'Unable to stop container'
+                        return 1
+                    fi
+                else
+                    error 'Cannot continue while port 5432 is already in use.'
+                    return 1
+                fi
+            fi
+
+
             local container_id=`docker ps -aqf "name=$container_name"`
             local volume_created=false
 
+            local output=''
+            try_to_start_db() {
+                output=''
+                output="`docker start $1 2>&1 | grep 'listen tcp 0.0.0.0:5432: bind: address already in use'`"
+            }
             if [[ -n $container_id ]]; then
                 
                 status_bi "Starting existing container:"
                 status "  ID: $container_id"
                 status "  NAME: $container_name"
                 # docker start $container_id > /dev/null && success OK
-                output=`docker start $container_id 2>&1 | grep 'listen tcp 0.0.0.0:5432: bind: address already in use'`
+                # output=`docker start $container_id 2>&1 | grep 'listen tcp 0.0.0.0:5432: bind: address already in use'`
+                try_to_start_db $container_id
                 if [[ -n $output ]]; then
                     Error "Port 5432 is already in use."
                     info "Fix: Stop postgresql"
@@ -290,7 +317,8 @@ geo_db() {
                         sudo service postgresql stop
                         sleep 2
                         status_bi "Trying to start existing container again"
-                        output=`docker start $container_id 2>&1 | grep 'listen tcp 0.0.0.0:5432: bind: address already in use'`
+                        # output=`docker start $container_id 2>&1 | grep 'listen tcp 0.0.0.0:5432: bind: address already in use'`
+                        try_to_start_db $container_id
                         if [[ -n $output ]]; then
                             Error "Port 5432 is still in use. It's not possible to start a db container until this port is available."
                             return 1
@@ -303,12 +331,17 @@ geo_db() {
                 prompt_continue "Db container ${db_version} doesn't exist. Would you like to create it? (Y|n): " || return
                 
                 geo_db create -s "$db_version" \
-                    && success 'db created' || (Error 'Failed to create db' && return 1)
+                    || (Error 'Failed to create db' && return 1)
+
+                container_id=`docker ps -aqf "name=$container_name"`
+
+                # local vol_mount="$container_name:/var/lib/postgresql/11/main"
+                # local port=5432:5432
                 
-                local vol_mount="$container_name:/var/lib/postgresql/11/main"
-                local port=5432:5432
-                output=`docker run -v $vol_mount -p $port --name=$container_name -d $IMAGE 2>&1 | grep 'listen tcp 0.0.0.0:5432: bind: address already in use'`
-                debug "$output"
+                # try_to_start_db
+                # output=`docker run -v $vol_mount -p $port --name=$container_name -d $IMAGE 2>&1 | grep 'listen tcp 0.0.0.0:5432: bind: address already in use'`
+                try_to_start_db $container_name
+                # debug "$output"
                 if [[ -n $output ]]; then
                     Error "Port 5432 is already in use."
                     info "Fix: Stop postgresql"
@@ -316,13 +349,22 @@ geo_db() {
                         sudo service postgresql stop && success 'postgresql service stopped'
                         sleep 2
                         status_bi "Trying to start new container"
-                        output=`docker run -v $vol_mount -p $port --name=$container_name -d $IMAGE 2>&1 | grep 'listen tcp 0.0.0.0:5432: bind: address already in use'`
+                        # output=`docker run -v $vol_mount -p $port --name=$container_name -d $IMAGE 2>&1 | grep 'listen tcp 0.0.0.0:5432: bind: address already in use'`
+                        try_to_start_db $container_name
                         if [[ -n $output ]]; then
                             Error "Port 5432 is still in use. It's not possible to start a db container until this port is available."
                             return 1
                         fi
+                    else
+                        Error 'Cannot start db while port 5432 is in use.'
+                        return 1
                     fi
+
                 fi
+
+                status_bi "Starting new container:"
+                status "  ID: $container_id"
+                status "  NAME: $container_name"
 
                 if prompt_continue 'Would you like to initialize the db? (Y|n): '; then
                     geo_db_init
@@ -378,12 +420,13 @@ geo_get_running_container_id() {
 }
 
 geo_check_docker_permissions() {
-    local ps_error_output=`docker ps | grep docker.sock`
+    local ps_error_output=`docker ps 2>&1 | grep docker.sock`
     if [[ -n $ps_error_output ]]; then
         Error "The current user does not have permission to use the docker command."
         info "Fix: Add the current user to the docker group."
         if prompt_n 'Would you like to fix this now? (Y|n): '; then
             sudo usermod -a -G docker "$USER"
+            newgrp docker
             warn 'You must completely log out of you account and then log back in again for the changes to take effect.'
         fi
         return 1
@@ -395,7 +438,7 @@ function geo_db_init()
     local container_id=`geo_get_running_container_id`
     if [[ -z $container_id ]]; then
         Error 'No geo-cli containers are running to initialize.'
-        info "Run `txt_underline geo db ls` to view available containers and `txt_underline geo db start <name>` to start one"
+        info "Run `txt_underline 'geo db ls'` to view available containers and `txt_underline 'geo db start <name>'` to start one."
         return 1
     fi
     local db_name='geotabdemo'
@@ -1271,89 +1314,38 @@ make_logger_function() {
     # Creates log functions that take -p as an arg if you want the output to be on the same line (used when prompting the user for information).
     name=$1
     color=$2
-    text="$@"
     eval "${name}() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"\${${color}}\${args[@]}\${Off}\"; }"
     eval "${name}_b() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"\${B${color}}\${args[@]}\${Off}\"; }"
     eval "${name}_i() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"\${I${color}}\${args[@]}\${Off}\"; }"
     eval "${name}_bi() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"\${BI${color}}\${args[@]}\${Off}\"; }"
     eval "${name}_u() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"\${U${color}}\${args[@]}\${Off}\"; }"
-    
-    # build_fn() {
-#         local format=$1
-#         read template <<EOF
-#         ${name}_1() {
-#             args=(\"\$@\")
-#             i=0
-
-#             cmd_opt=e
-
-#             while [[ \${args[i]} =~ ^- ]]; then
-#                 opts=\${args[i]/-/}
-#                 for (( j=0; j < \${#opts}; j++ )); do
-#                     op=\${opts:\$j:1}
-#                     options[\$op]=\$op
-
-#                     case $op in
-#                         p )
-#                             opt+=n
-#                             ;;
-#                         b )
-#                             color+=$BOLD_ON
-#                             ;;
-#                         u )
-#                             color+=$UNDERLINE_ON
-#                             ;;
-#                         i )
-#                             color+=$ITALIC_ON
-#                 done
-#                 unset "args[\$i]"
-#             done
-
-#             # opt=e;
-#             # if [[ \${args[0]} =~ ^-p ]]; then
-#             #     opt=en
-#             #     unset \"args[0]\"
-#             # fi
-#             echo \"-\${opt}\" \"\${${color}}\${args[@]}\${Off}\";
-# EOF
-
-#         eval "${name}_1() { $template }"
-#     }
-
-#     build_fn 
-
-    # local variants=("e " "en _prompt")
-    # for variant in "${variants[@]}"; do
-    #     read -a args <<< "$variant"
-    #     local options=${args[0]}
-    #     local suffix=${args[1]}
-
-    #     echo "${1}${suffix}() { echo -${options} \"\${${2}}\$@\${Off}\"; }"
-    #     eval "${1}${suffix}() { echo -${options} \"\${${2}}\$@\${Off}\"; }"
-    #     # Variants are created by creating var names through multiple passes of string
-    #     # interpolation.
-    #     eval "${1}_b${suffix}() { echo -${options} \"\${B${2}}\$@\${Off}\"; }"
-    #     eval "${1}_i${suffix}() { echo -${options} \"\${I${2}}\$@\${Off}\"; }"
-    #     eval "${1}_bi${suffix}() { echo -${options} \"\${BI${2}}\$@\${Off}\"; }"
-    #     eval "${1}_u${suffix}() { echo -${options} \"\${U${2}}\$@\${Off}\"; }"
-    # done
-
-    # Note: echoing FUNCNAME[@] will print the call stack of cmds.
 }
 
+# Make logger function using VTE colours.
+make_logger_function_vte() {
+    name=$1
+    color=$2
+
+    eval "${name}() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"\${${color}}\${args[@]}\${Off}\"; }"
+    eval "${name}_b() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"${BOLD_ON}\${${color}}\${args[@]}\${Off}\"; }"
+    eval "${name}_i() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"\${${color}}\${args[@]}\${Off}\"; }"
+    eval "${name}_bi() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"${BOLD_ON}\${${color}}\${args[@]}\${Off}\"; }"
+    eval "${name}_u() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"${UNDERLINE_ON}\${${color}}\${args[@]}\${Off}\"; }"
+    eval "${name}_bu() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"${BOLD_ON}${UNDERLINE_ON}\${${color}}\${args[@]}\${Off}\"; }"
+}
 red() {
     echo -e "${Red}$@${Off}"
 }
 
 
 
-make_logger_function warn Red
+make_logger_function_vte warn VTE_COLOR_202 # Orange
 make_logger_function error Red
 make_logger_function info Green
 make_logger_function success Green
 make_logger_function detail Yellow
 # make_logger_function detail Yellow
-make_logger_function data VTE_COLOR_253
+make_logger_function_vte data VTE_COLOR_253
 # make_logger_function data White
 # make_logger_function warn Purple
 make_logger_function status Cyan
