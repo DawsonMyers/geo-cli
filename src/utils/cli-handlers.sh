@@ -1117,10 +1117,18 @@ geo_cd() {
     case "$1" in
         dev | myg)
             local path=`geo_get DEV_REPO_DIR`
+            if [[ -z $path ]]; then
+                Error "Development repo not set."
+                return 1
+            fi
             cd "$path"
             ;;
         geo | cli)
             local path=`geo_get DIR`
+            if [[ -z $path ]]; then
+                Error "geo-cli directory not set."
+                return 1
+            fi
             cd "$path"
             ;;
     esac
@@ -1390,7 +1398,7 @@ red() {
 make_logger_function_vte warn VTE_COLOR_202 # Orange
 make_logger_function error Red
 make_logger_function info Green
-make_logger_function success Green
+# make_logger_function success Green
 make_logger_function detail Yellow
 # make_logger_function detail Yellow
 make_logger_function_vte data VTE_COLOR_253

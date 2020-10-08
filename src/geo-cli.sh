@@ -55,6 +55,13 @@ function geo()
         detail 'Fix: Navigate to MyGeotab base repo (Development) directory, then run "geo init repo".'
     fi
 
+    # Check if colour variables have been changed by the terminal (wraped in \[ ... \]). Reload everything if they have to fix.
+    # This issue would cause coloured log output to start with '\[\] some log message'.
+    if [[ $Green =~ ^'\['.*'\]' ]]; then
+        . $GEO_CLI_SRC_DIR/utils/cli-handlers.sh
+        # debug 'Colours reloaded'
+    fi
+
     # Save the first argument in cmd var, then shift all other args.
     # So the 2nd arg becomes the 1st, 3rd becomes the 2nd, and so on.
     cmd="$1"
