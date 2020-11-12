@@ -227,9 +227,15 @@ Available commands:
                   Options:
                     -y
                       Accept all prompts.
-            psql [db name]
-                Open a psql session to geotabdemo in the running geo-cli db container. The
-                username and password used to connect is geotabuser and vircom43, respectively.
+            psql [options] [db name]
+                Open a psql session to geotabdemo (default db name) in the running geo-cli db
+                container. The username and password used to connect is geotabuser and vircom43,
+                respectively.
+                  Options:
+                    -u
+                      The admin sql user. The default value used is "geotabuser"
+                    -p
+                      The admin sql password. The default value used is "vircom43"
             bash
                 Open a bash session with the running geo-cli db container.
         Example:
@@ -244,7 +250,7 @@ Available commands:
         Example:
             geo stop
     init
-      Initiallize repo directory.
+      Initialize repo directory.
         Options:
             repo
                 Init Development repo directory using the current directory.
@@ -305,6 +311,5 @@ Available commands:
             geo cd cli
     help, -h, --help
       Prints out help for all commands.
-
 
 ```
