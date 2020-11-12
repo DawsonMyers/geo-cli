@@ -127,9 +127,14 @@ geo_db_doc() {
     doc_cmd_sub_option '-y'
     doc_cmd_sub_option_desc 'Accept all prompts.'
 
-    doc_cmd_option 'psql [db name]'
-    doc_cmd_option_desc 'Open a psql session to geotabdemo in the running geo-cli db container. The username and password used to
+    doc_cmd_option 'psql [options] [db name]'
+    doc_cmd_option_desc 'Open a psql session to geotabdemo (default db name) in the running geo-cli db container. The username and password used to
                         connect is geotabuser and vircom43, respectively.'
+    doc_cmd_sub_options_title
+    doc_cmd_sub_option '-u'
+    doc_cmd_sub_option_desc 'The admin sql user. The default value used is "geotabuser"'
+    doc_cmd_sub_option '-p'
+    doc_cmd_sub_option_desc 'The admin sql password. The default value used is "vircom43"'
 
     doc_cmd_option 'bash'
     doc_cmd_option_desc 'Open a bash session with the running geo-cli db container.'
@@ -419,8 +424,31 @@ geo_db() {
             success Done
             ;;
         psql )
+            local sql_user=`geo_get SQL_USER`
+            local sql_password=`geo_get SQL_PASSWORD`
+            while [[ $2 =~ ^-[a-z] ]]; do
+                local option=$2
+                local arg="$3"
+                shift
+                [[ ! $arg || $arg =~ ^-[a-z] ]] && Error "Argument missing for option ${option}" && return 1
+
+                case $option in
+                    -u )
+                        sql_user="$arg"
+                        ;;
+                    -p )
+                        sql_password="$arg"
+                        ;;
+                esac
+                shift
+            done
             local db_name=$2
+            # Assign default values for sql user/passord.
             [[ -z $db_name ]] && db_name=geotabdemo
+            [[ -z $sql_user ]] && sql_user=geotabuser
+            [[ -z $sql_password ]] && sql_password=vircom43
+            debug $sql_user $sql_password $db_name
+            return
 
             local running_container_id=`geo_get_running_container_id`
             [[ ! $running_container_id ]]
@@ -430,11 +458,8 @@ geo_db() {
                 return 1
             fi
 
-            local sql_user=`geo_get SQL_USER`
-            local sql_password=`geo_get SQL_PASSWORD`
-            # Assign default values for sql user/passord.
-            [[ -z $sql_user ]] && sql_user=geotabuser
-            [[ -z $sql_password ]] && sql_password=vircom43
+            
+            
             docker exec -it -e PGPASSWORD=$sql_password $running_container_id psql -U $sql_user -h localhost -p 5432 -d $db_name
             ;;
         bash )
