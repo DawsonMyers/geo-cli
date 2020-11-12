@@ -90,9 +90,18 @@ geo_db_doc() {
 
     doc_cmd_options_title
 
+    doc_cmd_option 'create [option] <name>'
+    doc_cmd_option_desc 'Creates a versioned db container and volume.'
+    doc_cmd_sub_options_title
+    doc_cmd_sub_option '-y'
+    doc_cmd_sub_option_desc 'Accept all prompts.'
+
     doc_cmd_option 'start [option] [name]'
     doc_cmd_option_desc 'Starts (creating if necessary) a versioned db container and volume. If no name is provided,
                         the most recent db container name is started.'
+    doc_cmd_sub_options_title
+    doc_cmd_sub_option '-y'
+    doc_cmd_sub_option_desc 'Accept all prompts.'
 
     doc_cmd_option 'rm, remove <version>'
     doc_cmd_option_desc 'Removes the container and volume associated with the provided version (e.g. 2004).'
@@ -114,9 +123,20 @@ geo_db_doc() {
 
     doc_cmd_option 'init'
     doc_cmd_option_desc 'Initialize a running db container with geotabdemo or an empty db with a custom name.'
+    doc_cmd_sub_options_title
+    doc_cmd_sub_option '-y'
+    doc_cmd_sub_option_desc 'Accept all prompts.'
+
+    doc_cmd_option 'psql [db name]'
+    doc_cmd_option_desc 'Open a psql session to geotabdemo in the running geo-cli db container. The username and password used to
+                        connect is geotabuser and vircom43, respectively.'
+
+    doc_cmd_option 'bash'
+    doc_cmd_option_desc 'Open a bash session with the running geo-cli db container.'
 
     doc_cmd_examples_title
     doc_cmd_example 'geo db start 2004'
+    doc_cmd_example 'geo db start -y 2004'
     doc_cmd_example 'geo db create 2004'
     doc_cmd_example 'geo db rm 2004'
     doc_cmd_example 'geo db rm --all'
@@ -138,19 +158,10 @@ geo_db() {
             
             if [[ $2 =~ ^-*a(ll)? ]]; then
                 echo
-                # docker container ls -a -f name=geo_cli
-                geo_db_ls_images
-                echo
                 geo_db_ls_volumes
+                echo
+                geo_db_ls_images
             fi
-            # info Images
-            # docker image ls geo_cli*
-            # echo
-            # info Containers
-            # docker container ls -a -f name=geo_cli
-            # echo
-            # info Volumes
-            # docker volume ls -f name=geo_cli
             return
             ;;
         ps )
@@ -202,10 +213,34 @@ geo_db() {
             ;;
         create )
             local silent=false
-            if [[ $2 == '-s' ]]; then
-                silent=true
+            local acceptDefaults=
+            while [[ $2 =~ ^-[a-z] ]]; do
+                local option=${2:1}
+                local len=${#option}
+                if [[ $len -gt 1 ]]; then
+                    for ((i=0; i < len; i++)); do
+                        local opt=${option:i:1}
+                        case $opt in
+                            s )
+                                silent=true
+                                ;;
+                            y )
+                                acceptDefaults=true
+                                ;;
+                        esac
+                    done
+                else
+                    case $option in
+                        s )
+                            silent=true
+                            ;;
+                        y )
+                            acceptDefaults=true
+                            ;;
+                    esac
+                fi
                 shift
-            fi
+            done
 
             db_version="$2"
             db_version=`geo_make_alphanumeric "$db_version"`
@@ -227,8 +262,9 @@ geo_db() {
                 return 1
             fi
 
-            prompt_continue "Create db container with name `txt_underline ${db_version}`? (Y|n): " || return
-            
+            if [ ! $acceptDefaults ]; then
+                prompt_continue "Create db container with name `txt_underline ${db_version}`? (Y|n): " || return
+            fi
             status_bi "Creating volume:"
             status "  NAME: $container_name"
             docker volume create "$container_name" > /dev/null \
@@ -248,6 +284,11 @@ geo_db() {
             fi
             ;;
         start )
+            local acceptDefaults=
+            if [[ $2 == '-y' ]]; then
+                acceptDefaults=true
+                shift
+            fi
             local db_version="$2"
             db_version=`geo_make_alphanumeric "$db_version"`
             # debug $db_version
@@ -332,9 +373,14 @@ geo_db() {
             else
                 db_version="$2"
                 db_version=`geo_make_alphanumeric "$db_version"`
-                prompt_continue "Db container `txt_italic ${db_version}` doesn't exist. Would you like to create it? (Y|n): " || return
-                
-                geo_db create -s "$db_version" \
+
+                if [ ! $acceptDefaults ]; then
+                    prompt_continue "Db container `txt_italic ${db_version}` doesn't exist. Would you like to create it? (Y|n): " || return
+                fi
+                local opts=-s
+                [ $acceptDefaults ] && opts+=y
+
+                geo_db create $opts "$db_version" \
                     || (Error 'Failed to create db' && return 1)
 
                 container_id=`docker ps -aqf "name=$container_name"`
@@ -364,14 +410,44 @@ geo_db() {
                 status "  ID: $container_id"
                 status "  NAME: $container_name"
 
-                if prompt_continue 'Would you like to initialize the db? (Y|n): '; then
-                    geo_db_init
+                if [ $acceptDefaults ] || prompt_continue 'Would you like to initialize the db? (Y|n): '; then
+                    geo_db_init $acceptDefaults
                 else
                     info "Initialize a running db anytime using `txt_underline 'geo db init'`"
                 fi
             fi
-            success OK
+            success Done
             ;;
+        psql )
+            local db_name=$2
+            [[ -z $db_name ]] && db_name=geotabdemo
+
+            local running_container_id=`geo_get_running_container_id`
+            [[ ! $running_container_id ]]
+            if [[ -z $running_container_id ]]; then
+                Error 'No geo-cli containers are running to connect to.'
+                info "Run `txt_underline 'geo db ls'` to view available containers and `txt_underline 'geo db start <name>'` to start one."
+                return 1
+            fi
+
+            local sql_user=`geo_get SQL_USER`
+            local sql_password=`geo_get SQL_PASSWORD`
+            # Assign default values for sql user/passord.
+            [[ -z $sql_user ]] && sql_user=geotabuser
+            [[ -z $sql_password ]] && sql_password=vircom43
+            docker exec -it -e PGPASSWORD=$sql_password $running_container_id psql -U $sql_user -h localhost -p 5432 -d $db_name
+            ;;
+        bash )
+            local running_container_id=`geo_get_running_container_id`
+            [[ ! $running_container_id ]]
+            if [[ -z $running_container_id ]]; then
+                Error 'No geo-cli containers are running to connect to.'
+                info "Run `txt_underline 'geo db ls'` to view available containers and `txt_underline 'geo db start <name>'` to start one."
+                return 1
+            fi
+
+            docker exec -it $running_container_id /bin/bash
+        ;;
     esac
 }
 
@@ -439,15 +515,17 @@ geo_check_docker_permissions() {
 
 function geo_db_init()
 {
+    local acceptDefaults=$1
+    
     local container_id=`geo_get_running_container_id`
     if [[ -z $container_id ]]; then
         Error 'No geo-cli containers are running to initialize.'
         info "Run `txt_underline 'geo db ls'` to view available containers and `txt_underline 'geo db start <name>'` to start one."
         return 1
     fi
-    local db_name='geotabdemo'
+    db_name='geotabdemo'
     status 'A db can be initialized with geotabdemo or with a custom db name (just creates an empty database with provided name).'
-    if ! prompt_continue 'Would you like to initialize the db with geotabdemo? (Y|n): '; then
+    if ! [ $acceptDefaults ] && ! prompt_continue 'Would you like to initialize the db with geotabdemo? (Y|n): '; then
         stored_name=`geo_get PREV_DB_NAME`
         prompt_txt='Enter the name of the db you would like to create: '
         if [[ -n $stored_name ]]; then
@@ -520,28 +598,30 @@ function geo_db_init()
         geo_set SQL_PASSWORD $sql_password
     }
 
-    # Get sql user.
-    data "Stored db admin user: $sql_user"
-    prompt_continue "Use stored user? (Y|n): " || get_sql_user
-    
-    # Get sql password.
-    data "Stored db admin password: $sql_password"
-    prompt_continue "Use stored password? (Y|n): " || get_sql_password
+    if [ ! $acceptDefaults ]; then
+        # Get sql user.
+        data "Stored db admin user: $sql_user"
+        prompt_continue "Use stored user? (Y|n): " || get_sql_user
+        
+        # Get sql password.
+        data "Stored db admin password: $sql_password"
+        prompt_continue "Use stored password? (Y|n): " || get_sql_password
 
-    # Get db admin user.
-    if [[ -z $user ]]; then
-        get_user
-    else
-        data "Stored MyGeotab admin user: $user"
-        prompt_continue "Use stored user? (Y|n): " || get_user
-    fi
+        # Get db admin user.
+        if [[ -z $user ]]; then
+            get_user
+        else
+            data "Stored MyGeotab admin user: $user"
+            prompt_continue "Use stored user? (Y|n): " || get_user
+        fi
 
-    # Get db admin passord
-    if [[ -z $password ]]; then
-        get_password
-    else
-        data "Stored MyGeotab admin password: $password"
-        prompt_continue "Use stored password? (Y|n): " || get_password
+        # Get db admin passord
+        if [[ -z $password ]]; then
+            get_password
+        else
+            data "Stored MyGeotab admin password: $password"
+            prompt_continue "Use stored password? (Y|n): " || get_password
+        fi
     fi
 
     # path=$HOME/repos/MyGeotab/Checkmate/bin/Debug/netcoreapp3.1
@@ -554,6 +634,10 @@ function geo_db_init()
     local dev_repo=`geo_get DEV_REPO_DIR`
     path="${dev_repo}/Checkmate/bin/Debug/netcoreapp3.1"
     
+    # debug "===$db_name"
+
+    [ $acceptDefaults ] && sleep 3
+
     if dotnet "${path}/CheckmateServer.dll" CreateDatabase postgres companyName="$db_name" administratorUser="$user" administratorPassword="$password" sqluser="$sql_user" sqlpassword="$sql_password"; then
         success "$db_name initialized"
         info_bi 'Connect with pgAdmin (if not already set up)'

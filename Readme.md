@@ -1,4 +1,4 @@
-# geo-cli
+# `geo-cli`
 A tool that makes MyGeotab development easier. Specifically, this tool aims to simplify cross-release development by managing various versions of `geotabdemo` Postgres database containers. This allows you to easily switch between release branches without having to worry about database compatibility. In the future, it also aims to simplify other pain points of development by automating them; providing an easy-to-use interface that hides the complexity under the hood.
 
 > `geo-cli` is currently under active development and is updated often. Please contact me on Chat or through email (dawsonmyers@geotab.com) if you have a feature idea or would like to report a bug.
@@ -6,7 +6,7 @@ A tool that makes MyGeotab development easier. Specifically, this tool aims to s
 > `geo-cli` is only supported on Ubuntu. However, it can be made to work in WSL on Windows if you set up docker for it.
 
 ## Table of Contents
-- [geo-cli](#geo-cli)
+- [`geo-cli`](#geo-cli)
   - [Table of Contents](#table-of-contents)
   - [Example](#example)
   - [Getting Started with `geo-cli`](#getting-started-with-geo-cli)
@@ -18,6 +18,7 @@ A tool that makes MyGeotab development easier. Specifically, this tool aims to s
     - [Running Analyzers](#running-analyzers)
   - [Help](#help)
 
+<!-- Make images > 892 px wide -->
 
 ## Example
 Lets say that you're developing a new feature on a `2004` branch of MyGeotab, but have to switch to a `2002` branch for a high priority bug fix that requires the use of `geotabdemo` (or any compatible database, for that matter). Switching to a compatible database is as simple as checking out the branch, **building the project** (only required when creating a new db container), and then running the following in a terminal:
@@ -185,8 +186,7 @@ Available commands:
       Commands for working with db images.
         Options:
             create
-                Creates the base Postgres image configured to be used with
-                geotabdemo.
+                Creates the base Postgres image configured to be used with geotabdemo.
             remove
                 Removes the base Postgres image.
             ls
@@ -196,13 +196,19 @@ Available commands:
     db
       Database commands.
         Options:
+            create [option] <name>
+                Creates a versioned db container and volume.
+                  Options:
+                    -y
+                      Accept all prompts.
             start [option] [name]
-                Starts (creating if necessary) a versioned db container and
-                volume. If no name is provided, the most recent db container
-                name is started.
+                Starts (creating if necessary) a versioned db container and volume. If no name
+                is provided, the most recent db container name is started.
+                  Options:
+                    -y
+                      Accept all prompts.
             rm, remove <version>
-                Removes the container and volume associated with the provided
-                version (e.g. 2004).
+                Removes the container and volume associated with the provided version (e.g. 2004).
                   Options:
                     -a, --all
                       Remove all db containers and volumes.
@@ -216,10 +222,19 @@ Available commands:
             ps
                 List running geo-cli db containers.
             init
-                Initialize a running db container with geotabdemo or an empty
-                db with a custom name.
+                Initialize a running db container with geotabdemo or an empty db with a custom
+                name.
+                  Options:
+                    -y
+                      Accept all prompts.
+            psql [db name]
+                Open a psql session to geotabdemo in the running geo-cli db container. The
+                username and password used to connect is geotabuser and vircom43, respectively.
+            bash
+                Open a bash session with the running geo-cli db container.
         Example:
             geo db start 2004
+            geo db start -y 2004
             geo db create 2004
             geo db rm 2004
             geo db rm --all
@@ -265,10 +280,9 @@ Available commands:
             geo update
             geo update --force
     uninstall
-      Remove geo-cli installation. This prevents geo-cli from being
-      loaded into new bash terminals, but does not remove the geo-cli
-      repo directory. Navigate to the geo-cli repo directory and run 'bash
-      install.sh' to reinstall.
+      Remove geo-cli installation. This prevents geo-cli from being loaded into new bash
+      terminals, but does not remove the geo-cli repo directory. Navigate to the geo-cli repo
+      directory and run 'bash install.sh' to reinstall.
         Example:
             geo uninstall
     analyze
@@ -291,4 +305,6 @@ Available commands:
             geo cd cli
     help, -h, --help
       Prints out help for all commands.
+
+
 ```
