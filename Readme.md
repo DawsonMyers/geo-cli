@@ -246,7 +246,7 @@ Available commands:
             geo db rm --all
             geo db ls
             geo db psql
-            geo db psql -u mySqlUser -p myPassword dbName
+            geo db psql -u mySqlUser -p mySqlPassword dbName
     stop
       Stops all geo-cli containers.
         Example:
