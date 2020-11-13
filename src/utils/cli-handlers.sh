@@ -146,6 +146,8 @@ geo_db_doc() {
     doc_cmd_example 'geo db rm 2004'
     doc_cmd_example 'geo db rm --all'
     doc_cmd_example 'geo db ls'
+    doc_cmd_example 'geo db psql'
+    doc_cmd_example 'geo db psql -u mySqlUser -p myPassword dbName'
 }
 geo_db() {
     # Check to make sure that the current user is added to the docker group. All subcommands in this command need to use docker.
