@@ -157,7 +157,7 @@ geo_db() {
 
     case "$1" in
         init )
-            geo_db_init
+            geo_db_init "$2"
             return
             ;;
         ls )
@@ -659,13 +659,48 @@ function geo_db_init()
     fi
 
     local dev_repo=`geo_get DEV_REPO_DIR`
-    path="${dev_repo}/Checkmate/bin/Debug/netcoreapp3.1"
+    local output_dir="${dev_repo}/Checkmate/bin/Debug"
+    # local path="${output_dir}/netcoreapp3.1"
+    # local path_dotnet3="${output_dir}/netcoreapp3.1"
+    # local path_dotnet5="${output_dir}/net5.0"
+    # local exe="CheckmateServer.dll"
     
+    # Get full path of CheckmateServer.dll files, sorted from newest to oldest.
+    local files="`find $output_dir -maxdepth 2 -name "CheckmateServer.dll" -print0 | xargs -r -0 ls -1 -t | tr '\n' ':'`"
+    local ifs=$IFS
+    IFS=:
+    read -r -a paths <<< "$files"
+    IFS=$ifs
+
+    [[ ${#paths} = 0 ]] && Error "No output directories could be found in ${output_dir}. These folders should exist and contain CheckmateServer.dll. Build MyGeotab and try again."
+
+    if [[ ${#paths} -gt 1 ]]; then
+        warn "Multiple CheckmateServer.dll output directories exist."
+        info_bi "Available executables in directory `txt_italic "${output_dir}"`:"
+        local i=0
+        
+        data_header "  Id    Directory                                      "
+        for d in "${paths[@]}"; do
+            local line="  ${i}    ...${d##*Debug}"
+            [ $i = 0 ] && line="${line}   `info_bi -p  '(NEWEST)'`"
+            data "$line"
+            ((i++))
+        done
+        
+        local msg="Enter the id of the directory you would like to use: "
+        prompt_for_info_n "$msg"
+        while [[ -z $prompt_return || $prompt_return -lt 0 || $prompt_return -ge $i ]]; do
+            prompt_for_info_n "$msg"
+        done
+        path="${paths[prompt_return]}"
+    else
+        path="${paths[0]}"
+    fi
     # debug "===$db_name"
 
     [ $acceptDefaults ] && sleep 3
 
-    if dotnet "${path}/CheckmateServer.dll" CreateDatabase postgres companyName="$db_name" administratorUser="$user" administratorPassword="$password" sqluser="$sql_user" sqlpassword="$sql_password"; then
+    if dotnet "${path}" CreateDatabase postgres companyName="$db_name" administratorUser="$user" administratorPassword="$password" sqluser="$sql_user" sqlpassword="$sql_password"; then
         success "$db_name initialized"
         info_bi 'Connect with pgAdmin (if not already set up)'
         info 'Create a new server and entering the following information:'
@@ -1350,7 +1385,7 @@ geo_show_msg_if_outdated() {
     # outdated=`geo_get OUTDATED`
     if geo_is_outdated ; then
     # if [[ $outdated =~ true ]]; then
-        warn_bi "New version of geo-cli available. Run 'geo update' to get it."
+        warn_bi "New version of geo-cli is available. Run `txt_underline 'geo update'` to get it."
     fi
 }
 
