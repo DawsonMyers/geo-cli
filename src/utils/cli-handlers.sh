@@ -344,7 +344,8 @@ geo_db() {
             fi
 
 
-            local container_id=`docker ps -aqf "name=$container_name"`
+            local container_id=`geo_get_container_id "$container_name"`
+            # local container_id=`docker ps -aqf "name=$container_name"`
             local volume_created=false
 
             local output=''
@@ -509,10 +510,18 @@ geo_db_ls_volumes() {
     docker volume ls -f name=geo_cli
 }
 
+geo_container_name() {
+    echo "${IMAGE}_${1}"
+}
+
 geo_get_container_id() {
     local name=$1
-    [[ -z $name ]] && name="$IMAGE*"
-    echo `docker container ls -a --filter name="$name" -aq`
+    # [[ -z $name ]] && name="$IMAGE*"
+    # echo `docker container ls -a --filter name="$name" -aq`
+    local result=`docker inspect "$name" --format='{{.ID}}' 2>&1`
+    local container_does_not_exists=`echo $result | grep "Error:"`
+    [[ $container_does_not_exists ]] && return
+    echo $result
 }
 
 geo_container_exists() {
@@ -723,12 +732,7 @@ function geo_db_init()
     
 }
 
-geo_container_name() {
-    echo "${IMAGE}_${1}"
-}
-
-geo_db_rm()
-{
+geo_db_rm() {
     if [[ $1 =~ ^-*a(ll)? ]]; then
         prompt_continue "Do you want to remove all db contaners? (Y|n): " || return
         # Get list of contianer names
@@ -752,6 +756,7 @@ geo_db_rm()
 
     local container_name
     local db_name="$1"
+    # If the -n option is present, the full container name is passed in as an argument (e.g. geo_cli_db_postgres11_2101). Otherwise, the db name is passed in (e.g., 2101)
     if [[ $1 == -n ]]; then
         container_name="$2"
         db_name="${2#${IMAGE}_}"
