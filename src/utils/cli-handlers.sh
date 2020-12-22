@@ -667,45 +667,10 @@ function geo_db_init()
         return 1
     fi
 
-    local dev_repo=`geo_get DEV_REPO_DIR`
-    local output_dir="${dev_repo}/Checkmate/bin/Debug"
-    # local path="${output_dir}/netcoreapp3.1"
-    # local path_dotnet3="${output_dir}/netcoreapp3.1"
-    # local path_dotnet5="${output_dir}/net5.0"
-    # local exe="CheckmateServer.dll"
-    
-    # Get full path of CheckmateServer.dll files, sorted from newest to oldest.
-    local files="`find $output_dir -maxdepth 2 -name "CheckmateServer.dll" -print0 | xargs -r -0 ls -1 -t | tr '\n' ':'`"
-    local ifs=$IFS
-    IFS=:
-    read -r -a paths <<< "$files"
-    IFS=$ifs
+    local path=''
+    geo_get_checkmate_dll_path
+    path=$prompt_return
 
-    [[ ${#paths} = 0 ]] && Error "No output directories could be found in ${output_dir}. These folders should exist and contain CheckmateServer.dll. Build MyGeotab and try again."
-
-    if [[ ${#paths} -gt 1 ]]; then
-        warn "Multiple CheckmateServer.dll output directories exist."
-        info_bi "Available executables in directory `txt_italic "${output_dir}"`:"
-        local i=0
-        
-        data_header "  Id    Directory                                      "
-        for d in "${paths[@]}"; do
-            local line="  ${i}    ...${d##*Debug}"
-            [ $i = 0 ] && line="${line}   `info_bi -p  '(NEWEST)'`"
-            data "$line"
-            ((i++))
-        done
-        
-        local msg="Enter the id of the directory you would like to use: "
-        prompt_for_info_n "$msg"
-        while [[ -z $prompt_return || $prompt_return -lt 0 || $prompt_return -ge $i ]]; do
-            prompt_for_info_n "$msg"
-        done
-        path="${paths[prompt_return]}"
-    else
-        path="${paths[0]}"
-    fi
-    # debug "===$db_name"
 
     [ $acceptDefaults ] && sleep 3
 
@@ -787,6 +752,44 @@ geo_db_rm() {
         return 1
     fi
 
+}
+
+geo_get_checkmate_dll_path() {
+    local dev_repo=`geo_get DEV_REPO_DIR`
+    local output_dir="${dev_repo}/Checkmate/bin/Debug"
+
+    # Get full path of CheckmateServer.dll files, sorted from newest to oldest.
+    local files="`find $output_dir -maxdepth 2 -name "CheckmateServer.dll" -print0 | xargs -r -0 ls -1 -t | tr '\n' ':'`"
+    local ifs=$IFS
+    IFS=:
+    read -r -a paths <<< "$files"
+    IFS=$ifs
+
+    [[ ${#paths} = 0 ]] && Error "No output directories could be found in ${output_dir}. These folders should exist and contain CheckmateServer.dll. Build MyGeotab and try again."
+
+    if [[ ${#paths} -gt 1 ]]; then
+        warn "Multiple CheckmateServer.dll output directories exist."
+        info_bi "Available executables in directory `txt_italic "${output_dir}"`:"
+        local i=0
+        
+        data_header "  Id    Directory                                      "
+        for d in "${paths[@]}"; do
+            local line="  ${i}    ...${d##*Debug}"
+            [ $i = 0 ] && line="${line}   `info_bi -p  '(NEWEST)'`"
+            data "$line"
+            ((i++))
+        done
+        
+        local msg="Enter the id of the directory you would like to use: "
+        prompt_for_info_n "$msg"
+        while [[ -z $prompt_return || $prompt_return -lt 0 || $prompt_return -ge $i ]]; do
+            prompt_for_info_n "$msg"
+        done
+        path="${paths[prompt_return]}"
+    else
+        path="${paths[0]}"
+    fi
+    prompt_return="$path"
 }
 
 geo_check_for_dev_repo_dir() {
