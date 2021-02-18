@@ -1238,9 +1238,9 @@ geo_analyze() {
         ANALYZER_NAME="${analyzer[$name]}"
         ANALYZER_PROJ="${analyzer[$proj]}"
         status_bi "Running ($((run_count++)) of $id_count): $ANALYZER_NAME"
-        dotnet build -p:DebugAnalyzers=${ANALYZER_NAME} -p:TreatWarningsAsErrors=false ${ANALYZER_PROJ} && success 'Analyzer done' || Error 'dotnet build failed'
+        dotnet build -p:DebugAnalyzers=${ANALYZER_NAME} -p:TreatWarningsAsErrors=false -p:RunAnalyzersDuringBuild=true ${ANALYZER_PROJ} && success 'Analyzer done' || Error 'dotnet build failed'
     done
-    # Restor previous directory.
+    # Restore previous directory.
     popd
 }
 
