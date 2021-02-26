@@ -1,10 +1,14 @@
 #!/bin/bash
+
+# Import colour constants/functions and config file read/write helper functions.
 . $GEO_CLI_SRC_DIR/utils/colors.sh
 . $GEO_CLI_SRC_DIR/utils/config-file-utils.sh
 
+# The name of the base postgres image that will be used for creating all geo db containers.
 export IMAGE=geo_cli_db_postgres11
 
-# A list of all of the commands
+# A list of all of the top-level geo commands. 
+# This is used in geo-cli.sh to confirm that the first param passed to geo (i.e. in 'geo db ls', db is the top-level command) is a valid command.
 export COMMANDS=()
 
 # First argument commands
@@ -352,7 +356,7 @@ geo_db() {
 
             try_to_start_db() {
                 output=''
-                output="`docker start $1 2>&1 | grep 'listen tcp 0.0.0.0:5432: bind: address already in use'`"
+                output="`docker start $1 2>&1 | grep '0.0.0.0:5432: bind: address already in use'`"
             }
 
             if [[ -n $container_id ]]; then
@@ -1205,6 +1209,20 @@ geo_analyze() {
     local prompt_txt='Enter the analyzer IDs that you would like to run (separated by spaces): '
     
     local valid_input=false
+    if [[ $1 && $1 =~ ^( *[0-9]+ *)+$ ]]; then
+        prompt_return=$1
+        # Make sure the numbers are valid ids between 0 and max_id.
+        for id in $prompt_return; do
+            if (( id < 0 | id > max_id )); then
+                error "Invalid ID: ${id}. Only IDs from 0 to ${max_id} are valid"
+                # Set valid_input = false and break out of this for loop, causing the outer until loop to run again.
+                valid_input=false
+                break 
+            fi
+            valid_input=true
+        done
+    fi
+
     # Get the list of ids from the user. Asking repeatedly if invalid input is given.
     until [[ $valid_input == true ]]; do
         prompt_for_info_n "$prompt_txt"
