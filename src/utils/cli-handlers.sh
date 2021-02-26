@@ -1172,8 +1172,8 @@ geo_uninstall() {
 ###########################################################
 COMMANDS+=('analyze')
 geo_analyze_doc() {
-    doc_cmd 'analyze'
-    doc_cmd_desc 'Allows you to select and run various pre-build analyzers.'
+    doc_cmd 'analyze [analyzerId]'
+    doc_cmd_desc 'Allows you to select and run various pre-build analyzers. You can optionaly include the list of analyzers if already known.'
     
     doc_cmd_examples_title
     doc_cmd_example 'geo analyze'
