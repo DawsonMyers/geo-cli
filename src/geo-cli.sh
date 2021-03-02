@@ -12,12 +12,13 @@ export GEO_CLI_CONF_FILE="$GEO_CLI_CONFIG_DIR/.geo.conf"
 [ ! -f $GEO_CLI_CONF_FILE ] && touch $GEO_CLI_CONF_FILE
 
 # Load all saved key-value settings into the environment.
-while read line; do
-    # Skip lines less than 3 characters long (i.e. the minimum key-value can be of the form x=1).
-    [[ ${#line} < 3 ]] && continue
-    # Expand env vars, then export
-    export `eval echo $line`
-done < $GEO_CLI_CONF_FILE
+# while read line; do
+#     # Skip lines less than 3 characters long (i.e. the minimum key-value can be of the form x=1).
+#     [[ ${#line} < 3 ]] && continue
+#     # Expand env vars, then export
+#     line=`echo $line | tr ' ' '='`
+#     export `eval echo $line`
+# done < $GEO_CLI_CONF_FILE
 
 # [ -z $GEO_CLI_REPO_DIR ] && echo REPO DIRECTORY NOT set
 

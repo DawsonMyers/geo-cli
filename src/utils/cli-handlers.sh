@@ -564,35 +564,35 @@ function geo_db_init()
         return 1
     fi
     db_name='geotabdemo'
-    status 'A db can be initialized with geotabdemo or with a custom db name (just creates an empty database with provided name).'
-    if ! [ $acceptDefaults ] && ! prompt_continue 'Would you like to initialize the db with geotabdemo? (Y|n): '; then
-        stored_name=`geo_get PREV_DB_NAME`
-        prompt_txt='Enter the name of the db you would like to create: '
-        if [[ -n $stored_name ]]; then
-            data "Stored db name: $stored_name"
-            if ! prompt_continue 'Use stored db name? (Y|n): '; then
-                prompt_for_info_n "$prompt_txt"
-                while ! prompt_continue "Create db called '$prompt_return'? (Y|n): "; do
-                    prompt_for_info_n "$prompt_txt"
-                done
-                db_name="$prompt_return"
-            else
-                db_name="$stored_name"
-            fi
-        else
-            prompt_for_info_n "$prompt_txt"
-            while ! prompt_continue "Create db called '$prompt_return'? (Y|n): "; do
-                prompt_for_info_n "$prompt_txt"
-            done
-            db_name="$prompt_return"
-        fi
-        geo_set PREV_DB_NAME "$db_name"
-    fi
+    # status 'A db can be initialized with geotabdemo or with a custom db name (just creates an empty database with provided name).'
+    # if ! [ $acceptDefaults ] && ! prompt_continue 'Would you like to initialize the db with geotabdemo? (Y|n): '; then
+    #     stored_name=`geo_get PREV_DB_NAME`
+    #     prompt_txt='Enter the name of the db you would like to create: '
+    #     if [[ -n $stored_name ]]; then
+    #         data "Stored db name: $stored_name"
+    #         if ! prompt_continue 'Use stored db name? (Y|n): '; then
+    #             prompt_for_info_n "$prompt_txt"
+    #             while ! prompt_continue "Create db called '$prompt_return'? (Y|n): "; do
+    #                 prompt_for_info_n "$prompt_txt"
+    #             done
+    #             db_name="$prompt_return"
+    #         else
+    #             db_name="$stored_name"
+    #         fi
+    #     else
+    #         prompt_for_info_n "$prompt_txt"
+    #         while ! prompt_continue "Create db called '$prompt_return'? (Y|n): "; do
+    #             prompt_for_info_n "$prompt_txt"
+    #         done
+    #         db_name="$prompt_return"
+    #     fi
+    #     geo_set PREV_DB_NAME "$db_name"
+    # fi
 
-    if [[ -z $db_name ]]; then
-        Error 'Db name cannot be empty'
-        return 1
-    fi
+    # if [[ -z $db_name ]]; then
+    #     Error 'Db name cannot be empty'
+    #     return 1
+    # fi
 
     status_bi "Initializing db $db_name"
     local user=`geo_get DB_USER`
@@ -724,14 +724,14 @@ geo_db_rm() {
     fi
 
     local container_name
-    local db_name="$1"
+    local db_name="`geo_make_alphanumeric $1`"
     # If the -n option is present, the full container name is passed in as an argument (e.g. geo_cli_db_postgres11_2101). Otherwise, the db name is passed in (e.g., 2101)
     if [[ $1 == -n ]]; then
         container_name="$2"
         db_name="${2#${IMAGE}_}"
         shift
     else
-        container_name=`geo_container_name "$1"`
+        container_name=`geo_container_name "$db_name"`
     fi
 
     local container_id=`geo_get_running_container_id "$container_name"`

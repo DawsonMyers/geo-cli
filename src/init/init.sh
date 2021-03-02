@@ -11,10 +11,11 @@ export GEO_CLI_CONF_FILE="$GEO_CLI_CONFIG_DIR/.geo.conf"
 
 # export GEO_CLI_DIR="$GEO_CLI_CONFIG_DIR/cli"
 
-while read line; do
-    [[ ${#line} < 3 ]] && continue
-    export `eval echo $line` # Expand env vars, then export
-done < $GEO_CLI_CONF_FILE
+# while read line; do
+#     [[ ${#line} < 3 ]] && continue
+#     line=`echo $line | tr ' ' '='`
+#     export `eval echo $line` # Expand env vars, then export
+# done < $GEO_CLI_CONF_FILE
 
 # [ -z $GEO_CLI_REPO_DIR ] && echo REPO DIRECTORY NOT set
 
