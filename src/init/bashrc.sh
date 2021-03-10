@@ -1,3 +1,3 @@
 #geo-cli-start
-    . $GEO_CLI_DIR/src/init/init.sh
+    . $GEO_CLI_DIR/src/geo-cli.sh
 #geo-cli-end

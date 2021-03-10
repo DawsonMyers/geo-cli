@@ -37,7 +37,7 @@ alias zrc=". ~/.zshrc"
 # # Doesn't work for some reason
 # # complete -W "${completions[@]}" geo
 
-# # Get list of completions separated by spaces (required as imput to complete command)
+# # Get list of completions separated by spaces (required as input to complete command)
 # comp_string=`echo "${completions[@]}"`
 # complete -W "$comp_string" geo
 

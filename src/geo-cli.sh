@@ -20,16 +20,12 @@ export GEO_CLI_CONF_FILE="$GEO_CLI_CONFIG_DIR/.geo.conf"
 #     export `eval echo $line`
 # done < $GEO_CLI_CONF_FILE
 
-# [ -z $GEO_CLI_REPO_DIR ] && echo REPO DIRECTORY NOT set
-
-# Import cli handlers to get access to all of the command names (through functions calls and the COMMMAND array)
-# . ~/.geo-cli/cli/utils/cli-handlers.sh
-
 alias d-c='docker-compose'
 # alias dcm=dc_geo
 alias brc=". ~/.bashrc"
 alias zrc=". ~/.zshrc"
 
+# Gets the absolute path of the root geo-cli directory.
 export GEO_CLI_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
 export GEO_CLI_SRC_DIR="${GEO_CLI_CLI_DIR}/src"
 
@@ -38,11 +34,7 @@ export GEO_CLI_SRC_DIR="${GEO_CLI_CLI_DIR}/src"
 # DIR_NAME=`dirname $SOURCE`
 # echo $SOURCE
 
-# Gets the absolute path of the directory this script is in.
-# export GEO_CLI_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" 
-
-# ThisScriptPath="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")" 
-
+# Import cli handlers to get access to all of the geo-cli commands and command names (through the COMMMAND array).
 . $GEO_CLI_SRC_DIR/utils/cli-handlers.sh
 
 function geo()
@@ -94,7 +86,6 @@ function geo()
         return
     fi
         
-
     # Quit if the command isn't valid
     if [ -z `cmd_exists $cmd` ]; then
 
