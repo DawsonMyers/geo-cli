@@ -1190,6 +1190,7 @@ geo_analyze() {
         "StyleCop.Analyzers $MYG_CORE_PROJ"
         "Roslynator.Analyzers $MYG_TEST_PROJ"
         "Meziantou.Analyzer $MYG_TEST_PROJ"
+        "Microsoft.CodeAnalysis.NetAnalyzers $MYG_TEST_PROJ"
     )
     local len=${#analyzers[@]}
     local max_id=$((len-1))
