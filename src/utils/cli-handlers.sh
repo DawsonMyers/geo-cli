@@ -676,7 +676,7 @@ function geo_db_init()
     path=$prompt_return
 
 
-    [ $acceptDefaults ] && sleep 3
+    [ $acceptDefaults ] && sleep 5
 
     if dotnet "${path}" CreateDatabase postgres companyName="$db_name" administratorUser="$user" administratorPassword="$password" sqluser="$sql_user" sqlpassword="$sql_password"; then
         success "$db_name initialized"
