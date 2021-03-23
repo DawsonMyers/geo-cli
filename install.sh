@@ -1,8 +1,8 @@
 #!/bin/bash
-# Import config file utils for writing to the geo config file (~/.geo-cli/.geo.conf).
 export GEO_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" 
 export GEO_CLI_SRC_DIR="${GEO_CLI_DIR}/src"
 
+# Import config file utils for writing to the geo config file (~/.geo-cli/.geo.conf).
 . $GEO_CLI_SRC_DIR/utils/cli-handlers.sh
 
 export GEO_CLI_CONFIG_DIR="$HOME/.geo-cli"
@@ -54,12 +54,15 @@ if ! type docker > /dev/null; then
             software-properties-common
         sudo apt-get install -y build-essential make gcc g++ python
         curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-        sudo curl -L "https://github.com/docker/compose/releases/download/1.28.5/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        
+        # Remove old version of docker-compose
+        [ -f /usr/local/bin/docker-compose ] && sudo rm /usr/local/bin/docker-compose
+        # Get the latest docker-compose version
+        COMPOSE_VERSION=`git ls-remote https://github.com/docker/compose | grep refs/tags | grep -oE "[0-9]+\.[0-9][0-9]+\.[0-9]+$" | sort --version-sort | tail -n 1`
+        sudo curl -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION:-1.28.6}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        
         sudo apt-key fingerprint 0EBFCD88
-        sudo add-apt-repository \
-        "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
-        $(lsb_release -cs) \
-        stable"
+        sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
 
         sudo apt-get update
         sudo apt-get install -y docker-ce
