@@ -54,7 +54,7 @@ if ! type docker > /dev/null; then
             software-properties-common
         sudo apt-get install -y build-essential make gcc g++ python
         curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-        sudo curl -L "https://github.com/docker/compose/releases/download/1.27.3/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        sudo curl -L "https://github.com/docker/compose/releases/download/1.28.5/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
         sudo apt-key fingerprint 0EBFCD88
         sudo add-apt-repository \
         "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
