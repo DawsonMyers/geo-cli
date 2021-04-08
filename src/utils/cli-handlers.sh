@@ -437,6 +437,7 @@ geo_db() {
                 local option=$2
                 local arg="$3"
                 shift
+                # It's an error if the argument to an option is an option.
                 [[ ! $arg || $arg =~ ^-[a-z] ]] && Error "Argument missing for option ${option}" && return 1
 
                 case $option in
@@ -446,19 +447,22 @@ geo_db() {
                     -p )
                         sql_password="$arg"
                         ;;
+                    * ) 
+                        Error "Unknown option '$option'."
+                        return 1
                 esac
                 shift
             done
+
             local db_name=$2
             # Assign default values for sql user/passord.
             [[ -z $db_name ]] && db_name=geotabdemo
             [[ -z $sql_user ]] && sql_user=geotabuser
             [[ -z $sql_password ]] && sql_password=vircom43
-            debug $sql_user $sql_password $db_name
-            return
 
             local running_container_id=`geo_get_running_container_id`
-            [[ ! $running_container_id ]]
+            debug $sql_user $sql_password $db_name $running_container_id
+
             if [[ -z $running_container_id ]]; then
                 Error 'No geo-cli containers are running to connect to.'
                 info "Run `txt_underline 'geo db ls'` to view available containers and `txt_underline 'geo db start <name>'` to start one."
