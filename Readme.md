@@ -17,6 +17,9 @@ A tool that makes MyGeotab development easier. Specifically, this tool aims to s
     - [Creating Empty Databases](#creating-empty-databases)
     - [Running Analyzers](#running-analyzers)
   - [Help](#help)
+- [Troubleshooting](#troubleshooting)
+  - [Update issues](#update-issues)
+  - [Problems Creating Databases](#problems-creating-databases)
 
 <!-- Make images > 892 px wide -->
 
@@ -315,3 +318,18 @@ Available commands:
       Prints out help for all commands.
 
 ```
+
+# Troubleshooting
+## Update issues
+If you encounter issues while running `geo update`, try navigating to the geo-cli repo directory in a terminal and running `git pull && bash install.sh`.
+
+## Problems Creating Databases
+> *Note: you must always build MyGeotab.Core for the branch/release prior to creating a db.*
+
+For issues while running `geo db start <version>`, try the following (to make things):
+
+1. **Checkmate Error:Cause: EXEB84000E: Unable to upgrade 'trunk_template_2...** 
+   * Lets say that you're trying to create a db on a 2102 branch using `geo db start 2102` (2102 can be any alphanumeric name) and encounter this error `Checkmate Error:Cause: EXEB84000E: Unable to upgrade 'trunk_template_2102...` try checking out master and then running `geo image create`, followed by `geo db rm 2102`, and then finally `geo db start 2102` again to recreate the db. This problem arose because we upgraded to using Postgres 12, but you may have created the base db image before the changes were made in the Postgres dockerfile; so we need to rebuild you db image for the changes to take effect.
+2. **DbUnavailable**
+   * If you're trying to create a db using `geo db start <version>` and encounter a DbUnavilable exception, try running `geo db init`.
+

@@ -60,28 +60,28 @@ geo_image_doc() {
 }
 geo_image() {
     case "$1" in
-    rm | remove)
-        docker image rm "$IMAGE"
-        # if [[ -z $2 ]]; then
-        #     Error "No database version provided for removal"
-        #     return
-        # fi
-        # geo_db_rm "$2"
-        return
-        ;;
-    create)
-        status 'Building image...'
-        local dir=$(geo_get DEV_REPO_DIR)
-        dir="${dir}/Checkmate/Docker/postgres"
-        local dockerfile="Debug.Dockerfile"
-        pushd "$dir"
-        docker build --file "$dockerfile" -t "$IMAGE" . && success 'geo-cli Postgres image created' || warn 'Failed to create geo-cli Postgres image'
-        popd
-        return
-        ;;
-    ls)
-        docker image ls | grep "$IMAGE"
-        ;;
+        rm | remove)
+            docker image rm "$IMAGE"
+            # if [[ -z $2 ]]; then
+            #     Error "No database version provided for removal"
+            #     return
+            # fi
+            # geo_db_rm "$2"
+            return
+            ;;
+        create)
+            status 'Building image...'
+            local dir=$(geo_get DEV_REPO_DIR)
+            dir="${dir}/Checkmate/Docker/postgres"
+            local dockerfile="Debug.Dockerfile"
+            pushd "$dir"
+            docker build --file "$dockerfile" -t "$IMAGE" . && success 'geo-cli Postgres image created' || warn 'Failed to create geo-cli Postgres image'
+            popd
+            return
+            ;;
+        ls)
+            docker image ls | grep "$IMAGE"
+            ;;
     esac
 
 }
@@ -678,6 +678,10 @@ function geo_db_init() {
 
     [ $acceptDefaults ] && sleep 5
 
+    info 'Waiting for db to start...'
+
+    sleep 5
+    
     if dotnet "${path}" CreateDatabase postgres companyName="$db_name" administratorUser="$user" administratorPassword="$password" sqluser="$sql_user" sqlpassword="$sql_password"; then
         success "$db_name initialized"
         info_bi 'Connect with pgAdmin (if not already set up)'
@@ -1130,6 +1134,7 @@ geo_update() {
     fi
 
     GEO_CLI_DIR="$(geo_get GEO_CLI_DIR)"
+    
     (
         cd $GEO_CLI_DIR
         if ! git pull >/dev/null; then
