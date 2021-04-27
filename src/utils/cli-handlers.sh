@@ -1218,9 +1218,11 @@ geo_analyze() {
     local prompt_txt='Enter the analyzer IDs that you would like to run (separated by spaces): '
 
     local valid_input=false
-    if [[ $1 && $1 =~ ^( *[0-9]+ *)+$ ]]; then
-        prompt_return=$1
+
+    if [[ $1 =~ ^( *[0-9]+ *)+$ ]]; then
+        prompt_return="$@"
         # Make sure the numbers are valid ids between 0 and max_id.
+        # while [[ $1 =~ ^( *[0-9]+ *)+$ ]]; do
         for id in $prompt_return; do
             if ((id < 0 | id > max_id)); then
                 error "Invalid ID: ${id}. Only IDs from 0 to ${max_id} are valid"
@@ -1228,6 +1230,7 @@ geo_analyze() {
                 valid_input=false
                 break
             fi
+            prompt_return+=""
             valid_input=true
         done
     fi
@@ -1256,19 +1259,41 @@ geo_analyze() {
     local id_count=$(echo "$prompt_return" | wc -w)
     local run_count=1
     # Switch to the development repo directory so that dotnet build can be run.
-    pushd "$dev_repo"
+    
+    (
+        cd "$dev_repo"
+        local fail_count=0
+        local failed_tests=''
 
-    # Run each analyzer.
-    for id in $prompt_return; do
-        # echo $id
-        read -r -a analyzer <<<"${analyzers[$id]}"
-        ANALYZER_NAME="${analyzer[$name]}"
-        ANALYZER_PROJ="${analyzer[$proj]}"
-        status_bi "Running ($((run_count++)) of $id_count): $ANALYZER_NAME"
-        dotnet build -p:DebugAnalyzers=${ANALYZER_NAME} -p:TreatWarningsAsErrors=false -p:RunAnalyzersDuringBuild=true ${ANALYZER_PROJ} && success 'Analyzer done' || Error 'dotnet build failed'
-    done
-    # Restore previous directory.
-    popd
+        # Run each analyzer.
+        for id in $prompt_return; do
+            # echo $id
+            read -r -a analyzer <<<"${analyzers[$id]}"
+            ANALYZER_NAME="${analyzer[$name]}"
+            ANALYZER_PROJ="${analyzer[$proj]}"
+            echo
+            status_bi "Running ($((run_count++)) of $id_count): $ANALYZER_NAME"
+            echo
+            if ! dotnet build -p:DebugAnalyzers=${ANALYZER_NAME} -p:TreatWarningsAsErrors=false -p:RunAnalyzersDuringBuild=true ${ANALYZER_PROJ}; then
+                echo
+                Error "$ANALYZER_NAME failed"
+                ((fail_count++))
+                failed_tests+="  *  $ANALYZER_NAME\n"
+            else
+                success 'Analyzer done'
+            fi
+        done
+
+        echo
+        if [[ $fail_count > 0 ]]; then
+            warn "$fail_count out of $id_count analyzers failed. The following analyzers failed:"
+            failed_tests=$(echo -e "$failed_tests")
+            detail "$failed_tests"
+        else
+            success 'All analyzers completed successfully'
+        fi
+        echo
+    )
 }
 
 ###########################################################
