@@ -1219,18 +1219,19 @@ geo_analyze() {
 
     local valid_input=false
 
-    if [[ $1 =~ ^( *[0-9]+ *)+$ ]]; then
-        prompt_return="$@"
+    local args="$@"
+
+    if [[ $args =~ ^( *[0-9]+ *)+$ ]]; then
         # Make sure the numbers are valid ids between 0 and max_id.
         # while [[ $1 =~ ^( *[0-9]+ *)+$ ]]; do
-        for id in $prompt_return; do
+        for id in $args; do
             if ((id < 0 | id > max_id)); then
                 error "Invalid ID: ${id}. Only IDs from 0 to ${max_id} are valid"
                 # Set valid_input = false and break out of this for loop, causing the outer until loop to run again.
                 valid_input=false
                 break
             fi
-            prompt_return+=""
+            prompt_return="$args"
             valid_input=true
         done
     fi
