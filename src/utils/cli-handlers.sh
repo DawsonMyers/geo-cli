@@ -1266,26 +1266,35 @@ geo_analyze() {
         local fail_count=0
         local failed_tests=''
 
-        # Run each analyzer.
-        for id in $prompt_return; do
-            # echo $id
-            read -r -a analyzer <<<"${analyzers[$id]}"
-            ANALYZER_NAME="${analyzer[$name]}"
-            ANALYZER_PROJ="${analyzer[$proj]}"
-            echo
-            status_bi "Running ($((run_count++)) of $id_count): $ANALYZER_NAME"
-            echo
-            if ! dotnet build -p:DebugAnalyzers=${ANALYZER_NAME} -p:TreatWarningsAsErrors=false -p:RunAnalyzersDuringBuild=true ${ANALYZER_PROJ}; then
+        # Run analyzers in a function so that the total time for all analyzers to run can be calculated.
+        run_analyzers() {
+            # Run each analyzer.
+            for id in $prompt_return; do
+                # echo $id
+                read -r -a analyzer <<<"${analyzers[$id]}"
+                ANALYZER_NAME="${analyzer[$name]}"
+                ANALYZER_PROJ="${analyzer[$proj]}"
                 echo
-                Error "$ANALYZER_NAME failed"
-                ((fail_count++))
-                failed_tests+="  *  $ANALYZER_NAME\n"
-            else
-                success 'Analyzer done'
-            fi
-        done
+                status_bi "Running ($((run_count++)) of $id_count): $ANALYZER_NAME"
+                echo
+                if ! dotnet build -p:DebugAnalyzers=${ANALYZER_NAME} -p:TreatWarningsAsErrors=false -p:RunAnalyzersDuringBuild=true ${ANALYZER_PROJ}; then
+                    echo
+                    Error "$ANALYZER_NAME failed"
+                    ((fail_count++))
+                    failed_tests+="  *  $ANALYZER_NAME\n"
+                else
+                    success 'Analyzer done'
+                fi
+            done
+
+            echo
+            info_b 'The total time was:'
+        }
+        
+        time run_analyzers
 
         echo
+        
         if [[ $fail_count > 0 ]]; then
             warn "$fail_count out of $id_count analyzers failed. The following analyzers failed:"
             failed_tests=$(echo -e "$failed_tests")
