@@ -74,9 +74,10 @@ geo_image() {
             local dir=$(geo_get DEV_REPO_DIR)
             dir="${dir}/Checkmate/Docker/postgres"
             local dockerfile="Debug.Dockerfile"
-            pushd "$dir"
-            docker build --file "$dockerfile" -t "$IMAGE" . && success 'geo-cli Postgres image created' || warn 'Failed to create geo-cli Postgres image'
-            popd
+            (
+                cd "$dir"
+                docker build --file "$dockerfile" -t "$IMAGE" . && success 'geo-cli Postgres image created' || warn 'Failed to create geo-cli Postgres image'
+            )
             return
             ;;
         ls)
@@ -1294,7 +1295,7 @@ geo_analyze() {
         time run_analyzers
 
         echo
-        
+
         if [[ $fail_count > 0 ]]; then
             warn "$fail_count out of $id_count analyzers failed. The following analyzers failed:"
             failed_tests=$(echo -e "$failed_tests")
