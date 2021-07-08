@@ -205,8 +205,7 @@ Available commands:
                     -y
                       Accept all prompts.
             start [option] [name]
-                Starts (creating if necessary) a versioned db container and volume. If no name
-                is provided, the most recent db container name is started.
+                Starts (creating if necessary) a versioned db container and volume. If no name is provided, the most recent db container name is started.
                   Options:
                     -y
                       Accept all prompts.
@@ -225,15 +224,12 @@ Available commands:
             ps
                 List running geo-cli db containers.
             init
-                Initialize a running db container with geotabdemo or an empty db with a custom
-                name.
+                Initialize a running db container with geotabdemo or an empty db with a custom name.
                   Options:
                     -y
                       Accept all prompts.
             psql [options] [db name]
-                Open a psql session to geotabdemo (default db name) in the running geo-cli db
-                container. The username and password used to connect is geotabuser and vircom43,
-                respectively.
+                Open a psql session to geotabdemo (default db name) in the running geo-cli db container. The username and password used to connect is geotabuser and vircom43, respectively.
                   Options:
                     -u
                       The admin sql user. The default value used is "geotabuser"
@@ -255,7 +251,7 @@ Available commands:
         Example:
             geo stop
     init
-      Initialize repo directory.
+      Initiallize repo directory.
         Options:
             repo
                 Init Development repo directory using the current directory.
@@ -291,15 +287,20 @@ Available commands:
             geo update
             geo update --force
     uninstall
-      Remove geo-cli installation. This prevents geo-cli from being loaded into new bash
-      terminals, but does not remove the geo-cli repo directory. Navigate to the geo-cli repo
-      directory and run 'bash install.sh' to reinstall.
+      Remove geo-cli installation. This prevents geo-cli from being loaded into new bash terminals, but does not remove the geo-cli repo directory. Navigate to the geo-cli repo directory and run 'bash install.sh' to reinstall.
         Example:
             geo uninstall
-    analyze
-      Allows you to select and run various pre-build analyzers.
+    analyze [option or analyzerIds]
+      Allows you to select and run various pre-build analyzers. You can optionaly include the list of analyzers if already known.
+        Options:
+            -a
+                Run all analyzers
+            -
+                Run previous analyzers
         Example:
             geo analyze
+            geo analyze -a
+            geo analyze 0 3 6
     version, -v, --version
       Gets geo-cli version.
         Example:
@@ -316,7 +317,6 @@ Available commands:
             geo cd cli
     help, -h, --help
       Prints out help for all commands.
-
 ```
 
 # Troubleshooting

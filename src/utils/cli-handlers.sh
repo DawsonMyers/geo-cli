@@ -1181,11 +1181,19 @@ geo_uninstall() {
 ###########################################################
 COMMANDS+=('analyze')
 geo_analyze_doc() {
-    doc_cmd 'analyze [analyzerId]'
+    doc_cmd 'analyze [option or analyzerIds]'
     doc_cmd_desc 'Allows you to select and run various pre-build analyzers. You can optionaly include the list of analyzers if already known.'
+
+    doc_cmd_options_title
+    doc_cmd_option -a
+    doc_cmd_option_desc 'Run all analyzers'
+    doc_cmd_option -
+    doc_cmd_option_desc 'Run previous analyzers'
 
     doc_cmd_examples_title
     doc_cmd_example 'geo analyze'
+    doc_cmd_example 'geo analyze -a'
+    doc_cmd_example 'geo analyze 0 3 6'
 }
 geo_analyze() {
     MYG_TEST_PROJ='Checkmate/MyGeotab.Core.Tests/MyGeotab.Core.Tests.csproj'
@@ -1220,19 +1228,28 @@ geo_analyze() {
 
     local valid_input=false
 
-    local args="$@"
+    local ids="$@"
 
-    if [[ $args =~ ^( *[0-9]+ *)+$ ]]; then
+    # Check if the run all analyzers option (-a) was supplied.
+    if [[ $1 = - ]]; then
+        ids=$(geo_get ANALYZER_IDS)
+    fi
+    # Check if the run all analyzers option (-a) was supplied.
+    if [[ $1 = -a ]]; then
+        ids=$(seq -s ' ' 0 $max_id)
+    fi
+
+    if [[ $ids =~ ^( *[0-9]+ *)+$ ]]; then
         # Make sure the numbers are valid ids between 0 and max_id.
         # while [[ $1 =~ ^( *[0-9]+ *)+$ ]]; do
-        for id in $args; do
+        for id in $ids; do
             if ((id < 0 | id > max_id)); then
                 error "Invalid ID: ${id}. Only IDs from 0 to ${max_id} are valid"
                 # Set valid_input = false and break out of this for loop, causing the outer until loop to run again.
                 valid_input=false
                 break
             fi
-            prompt_return="$args"
+            prompt_return="$ids"
             valid_input=true
         done
     fi
@@ -1255,13 +1272,18 @@ geo_analyze() {
             fi
             valid_input=true
         done
+        if [[ $valid_input = true ]]; then
+            ids="$prompt_return"
+        fi
     done
 
     # The number of ids entered.
-    local id_count=$(echo "$prompt_return" | wc -w)
+    local id_count=$(echo "$ids" | wc -w)
     local run_count=1
+
+    geo_set ANALYZER_IDS "$ids"
+
     # Switch to the development repo directory so that dotnet build can be run.
-    
     (
         cd "$dev_repo"
         local fail_count=0
@@ -1270,11 +1292,16 @@ geo_analyze() {
         # Run analyzers in a function so that the total time for all analyzers to run can be calculated.
         run_analyzers() {
             # Run each analyzer.
-            for id in $prompt_return; do
+            for id in $ids; do
                 # echo $id
                 read -r -a analyzer <<<"${analyzers[$id]}"
                 ANALYZER_NAME="${analyzer[$name]}"
                 ANALYZER_PROJ="${analyzer[$proj]}"
+
+                if [[ $fail_count > 0 ]]; then
+                    echo
+                    warn "$fail_count failed test$([[ $fail_count > 1 ]] && echo s) so far"
+                fi
                 echo
                 status_bi "Running ($((run_count++)) of $id_count): $ANALYZER_NAME"
                 echo
