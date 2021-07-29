@@ -1189,6 +1189,8 @@ geo_analyze_doc() {
     doc_cmd_option_desc 'Run all analyzers'
     doc_cmd_option -
     doc_cmd_option_desc 'Run previous analyzers'
+    doc_cmd_option -i
+    doc_cmd_option_desc 'Run analyzers individually (building each time)'
 
     doc_cmd_examples_title
     doc_cmd_example 'geo analyze'
@@ -1196,8 +1198,8 @@ geo_analyze_doc() {
     doc_cmd_example 'geo analyze 0 3 6'
 }
 geo_analyze() {
-    MYG_TEST_PROJ='Checkmate/MyGeotab.Core.Tests/MyGeotab.Core.Tests.csproj'
     MYG_CORE_PROJ='Checkmate/MyGeotab.Core.csproj'
+    MYG_TEST_PROJ='Checkmate/MyGeotab.Core.Tests/MyGeotab.Core.Tests.csproj'
     # Analyzer info: an array containing "name project" strings for each analyzer.
     analyzers=(
         "CSharp.CodeStyle $MYG_TEST_PROJ"
@@ -1214,12 +1216,15 @@ geo_analyze() {
     local name=0
     local proj=1
     # Print header for analyzer table. Which has two columns, ID and Name.
-    data_header "$(printf '%-4s %-30s\n' ID Name)"
+    data_header "$(printf '%-4s %-38s %-8s\n' ID Name Project)"
     # Print each analyzer's id and name.
     for ((id = 0; id < len; id++)); do
         # Convert a string containing "name project" into an array [name, project] so that name can be printed with its id.
         read -r -a analyzer <<<"${analyzers[$id]}"
-        printf '%-4d %-30s\n' $id "${analyzer[$name]}"
+        local project="$(data_b Core)"
+        [[ ${analyzer[$proj]} == $MYG_TEST_PROJ ]] && project='Test'
+
+        printf '%-4d %-38s %-8s\n' $id "${analyzer[$name]}" "$project"
     done
     local dev_repo=$(geo_get DEV_REPO_DIR)
 
@@ -1227,17 +1232,31 @@ geo_analyze() {
     local prompt_txt='Enter the analyzer IDs that you would like to run (separated by spaces): '
 
     local valid_input=false
+    local ids=
+    local run_individually=
 
-    local ids="$@"
-
-    # Check if the run all analyzers option (-a) was supplied.
-    if [[ $1 = - ]]; then
-        ids=$(geo_get ANALYZER_IDS)
-    fi
-    # Check if the run all analyzers option (-a) was supplied.
-    if [[ $1 = -a ]]; then
-        ids=$(seq -s ' ' 0 $max_id)
-    fi
+    # Parse options.
+    while [[ $1 =~ ^- ]]; do
+        case $1 in
+            # Check if the run previous analyzers option (-) was supplied.
+            - ) ids=$(geo_get ANALYZER_IDS) ;;
+            # Check if the run all analyzers option (-a) was supplied.
+            -a )
+                 ids=$(seq -s ' ' 0 $max_id)
+                 echo
+                 status_bi 'Running all analyzers'
+                ;;
+            # Check if the run individually option (-i) was supplied.
+            -i ) run_individually=true ;;
+        esac
+        shift
+    done
+    
+    # Get supplied test ids (if any).
+    while [[ $1 =~ ^( *[0-9]+ *)+$ && ${#ids} == 0 ]]; do
+        ids+="$1 "
+        shift
+    done
 
     if [[ $ids =~ ^( *[0-9]+ *)+$ ]]; then
         # Make sure the numbers are valid ids between 0 and max_id.
@@ -1291,25 +1310,71 @@ geo_analyze() {
 
         # Run analyzers in a function so that the total time for all analyzers to run can be calculated.
         run_analyzers() {
+            if [[ ! $run_individually ]]; then
+                local core_analyzers=
+                local core_analyzers_count=0
+                local test_analyzers=
+                local test_analyzers_count=0
+                for id in $ids; do
+                    # echo $id
+                    read -r -a analyzer <<<"${analyzers[$id]}"
+                    analyzer_name="${analyzer[$name]}"
+                    analyzer_proj="${analyzer[$proj]}"
+                    if [[ $analyzer_proj == $MYG_CORE_PROJ ]]; then
+                        ((core_analyzers_count++))
+                        core_analyzers+="$analyzer_name "
+                    else
+                        ((test_analyzers_count++))
+                        test_analyzers+="$analyzer_name "
+                    fi
+                done
+
+                if [[ $core_analyzers_count > 0 ]]; then
+                    echo
+                    status_bi "Running the following $core_analyzers_count analyzer(s) against MyGeotab.Core:"
+                    status_i "$(tr ' ' '\n' <<< $core_analyzers)"
+                    echo
+                    if ! dotnet build -p:DebugAnalyzers="${core_analyzers}" -p:TreatWarningsAsErrors=false -p:RunAnalyzersDuringBuild=true ${MYG_CORE_PROJ}; then
+                        echo
+                        Error "Running MyGeotab.Core analyzer(s) failed"
+                    else
+                        success 'MyGeotab.Core analyzer(s) done'
+                    fi
+                fi
+                if [[ $test_analyzers_count > 0 ]]; then
+                    echo
+                    status_bi "Running the following $test_analyzers_count analyzer(s) against MyGeotab.Core.Tests:"
+                    status_i "$(tr ' ' '\n' <<< $test_analyzers)"
+                    echo
+                    if ! dotnet build -p:DebugAnalyzers="${test_analyzers}" -p:TreatWarningsAsErrors=false -p:RunAnalyzersDuringBuild=true ${MYG_TEST_PROJ}; then
+                        echo
+                        Error "Running MyGeotab.Core analyzer(s) failed"
+                    else
+                        success 'MyGeotab.Core.Tests analyzer(s) done'
+                    fi
+                fi
+                return
+            fi
+
             # Run each analyzer.
             for id in $ids; do
                 # echo $id
                 read -r -a analyzer <<<"${analyzers[$id]}"
-                ANALYZER_NAME="${analyzer[$name]}"
-                ANALYZER_PROJ="${analyzer[$proj]}"
+                analyzer_name="${analyzer[$name]}"
+                analyzer_proj="${analyzer[$proj]}"
 
                 if [[ $fail_count > 0 ]]; then
                     echo
                     warn "$fail_count failed test$([[ $fail_count > 1 ]] && echo s) so far"
                 fi
                 echo
-                status_bi "Running ($((run_count++)) of $id_count): $ANALYZER_NAME"
+                status_bi "Running ($((run_count++)) of $id_count): $analyzer_name"
                 echo
-                if ! dotnet build -p:DebugAnalyzers=${ANALYZER_NAME} -p:TreatWarningsAsErrors=false -p:RunAnalyzersDuringBuild=true ${ANALYZER_PROJ}; then
+                if ! dotnet build -p:DebugAnalyzers=${analyzer_name} -p:TreatWarningsAsErrors=false -p:RunAnalyzersDuringBuild=true ${analyzer_proj}; then
                     echo
-                    Error "$ANALYZER_NAME failed"
+                    Error "$analyzer_name failed"
                     ((fail_count++))
-                    failed_tests+="  *  $ANALYZER_NAME\n"
+                    failed_tests+="  *  $analyzer_name\n"
                 else
                     success 'Analyzer done'
                 fi

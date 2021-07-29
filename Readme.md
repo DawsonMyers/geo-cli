@@ -16,6 +16,7 @@ A tool that makes MyGeotab development easier. Specifically, this tool aims to s
     - [Removing Databases](#removing-databases)
     - [Creating Empty Databases](#creating-empty-databases)
     - [Running Analyzers](#running-analyzers)
+    - [Options](#options)
   - [Help](#help)
 - [Troubleshooting](#troubleshooting)
   - [Update issues](#update-issues)
@@ -136,6 +137,11 @@ The output is then displayed as the analyzers are run:
 
 ![analyze 3](res/geo-analyze-3.png)
 
+### Options
+The following options can be used with `geo analyze`:
+- **\-** This option will reuse the last test ids supplied
+- **\-a** This option will run all tests
+- **\-i** This option will run each test individually (building each time, which takes longer)
 
 ## Help
 Get help for a specific command by entering `geo [command] help`.
@@ -149,13 +155,18 @@ Gives you the following:
     db
       Database commands.
         Options:
+            create [option] <name>
+                Creates a versioned db container and volume.
+                  Options:
+                    -y
+                      Accept all prompts.
             start [option] [name]
-                Starts (creating if necessary) a versioned db container and
-                volume. If no name is provided, the most recent db container
-                name is started.
+                Starts (creating if necessary) a versioned db container and volume. If no name is provided, the most recent db container name is started.
+                  Options:
+                    -y
+                      Accept all prompts.
             rm, remove <version>
-                Removes the container and volume associated with the provided
-                version (e.g. 2004).
+                Removes the container and volume associated with the provided version (e.g. 2004).
                   Options:
                     -a, --all
                       Remove all db containers and volumes.
@@ -169,14 +180,28 @@ Gives you the following:
             ps
                 List running geo-cli db containers.
             init
-                Initialize a running db container with geotabdemo or an empty
-                db with a custom name.
+                Initialize a running db container with geotabdemo or an empty db with a custom name.
+                  Options:
+                    -y
+                      Accept all prompts.
+            psql [options] [db name]
+                Open a psql session to geotabdemo (default db name) in the running geo-cli db container. The username and password used to connect is geotabuser and vircom43, respectively.
+                  Options:
+                    -u
+                      The admin sql user. The default value used is "geotabuser"
+                    -p
+                      The admin sql password. The default value used is "vircom43"
+            bash
+                Open a bash session with the running geo-cli db container.
         Example:
             geo db start 2004
+            geo db start -y 2004
             geo db create 2004
             geo db rm 2004
             geo db rm --all
             geo db ls
+            geo db psql
+            geo db psql -u mySqlUser -p mySqlPassword dbName
 ```
 
 While running the following results in all help being printed:
@@ -297,6 +322,8 @@ Available commands:
                 Run all analyzers
             -
                 Run previous analyzers
+            -i
+                Run analyzers individually (building each time)
         Example:
             geo analyze
             geo analyze -a
