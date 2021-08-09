@@ -1189,8 +1189,10 @@ geo_analyze_doc() {
     doc_cmd_option_desc 'Run all analyzers'
     doc_cmd_option -
     doc_cmd_option_desc 'Run previous analyzers'
-    doc_cmd_option -i
-    doc_cmd_option_desc 'Run analyzers individually (building each time)'
+    doc_cmd_option -b
+    doc_cmd_option_desc 'Run analyzers in batches (reduces runtime, but is only supported in 2104+)'
+    # doc_cmd_option -i
+    # doc_cmd_option_desc 'Run analyzers individually (building each time)'
 
     doc_cmd_examples_title
     doc_cmd_example 'geo analyze'
@@ -1233,7 +1235,9 @@ geo_analyze() {
 
     local valid_input=false
     local ids=
-    local run_individually=
+
+    # Default to running individually until cmd test batching is supported in more releases currently only 2104.
+    local run_individually=true
 
     # Parse options.
     while [[ $1 =~ ^- ]]; do
@@ -1247,7 +1251,9 @@ geo_analyze() {
                  status_bi 'Running all analyzers'
                 ;;
             # Check if the run individually option (-i) was supplied.
-            -i ) run_individually=true ;;
+            # -i ) run_individually=true ;;
+            # Check if the batch run option (-b) was supplied.
+            -b ) run_individually= ;;
         esac
         shift
     done

@@ -322,8 +322,8 @@ Available commands:
                 Run all analyzers
             -
                 Run previous analyzers
-            -i
-                Run analyzers individually (building each time)
+            -b
+                Run analyzers in batches (reduces runtime, but is only supported in 2104+)
         Example:
             geo analyze
             geo analyze -a
