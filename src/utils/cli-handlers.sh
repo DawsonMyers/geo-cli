@@ -1259,7 +1259,7 @@ geo_analyze() {
     done
     
     # Get supplied test ids (if any).
-    while [[ $1 =~ ^( *[0-9]+ *)+$ && ${#ids} == 0 ]]; do
+    while [[ $1 =~ ^[0-9]+$ ]]; do
         ids+="$1 "
         shift
     done
