@@ -1223,8 +1223,8 @@ geo_analyze() {
     for ((id = 0; id < len; id++)); do
         # Convert a string containing "name project" into an array [name, project] so that name can be printed with its id.
         read -r -a analyzer <<<"${analyzers[$id]}"
-        local project="$(data_b Core)"
-        [[ ${analyzer[$proj]} == $MYG_TEST_PROJ ]] && project='Test'
+        local project="$(info_bi Core)"
+        [[ ${analyzer[$proj]} == $MYG_TEST_PROJ ]] && project=$(info 'Test')
 
         printf '%-4d %-38s %-8s\n' $id "${analyzer[$name]}" "$project"
     done
@@ -1696,9 +1696,46 @@ make_logger_function() {
     eval "${name}_i() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"\${I${color}}\${args[@]}\${Off}\"; }"
     eval "${name}_bi() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"\${BI${color}}\${args[@]}\${Off}\"; }"
     eval "${name}_u() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"\${U${color}}\${args[@]}\${Off}\"; }"
+
+    eval "
+        $name() {
+            local msg=\"\$@\"
+            local options=
+            local format_tokens=
+            local opts=e
+
+            if [[ \$1 =~ ^-[a-z]+$ ]]; then
+                options=\$1
+                msg=\"\${@:2}\"
+            fi
+
+            local color_name=$color
+            case \$options in
+                *b* )
+                    color_name="B${color}"
+                    ;;&
+                *i* )
+                    msg=\$(txt_italic \$msg)
+                    ;;&
+                *u* )
+                    msg=\$(txt_underline \$msg)
+                    ;;&
+                *v* )
+                    msg=\$(txt_invert \$msg)
+                    ;;&
+                *p* )
+                    opts+=n
+                    ;;&
+            esac
+
+            echo \"-\${opts}\" \"\${format_tokens}\${!color_name}\${msg}\${Off}\"
+        }
+    "
 }
 
 # Make logger function using VTE colours.
+# Use display_vte_colors command (defined in colors.sh, should always be loaded in your shell if geo-cli is installed) to
+# display VTE colours.
 make_logger_function_vte() {
     name=$1
     color=$2
@@ -1709,7 +1746,42 @@ make_logger_function_vte() {
     eval "${name}_bi() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"${BOLD_ON}\${${color}}\${args[@]}\${Off}\"; }"
     eval "${name}_u() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"${UNDERLINE_ON}\${${color}}\${args[@]}\${Off}\"; }"
     eval "${name}_bu() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"${BOLD_ON}${UNDERLINE_ON}\${${color}}\${args[@]}\${Off}\"; }"
+
+    eval "
+        $name() {
+            local msg=\"\$@\"
+            local options=
+            local format_tokens=
+            local opts=e
+
+            if [[ \$1 =~ ^-[a-z]+$ ]]; then
+                options=\$1
+                msg=\"\${@:2}\"
+            fi
+
+            case \$options in
+                *b* )
+                    format_tokens+=\"$BOLD_ON\"
+                    ;;&
+                *i* )
+                    msg=\$(txt_italic \$msg)
+                    ;;&
+                *u* )
+                    msg=\$(txt_underline \$msg)
+                    ;;&
+                *v* )
+                    msg=\$(txt_invert \$msg)
+                    ;;&
+                *p* )
+                    opts+=n
+                    ;;&
+            esac
+
+            echo \"-\${opts}\" \"\${format_tokens}\${${color}}\${msg}\${Off}\"
+        }
+    "
 }
+
 red() {
     echo -e "${Red}$@${Off}"
 }
