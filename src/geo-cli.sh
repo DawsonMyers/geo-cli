@@ -67,7 +67,7 @@ function geo()
     #   geo -h
     #   geo --help
     if [[ $cmd =~ ^-*h(elp)? ]]; then
-        detail_bi 'Available commands:'
+        detail -bu 'Available commands:'
         geo_help
         geo_show_msg_if_outdated
         # exit

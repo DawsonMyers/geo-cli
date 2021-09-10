@@ -91,6 +91,7 @@ geo db start 2004
 > You will be prompted to stop Postgres if you have it running locally or in a container. This is so that port 5432 can be made available for a `geo-cli` database.
 
 The output is shown below:
+
 ![geo db start 2004](res/geo-db-start-3.png)
 
 ### List Databases
@@ -141,7 +142,7 @@ The output is then displayed as the analyzers are run:
 The following options can be used with `geo analyze`:
 - **\-** This option will reuse the last test ids supplied
 - **\-a** This option will run all tests
-- **\-i** This option will run each test individually (building each time, which takes longer)
+- **\-b** Run analyzers in batches (reduces runtime, but is only supported in 2104+)
 
 ## Help
 Get help for a specific command by entering `geo [command] help`.
@@ -161,12 +162,14 @@ Gives you the following:
                     -y
                       Accept all prompts.
             start [option] [name]
-                Starts (creating if necessary) a versioned db container and volume. If no name is provided, the most recent db container name is started.
+                Starts (creating if necessary) a versioned db container and volume. If
+                no name is provided, the most recent db container name is started.
                   Options:
                     -y
                       Accept all prompts.
             rm, remove <version>
-                Removes the container and volume associated with the provided version (e.g. 2004).
+                Removes the container and volume associated with the provided version
+                (e.g. 2004).
                   Options:
                     -a, --all
                       Remove all db containers and volumes.
@@ -180,12 +183,15 @@ Gives you the following:
             ps
                 List running geo-cli db containers.
             init
-                Initialize a running db container with geotabdemo or an empty db with a custom name.
+                Initialize a running db container with geotabdemo or an empty db with
+                a custom name.
                   Options:
                     -y
                       Accept all prompts.
             psql [options] [db name]
-                Open a psql session to geotabdemo (default db name) in the running geo-cli db container. The username and password used to connect is geotabuser and vircom43, respectively.
+                Open a psql session to geotabdemo (default db name) in the running
+                geo-cli db container. The username and password used to connect is
+                geotabuser and vircom43, respectively.
                   Options:
                     -u
                       The admin sql user. The default value used is "geotabuser"
@@ -276,7 +282,7 @@ Available commands:
         Example:
             geo stop
     init
-      Initiallize repo directory.
+      Initialize repo directory.
         Options:
             repo
                 Init Development repo directory using the current directory.

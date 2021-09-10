@@ -861,7 +861,7 @@ geo_is_valid_repo_dir() {
 COMMANDS+=('init')
 geo_init_doc() {
     doc_cmd 'init'
-    doc_cmd_desc 'Initiallize repo directory.'
+    doc_cmd_desc 'Initialize repo directory.'
 
     doc_cmd_options_title
     doc_cmd_option 'repo'
@@ -1711,18 +1711,27 @@ make_logger_function() {
 
             local color_name=$color
             case \$options in
-                *b* )
-                    color_name="B${color}"
+                # Intense
+                *t* )
+                    color_name="I${color}"
                     ;;&
+                # Bold
+                *b* )
+                    color_name="BI${color}"
+                    ;;&
+                # Italic
                 *i* )
                     msg=\$(txt_italic \$msg)
                     ;;&
+                # Underline
                 *u* )
                     msg=\$(txt_underline \$msg)
                     ;;&
+                # Invert font/background colour
                 *v* )
                     msg=\$(txt_invert \$msg)
                     ;;&
+                # Prompt (doesn't add a new line after printing)
                 *p* )
                     opts+=n
                     ;;&
