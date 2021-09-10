@@ -1021,7 +1021,7 @@ geo_env() {
         ;;
     'ls')
         local header=$(printf "%-26s %-26s\n" 'Variable' 'Value')
-        local env_vars=$(awk -F= '{ gsub("GEO_CLI_","",$1); printf "%-26s %-26s\n",$1,$2 } ' $GEO_CLI_CONF_FILE)
+        local env_vars=$(awk -F= '{ gsub("GEO_CLI_","",$1); printf "%-26s %-26s\n",$1,$2 } ' $GEO_CLI_CONF_FILE | sort)
         info_bi "$header"
         data "$env_vars"
         ;;
