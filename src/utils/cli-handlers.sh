@@ -133,7 +133,7 @@ geo_db_doc() {
     doc_cmd_sub_option_desc 'Accept all prompts.'
 
     doc_cmd_option 'psql [options] [db name]'
-    doc_cmd_option_desc 'Open a psql session to geotabdemo (default db name) in the running geo-cli db container. The username and password used to
+    doc_cmd_option_desc 'Open a psql session to geotabdemo (or a different db, if db name was provided) in the running geo-cli db container. The default username and password used to
                         connect is geotabuser and vircom43, respectively.'
     doc_cmd_sub_options_title
     doc_cmd_sub_option '-u'
@@ -432,6 +432,7 @@ geo_db() {
     psql)
         local sql_user=$(geo_get SQL_USER)
         local sql_password=$(geo_get SQL_PASSWORD)
+
         while [[ $2 =~ ^-[a-z] ]]; do
             local option=$2
             local arg="$3"
