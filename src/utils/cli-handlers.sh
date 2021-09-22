@@ -395,9 +395,8 @@ geo_db() {
             geo_db create $opts "$db_version" ||
                 (Error 'Failed to create db' && return 1)
 
-            container_id=$(docker ps -aqf "name=$container_name")
-
             try_to_start_db $container_name
+            container_id=$(docker ps -aqf "name=$container_name")
 
             if [[ -n $output ]]; then
                 Error "Port 5432 is already in use."
