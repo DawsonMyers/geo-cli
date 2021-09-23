@@ -132,10 +132,17 @@ geo_db_doc() {
     doc_cmd_sub_option '-y'
     doc_cmd_sub_option_desc 'Accept all prompts.'
 
-    doc_cmd_option 'psql [options] [db name]'
-    doc_cmd_option_desc 'Open a psql session to geotabdemo (or a different db, if db name was provided) in the running geo-cli db container. The default username and password used to
+    doc_cmd_option 'psql [options]'
+    doc_cmd_option_desc 'Open an interactive psql session to geotabdemo (or a different db, if a db name was provided with the -d option) in 
+                        the running geo-cli db container. You can also use the -q option to execute a query on the 
+                        database instead of starting an interactive session. The default username and password used to
                         connect is geotabuser and vircom43, respectively.'
     doc_cmd_sub_options_title
+    doc_cmd_sub_option '-d'
+    doc_cmd_sub_option_desc 'The name of the postgres database you want to connect to. The default value used is "geotabdemo"'
+    doc_cmd_sub_option '-q'
+    doc_cmd_sub_option_desc 'A query to run with psql in the running container. This option will cause the result of the query to be returned 
+                            instead of starting an interactive psql terminal.'
     doc_cmd_sub_option '-u'
     doc_cmd_sub_option_desc 'The admin sql user. The default value used is "geotabuser"'
     doc_cmd_sub_option '-p'
@@ -153,6 +160,7 @@ geo_db_doc() {
     doc_cmd_example 'geo db ls'
     doc_cmd_example 'geo db psql'
     doc_cmd_example 'geo db psql -u mySqlUser -p mySqlPassword dbName'
+    doc_cmd_example 'geo db psql -q "SELECT * FROM deviceshare LIMIT 10"'
 }
 geo_db() {
     # Check to make sure that the current user is added to the docker group. All subcommands in this command need to use docker.
@@ -432,6 +440,10 @@ geo_db() {
     psql)
         local sql_user=$(geo_get SQL_USER)
         local sql_password=$(geo_get SQL_PASSWORD)
+        local db_name=geotabdemo
+        local query=
+        local docker_options='-it'
+        local psql_options=
 
         while [[ $2 =~ ^-[a-z] ]]; do
             local option=$2
@@ -441,11 +453,19 @@ geo_db() {
             [[ ! $arg || $arg =~ ^-[a-z] ]] && Error "Argument missing for option ${option}" && return 1
 
             case $option in
+            -d)
+                db_name="$arg"
+                ;;
             -u)
                 sql_user="$arg"
                 ;;
             -p)
                 sql_password="$arg"
+                ;;
+            -q)
+                query="$arg"
+                docker_options=''
+                psql_options='-c'
                 ;;
             *)
                 Error "Unknown option '$option'."
@@ -455,7 +475,6 @@ geo_db() {
             shift
         done
 
-        local db_name=$2
         # Assign default values for sql user/passord.
         [[ -z $db_name ]] && db_name=geotabdemo
         [[ -z $sql_user ]] && sql_user=geotabuser
@@ -470,7 +489,11 @@ geo_db() {
             return 1
         fi
 
-        docker exec -it -e PGPASSWORD=$sql_password $running_container_id psql -U $sql_user -h localhost -p 5432 -d $db_name
+        if [[ $query ]]; then
+            eval "docker exec $docker_options -e PGPASSWORD=$sql_password $running_container_id /bin/bash -c \"psql -U $sql_user -h localhost -p 5432 -d $db_name '$psql_options $query'\""
+        else
+            docker exec -it -e PGPASSWORD=$sql_password $running_container_id psql -U $sql_user -h localhost -p 5432 -d $db_name
+        fi
         ;;
     bash)
         local running_container_id=$(geo_get_running_container_id)
