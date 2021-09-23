@@ -91,65 +91,65 @@ geo_image() {
 COMMANDS+=('db')
 geo_db_doc() {
     doc_cmd 'db'
-    doc_cmd_desc 'Database commands.'
+        doc_cmd_desc 'Database commands.'
 
     doc_cmd_options_title
 
     doc_cmd_option 'create [option] <name>'
-    doc_cmd_option_desc 'Creates a versioned db container and volume.'
-    doc_cmd_sub_options_title
-    doc_cmd_sub_option '-y'
-    doc_cmd_sub_option_desc 'Accept all prompts.'
+        doc_cmd_option_desc 'Creates a versioned db container and volume.'
+        doc_cmd_sub_options_title
+            doc_cmd_sub_option '-y'
+            doc_cmd_sub_option_desc 'Accept all prompts.'
 
     doc_cmd_option 'start [option] [name]'
-    doc_cmd_option_desc 'Starts (creating if necessary) a versioned db container and volume. If no name is provided,
-                        the most recent db container name is started.'
-    doc_cmd_sub_options_title
-    doc_cmd_sub_option '-y'
-    doc_cmd_sub_option_desc 'Accept all prompts.'
+        doc_cmd_option_desc 'Starts (creating if necessary) a versioned db container and volume. If no name is provided,
+                            the most recent db container name is started.'
+        doc_cmd_sub_options_title
+            doc_cmd_sub_option '-y'
+            doc_cmd_sub_option_desc 'Accept all prompts.'
 
     doc_cmd_option 'rm, remove <version>'
-    doc_cmd_option_desc 'Removes the container and volume associated with the provided version (e.g. 2004).'
-    doc_cmd_sub_options_title
-    doc_cmd_sub_option '-a, --all'
-    doc_cmd_sub_option_desc 'Remove all db containers and volumes.'
+        doc_cmd_option_desc 'Removes the container and volume associated with the provided version (e.g. 2004).'
+        doc_cmd_sub_options_title
+            doc_cmd_sub_option '-a, --all'
+            doc_cmd_sub_option_desc 'Remove all db containers and volumes.'
 
     doc_cmd_option 'stop [version]'
-    doc_cmd_option_desc 'Stop geo-cli db container.'
+        doc_cmd_option_desc 'Stop geo-cli db container.'
 
     doc_cmd_option 'ls [option]'
-    doc_cmd_option_desc 'List geo-cli db containers.'
-    doc_cmd_sub_options_title
-    doc_cmd_sub_option '-a, --all'
-    doc_cmd_sub_option_desc 'Display all geo images, containers, and volumes.'
+        doc_cmd_option_desc 'List geo-cli db containers.'
+        doc_cmd_sub_options_title
+            doc_cmd_sub_option '-a, --all'
+                doc_cmd_sub_option_desc 'Display all geo images, containers, and volumes.'
 
     doc_cmd_option 'ps'
-    doc_cmd_option_desc 'List running geo-cli db containers.'
+        doc_cmd_option_desc 'List running geo-cli db containers.'
 
     doc_cmd_option 'init'
-    doc_cmd_option_desc 'Initialize a running db container with geotabdemo or an empty db with a custom name.'
-    doc_cmd_sub_options_title
-    doc_cmd_sub_option '-y'
-    doc_cmd_sub_option_desc 'Accept all prompts.'
+        doc_cmd_option_desc 'Initialize a running db container with geotabdemo or an empty db with a custom name.'
+        doc_cmd_sub_options_title
+            doc_cmd_sub_option '-y'
+                doc_cmd_sub_option_desc 'Accept all prompts.'
 
     doc_cmd_option 'psql [options]'
-    doc_cmd_option_desc 'Open an interactive psql session to geotabdemo (or a different db, if a db name was provided with the -d option) in 
-                        the running geo-cli db container. You can also use the -q option to execute a query on the 
-                        database instead of starting an interactive session. The default username and password used to
-                        connect is geotabuser and vircom43, respectively.'
-    doc_cmd_sub_options_title
-    doc_cmd_sub_option '-d'
-    doc_cmd_sub_option_desc 'The name of the postgres database you want to connect to. The default value used is "geotabdemo"'
-    doc_cmd_sub_option '-q'
-    doc_cmd_sub_option_desc 'A query to run with psql in the running container. This option will cause the result of the query to be returned 
-                            instead of starting an interactive psql terminal.'
-    doc_cmd_sub_option '-u'
-    doc_cmd_sub_option_desc 'The admin sql user. The default value used is "geotabuser"'
-    doc_cmd_sub_option '-p'
-    doc_cmd_sub_option_desc 'The admin sql password. The default value used is "vircom43"'
+        doc_cmd_option_desc 'Open an interactive psql session to geotabdemo (or a different db, if a db name was provided with the -d option) in 
+                            the running geo-cli db container. You can also use the -q option to execute a query on the 
+                            database instead of starting an interactive session. The default username and password used to
+                            connect is geotabuser and vircom43, respectively.'
+        doc_cmd_sub_options_title
+            doc_cmd_sub_option '-d'
+                doc_cmd_sub_option_desc 'The name of the postgres database you want to connect to. The default value used is "geotabdemo"'
+            doc_cmd_sub_option '-p'
+                doc_cmd_sub_option_desc 'The admin sql password. The default value used is "vircom43"'
+            doc_cmd_sub_option '-q'
+                doc_cmd_sub_option_desc 'A query to run with psql in the running container. This option will cause the result of the query to be returned 
+                                        instead of starting an interactive psql terminal.'
+            doc_cmd_sub_option '-u'
+                doc_cmd_sub_option_desc 'The admin sql user. The default value used is "geotabuser"'
 
     doc_cmd_option 'bash'
-    doc_cmd_option_desc 'Open a bash session with the running geo-cli db container.'
+        doc_cmd_option_desc 'Open a bash session with the running geo-cli db container.'
 
     doc_cmd_examples_title
     doc_cmd_example 'geo db start 2004'
