@@ -481,7 +481,7 @@ geo_db() {
         [[ -z $sql_password ]] && sql_password=vircom43
 
         local running_container_id=$(geo_get_running_container_id)
-        debug $sql_user $sql_password $db_name $running_container_id
+        # debug $sql_user $sql_password $db_name $running_container_id
 
         if [[ -z $running_container_id ]]; then
             Error 'No geo-cli containers are running to connect to.'
