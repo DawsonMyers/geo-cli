@@ -162,14 +162,12 @@ Gives you the following:
                     -y
                       Accept all prompts.
             start [option] [name]
-                Starts (creating if necessary) a versioned db container and volume. If
-                no name is provided, the most recent db container name is started.
+                Starts (creating if necessary) a versioned db container and volume. If no name is provided, the most recent db container name is started.
                   Options:
                     -y
                       Accept all prompts.
             rm, remove <version>
-                Removes the container and volume associated with the provided version
-                (e.g. 2004).
+                Removes the container and volume associated with the provided version (e.g. 2004).
                   Options:
                     -a, --all
                       Remove all db containers and volumes.
@@ -183,20 +181,22 @@ Gives you the following:
             ps
                 List running geo-cli db containers.
             init
-                Initialize a running db container with geotabdemo or an empty db with
-                a custom name.
+                Initialize a running db container with geotabdemo or an empty db with a custom name.
                   Options:
                     -y
                       Accept all prompts.
-            psql [options] [db name]
-                Open a psql session to geotabdemo (default db name) in the running
-                geo-cli db container. The username and password used to connect is
-                geotabuser and vircom43, respectively.
+            psql [options]
+                Open an interactive psql session to geotabdemo (or a different db, if a db name was provided with the -d option) in the running geo-cli db container. You can also use the -q option to execute a query on the database instead of starting an
+                interactive session. The default username and password used to connect is geotabuser and vircom43, respectively.
                   Options:
-                    -u
-                      The admin sql user. The default value used is "geotabuser"
+                    -d
+                      The name of the postgres database you want to connect to. The default value used is "geotabdemo"
                     -p
                       The admin sql password. The default value used is "vircom43"
+                    -q
+                      A query to run with psql in the running container. This option will cause the result of the query to be returned instead of starting an interactive psql terminal.
+                    -u
+                      The admin sql user. The default value used is "geotabuser"
             bash
                 Open a bash session with the running geo-cli db container.
         Example:
@@ -207,7 +207,8 @@ Gives you the following:
             geo db rm --all
             geo db ls
             geo db psql
-            geo db psql -u mySqlUser -p mySqlPassword dbName
+            geo db psql -u mySqlUser -p mySqlPassword -d dbName
+            geo db psql -q "SELECT * FROM deviceshare LIMIT 10"
 ```
 
 While running the following results in all help being printed:
@@ -259,13 +260,18 @@ Available commands:
                   Options:
                     -y
                       Accept all prompts.
-            psql [options] [db name]
-                Open a psql session to geotabdemo (default db name) in the running geo-cli db container. The username and password used to connect is geotabuser and vircom43, respectively.
+            psql [options]
+                Open an interactive psql session to geotabdemo (or a different db, if a db name was provided with the -d option) in the running geo-cli db container. You can also use the -q option to execute a query on the database instead of starting an
+                interactive session. The default username and password used to connect is geotabuser and vircom43, respectively.
                   Options:
-                    -u
-                      The admin sql user. The default value used is "geotabuser"
+                    -d
+                      The name of the postgres database you want to connect to. The default value used is "geotabdemo"
                     -p
                       The admin sql password. The default value used is "vircom43"
+                    -q
+                      A query to run with psql in the running container. This option will cause the result of the query to be returned instead of starting an interactive psql terminal.
+                    -u
+                      The admin sql user. The default value used is "geotabuser"
             bash
                 Open a bash session with the running geo-cli db container.
         Example:
@@ -277,6 +283,7 @@ Available commands:
             geo db ls
             geo db psql
             geo db psql -u mySqlUser -p mySqlPassword dbName
+            geo db psql -q "SELECT * FROM deviceshare LIMIT 10"
     stop
       Stops all geo-cli containers.
         Example:
