@@ -1276,7 +1276,11 @@ geo_analyze() {
             # Check if the run individually option (-i) was supplied.
             # -i ) run_individually=true ;;
             # Check if the batch run option (-b) was supplied.
-            -b ) run_individually= ;;
+            -b ) 
+                run_individually=false
+                echo 
+                status_bi 'Running analyzers in batches'
+                ;;
         esac
         shift
     done
@@ -1339,7 +1343,7 @@ geo_analyze() {
 
         # Run analyzers in a function so that the total time for all analyzers to run can be calculated.
         run_analyzers() {
-            if [[ ! $run_individually ]]; then
+            if [[ $run_individually = false ]]; then
                 local core_analyzers=
                 local core_analyzers_count=0
                 local test_analyzers=
