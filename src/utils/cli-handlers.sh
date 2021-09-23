@@ -159,7 +159,7 @@ geo_db_doc() {
     doc_cmd_example 'geo db rm --all'
     doc_cmd_example 'geo db ls'
     doc_cmd_example 'geo db psql'
-    doc_cmd_example 'geo db psql -u mySqlUser -p mySqlPassword dbName'
+    doc_cmd_example 'geo db psql -u mySqlUser -p mySqlPassword -d dbName'
     doc_cmd_example 'geo db psql -q "SELECT * FROM deviceshare LIMIT 10"'
 }
 geo_db() {
