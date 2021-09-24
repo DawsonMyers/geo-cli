@@ -15,6 +15,7 @@ A tool that makes MyGeotab development easier. Specifically, this tool aims to s
     - [List Databases](#list-databases)
     - [Removing Databases](#removing-databases)
     - [Creating Empty Databases](#creating-empty-databases)
+    - [Querying the Database](#querying-the-database)
     - [Running Analyzers](#running-analyzers)
     - [Options](#options)
   - [Help](#help)
@@ -119,7 +120,15 @@ You can confirm that the `2001` database has been removed by listing your `geo-c
 
 ![geo db create](res/geo-db-create-1.png)
 
->The `geo db create` does not start the container after creating it.
+>The `geo db create` command does not start the container after creating it.
+
+### Querying the Database
+`geo db psql` can be used to start an interactive psql session with a running database container. If you just want to run a single query, you can use the `-q` option to specify an sql query:
+```
+geo db psql -q 'SELECT * FROM deviceshare'
+```
+
+>Note: The query must be enclosed in single quotes
 
 ### Running Analyzers
 This is a new feature that is still being developed. It can be accessed using:
