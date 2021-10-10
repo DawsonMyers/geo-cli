@@ -4,6 +4,10 @@
 . $GEO_CLI_SRC_DIR/utils/colors.sh
 . $GEO_CLI_SRC_DIR/utils/config-file-utils.sh
 
+export GEO_CLI_CONFIG_DIR="$HOME/.geo-cli"
+export GEO_CLI_CONF_FILE="$GEO_CLI_CONFIG_DIR/.geo.conf"
+export GEO_CLI_SCRIPT_DIR="${GEO_CLI_CONFIG_DIR}/scripts"
+
 # The name of the base postgres image that will be used for creating all geo db containers.
 export IMAGE=geo_cli_db_postgres11
 
@@ -152,15 +156,15 @@ geo_db_doc() {
         doc_cmd_option_desc 'Open a bash session with the running geo-cli db container.'
 
     doc_cmd_examples_title
-    doc_cmd_example 'geo db start 2004'
-    doc_cmd_example 'geo db start -y 2004'
-    doc_cmd_example 'geo db create 2004'
-    doc_cmd_example 'geo db rm 2004'
-    doc_cmd_example 'geo db rm --all'
-    doc_cmd_example 'geo db ls'
-    doc_cmd_example 'geo db psql'
-    doc_cmd_example 'geo db psql -u mySqlUser -p mySqlPassword -d dbName'
-    doc_cmd_example 'geo db psql -q "SELECT * FROM deviceshare LIMIT 10"'
+        doc_cmd_example 'geo db start 2004'
+        doc_cmd_example 'geo db start -y 2004'
+        doc_cmd_example 'geo db create 2004'
+        doc_cmd_example 'geo db rm 2004'
+        doc_cmd_example 'geo db rm --all'
+        doc_cmd_example 'geo db ls'
+        doc_cmd_example 'geo db psql'
+        doc_cmd_example 'geo db psql -u mySqlUser -p mySqlPassword -d dbName'
+        doc_cmd_example 'geo db psql -q "SELECT * FROM deviceshare LIMIT 10"'
 }
 geo_db() {
     # Check to make sure that the current user is added to the docker group. All subcommands in this command need to use docker.
@@ -189,35 +193,35 @@ geo_db() {
         return
         ;;
     stop)
-        local silent=false
+        geo_db_stop "${@:2}"
+        # local silent=false
 
-        if [[ $2 =~ -s ]]; then
-            silent=true
-            shift
-        fi
-        local container_name=$(geo_container_name $db_version)
+        # if [[ $2 =~ -s ]]; then
+        #     silent=true
+        #     shift
+        # fi
+        # local container_name=$(geo_container_name $db_version)
 
-        db_version="$2"
+        # db_version="$2"
 
-        if [[ -z $db_version ]]; then
-            container_id=$(geo_get_running_container_id)
-            # container_id=`docker ps --filter name="$IMAGE*" --filter status=running -aq`
-        else
-            container_id=$(geo_get_running_container_id "${container_name}")
-            # container_id=`docker ps --filter name="${container_name}" --filter status=running -aq`
-        fi
+        # if [[ -z $db_version ]]; then
+        #     container_id=$(geo_get_running_container_id)
+        #     # container_id=`docker ps --filter name="$IMAGE*" --filter status=running -aq`
+        # else
+        #     container_id=$(geo_get_running_container_id "${container_name}")
+        #     # container_id=`docker ps --filter name="${container_name}" --filter status=running -aq`
+        # fi
 
-        if [[ -z $container_id ]]; then
-            [[ $silent = false ]] &&
-                warn 'No geo-cli db containers running'
-            return
-        fi
+        # if [[ -z $container_id ]]; then
+        #     [[ $silent = false ]] &&
+        #         warn 'No geo-cli db containers running'
+        #     return
+        # fi
 
-        status_bi 'Stopping container...'
+        # status_bi 'Stopping container...'
 
-        # Stop all running containers.
-        echo $container_id | xargs docker stop >/dev/null &&
-            success 'OK'
+        # # Stop all running containers.
+        # echo $container_id | xargs docker stop >/dev/null && success 'OK'
         return
         ;;
     rm | remove)
@@ -232,222 +236,296 @@ geo_db() {
         return
         ;;
     create)
-        local silent=false
-        local acceptDefaults=
-        while [[ $2 =~ ^-[a-z] ]]; do
-            local option=${2:1}
-            local len=${#option}
-            if [[ $len -gt 1 ]]; then
-                for ((i = 0; i < len; i++)); do
-                    local opt=${option:i:1}
-                    case $opt in
-                    s)
-                        silent=true
-                        ;;
-                    y)
-                        acceptDefaults=true
-                        ;;
-                    esac
-                done
-            else
-                case $option in
-                s)
-                    silent=true
-                    ;;
-                y)
-                    acceptDefaults=true
-                    ;;
-                esac
-            fi
-            shift
-        done
+        geo_db_create "${@:2}"
+        ;;
+    start)
+        geo_db_start "${@:2}"
+        ;;
+    psql)
+        geo_db_psql "${@:2}"
+        ;;
+    script)
+        geo_db_script "${@:2}"
+        ;;
+    bash)
+        local running_container_id=$(geo_get_running_container_id)
+        if [[ -z $running_container_id ]]; then
+            Error 'No geo-cli containers are running to connect to.'
+            info "Run $(txt_underline 'geo db ls') to view available containers and $(txt_underline 'geo db start <name>') to start one."
+            return 1
+        fi
 
-        db_version="$2"
-        db_version=$(geo_make_alphanumeric "$db_version")
+        docker exec -it $running_container_id /bin/bash
+        ;;
+    esac
+}
 
-        if [ -z "$db_version" ]; then
+geo_db_stop() {
+    local silent=false
+
+    if [[ $1 =~ -s ]]; then
+        silent=true
+        shift
+    fi
+    local container_name=$(geo_container_name $db_version)
+
+    db_version="$1"
+
+    if [[ -z $db_version ]]; then
+        container_id=$(geo_get_running_container_id)
+        # container_id=`docker ps --filter name="$IMAGE*" --filter status=running -aq`
+    else
+        container_id=$(geo_get_running_container_id "${container_name}")
+        # container_id=`docker ps --filter name="${container_name}" --filter status=running -aq`
+    fi
+
+    if [[ -z $container_id ]]; then
+        [[ $silent = false ]] &&
+            warn 'No geo-cli db containers running'
+        return
+    fi
+
+    status_bi 'Stopping container...'
+
+    # Stop all running containers.
+    echo $container_id | xargs docker stop >/dev/null && success 'OK'
+}
+
+geo_db_create() {
+    local silent=false
+    local acceptDefaults=
+    local OPTIND
+    while getopts "sy" opt; do
+        case "${opt}" in
+            s ) silent=true ;;
+            y ) acceptDefaults=true ;;
+            \? ) 
+                Error "Invalid option: -$OPTARG"
+                return 1
+                ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+
+    db_version="$1"
+    db_version=$(geo_make_alphanumeric "$db_version")
+
+    if [ -z "$db_version" ]; then
+        Error "No database version provided."
+        return
+    fi
+
+    local container_name=$(geo_container_name "$db_version")
+
+    if geo_container_exists $container_name; then
+        Error 'Container already exists'
+        return 1
+    fi
+
+    if ! geo_check_db_image; then
+        Error "Cannot create db without image. Run 'geo image create' to create a db image"
+        return 1
+    fi
+
+    if [ ! $acceptDefaults ]; then
+        prompt_continue "Create db container with name $(txt_underline ${db_version})? (Y|n): " || return
+    fi
+    status_bi "Creating volume:"
+    status "  NAME: $container_name"
+    docker volume create "$container_name" >/dev/null &&
+        success 'OK' || (Error 'Failed to create volume' && return 1)
+
+    status_bi "Creating container:"
+    status "  NAME: $container_name"
+    # docker run -v $container_name:/var/lib/postgresql/11/main -p 5432:5432 --name=$container_name -d $IMAGE > /dev/null && success OK
+    local vol_mount="$container_name:/var/lib/postgresql/12/main"
+    local port=5432:5432
+    docker create -v $vol_mount -p $port --name=$container_name $IMAGE >/dev/null &&
+        success 'OK' || (Error 'Failed to create volume' && return 1)
+
+    if [[ $silent == false ]]; then
+        info "Start your new db with $(txt_underline geo db start $db_version)"
+        info "Initialize it with $(txt_underline geo db init $db_version)"
+    fi
+}
+
+geo_db_start() {
+    local acceptDefaults=
+    if [[ $1 == '-y' ]]; then
+        acceptDefaults=true
+        shift
+    fi
+    local db_version="$1"
+    db_version=$(geo_make_alphanumeric "$db_version")
+    # debug $db_version
+    if [ -z "$db_version" ]; then
+        db_version=$(geo_get LAST_DB_VERSION)
+        if [[ -z $db_version ]]; then
             Error "No database version provided."
             return
         fi
+    fi
 
-        local container_name=$(geo_container_name "$db_version")
+    if ! geo_check_db_image; then
+        Error "Cannot start db without image. Run 'geo image create' to create a db image"
+        return 1
+    fi
 
-        if geo_container_exists $container_name; then
-            Error 'Container already exists'
-            return 1
-        fi
+    geo_set LAST_DB_VERSION "$db_version"
 
-        if ! geo_check_db_image; then
-            Error "Cannot create db without image. Run 'geo image create' to create a db image"
-            return 1
-        fi
+    # VOL_NAME="geo_cli_db_${db_version}"
+    local container_name=$(geo_container_name $db_version)
 
-        if [ ! $acceptDefaults ]; then
-            prompt_continue "Create db container with name $(txt_underline ${db_version})? (Y|n): " || return
-        fi
-        status_bi "Creating volume:"
-        status "  NAME: $container_name"
-        docker volume create "$container_name" >/dev/null &&
-            success 'OK' || (Error 'Failed to create volume' && return 1)
+    # docker run -v 2002:/var/lib/postgresql/11/main -p 5432:5432 postgres11
 
-        status_bi "Creating container:"
-        status "  NAME: $container_name"
-        # docker run -v $container_name:/var/lib/postgresql/11/main -p 5432:5432 --name=$container_name -d $IMAGE > /dev/null && success OK
-        local vol_mount="$container_name:/var/lib/postgresql/11/main"
-        local port=5432:5432
-        docker create -v $vol_mount -p $port --name=$container_name $IMAGE >/dev/null &&
-            success 'OK' || (Error 'Failed to create volume' && return 1)
+    local volume=$(docker volume ls | grep " $container_name")
 
-        if [[ $silent == false ]]; then
-            info "Start your new db with $(txt_underline geo db start $db_version)"
-            info "Initialize it with $(txt_underline geo db init $db_version)"
-        fi
-        ;;
-    start)
-        local acceptDefaults=
-        if [[ $2 == '-y' ]]; then
-            acceptDefaults=true
-            shift
-        fi
-        local db_version="$2"
-        db_version=$(geo_make_alphanumeric "$db_version")
-        # debug $db_version
-        if [ -z "$db_version" ]; then
-            db_version=$(geo_get LAST_DB_VERSION)
-            if [[ -z $db_version ]]; then
-                Error "No database version provided."
-                return
-            fi
-        fi
+    geo_db stop -s
 
-        if ! geo_check_db_image; then
-            Error "Cannot start db without image. Run 'geo image create' to create a db image"
-            return 1
-        fi
-
-        geo_set LAST_DB_VERSION "$db_version"
-
-        # VOL_NAME="geo_cli_db_${db_version}"
-        local container_name=$(geo_container_name $db_version)
-
-        # docker run -v 2002:/var/lib/postgresql/11/main -p 5432:5432 postgres11
-
-        local volume=$(docker volume ls | grep " $container_name")
-
-        geo_db stop -s
-
-        # Check to see if a container is running that is bound to the postgres port (5432).
-        # If it is already in use, the user will be prompted to stop it or exit.
-        local port_in_use=$(docker ps --format '{{.Names}} {{.Ports}}' | grep '5432->')
-        if [[ -n $port_in_use ]]; then
-            # Get container name by triming off the port info from docker ps output.
-            local container_name_using_postgres_port="${port_in_use%% *}"
-            Error "Postgres port 5432 is currently bound to the following container: $container_name_using_postgres_port"
-            if prompt_continue "Do you want to stop this container so that a geo db one can be started? (Y|n): "; then
-                if docker stop "$container_name_using_postgres_port" >-; then
-                    status 'Container stopped'
-                else
-                    Error 'Unable to stop container'
-                    return 1
-                fi
+    # Check to see if a container is running that is bound to the postgres port (5432).
+    # If it is already in use, the user will be prompted to stop it or exit.
+    local port_in_use=$(docker ps --format '{{.Names}} {{.Ports}}' | grep '5432->')
+    if [[ -n $port_in_use ]]; then
+        # Get container name by triming off the port info from docker ps output.
+        local container_name_using_postgres_port="${port_in_use%% *}"
+        Error "Postgres port 5432 is currently bound to the following container: $container_name_using_postgres_port"
+        if prompt_continue "Do you want to stop this container so that a geo db one can be started? (Y|n): "; then
+            if docker stop "$container_name_using_postgres_port" >-; then
+                status 'Container stopped'
             else
-                error 'Cannot continue while port 5432 is already in use.'
+                Error 'Unable to stop container'
                 return 1
             fi
-        fi
-
-        local container_id=$(geo_get_container_id "$container_name")
-        # local container_id=`docker ps -aqf "name=$container_name"`
-        local volume_created=false
-
-        local output=''
-
-        try_to_start_db() {
-            output=''
-            output="$(docker start $1 2>&1 | grep '0.0.0.0:5432: bind: address already in use')"
-        }
-
-        if [[ -n $container_id ]]; then
-
-            status_bi "Starting existing container:"
-            status "  ID: $container_id"
-            status "  NAME: $container_name"
-
-            try_to_start_db $container_id
-
-            if [[ -n $output ]]; then
-                Error "Port 5432 is already in use."
-                info "Fix: Stop postgresql"
-                if prompt_continue "Do you want to try to stop the postgresql service? (Y|n): "; then
-                    sudo service postgresql stop
-                    sleep 2
-                    status_bi "Trying to start existing container again"
-                    try_to_start_db $container_id
-                    if [[ -n $output ]]; then
-                        Error "Port 5432 is still in use. It's not possible to start a db container until this port is available."
-                        return 1
-                    fi
-                    success OK
-                fi
-            fi
         else
-            db_version="$2"
-            db_version=$(geo_make_alphanumeric "$db_version")
+            error 'Cannot continue while port 5432 is already in use.'
+            return 1
+        fi
+    fi
 
-            if [ ! $acceptDefaults ]; then
-                prompt_continue "Db container $(txt_italic ${db_version}) doesn't exist. Would you like to create it? (Y|n): " || return
-            fi
-            local opts=-s
-            [ $acceptDefaults ] && opts+=y
+    local container_id=$(geo_get_container_id "$container_name")
+    # local container_id=`docker ps -aqf "name=$container_name"`
+    local volume_created=false
 
-            geo_db create $opts "$db_version" ||
-                (Error 'Failed to create db' && return 1)
+    local output=''
 
-            try_to_start_db $container_name
-            container_id=$(docker ps -aqf "name=$container_name")
+    try_to_start_db() {
+        output=''
+        output="$(docker start $1 2>&1 | grep '0.0.0.0:5432: bind: address already in use')"
+    }
 
-            if [[ -n $output ]]; then
-                Error "Port 5432 is already in use."
-                info "Fix: Stop postgresql"
-                if prompt_continue "Do you want to try to stop the postgresql service? (Y|n): "; then
-                    sudo service postgresql stop && success 'postgresql service stopped'
-                    sleep 2
-                    status_bi "Trying to start new container"
-                    try_to_start_db $container_name
-                    if [[ -n $output ]]; then
-                        Error "Port 5432 is still in use. It's not possible to start a db container until this port is available."
-                        return 1
-                    fi
-                else
-                    Error 'Cannot start db while port 5432 is in use.'
+    if [[ -n $container_id ]]; then
+
+        status_bi "Starting existing container:"
+        status "  ID: $container_id"
+        status "  NAME: $container_name"
+
+        try_to_start_db $container_id
+
+        if [[ -n $output ]]; then
+            Error "Port 5432 is already in use."
+            info "Fix: Stop postgresql"
+            if prompt_continue "Do you want to try to stop the postgresql service? (Y|n): "; then
+                sudo service postgresql stop
+                sleep 2
+                status_bi "Trying to start existing container again"
+                try_to_start_db $container_id
+                if [[ -n $output ]]; then
+                    Error "Port 5432 is still in use. It's not possible to start a db container until this port is available."
                     return 1
                 fi
-
-            fi
-
-            status_bi "Starting new container:"
-            status "  ID: $container_id"
-            status "  NAME: $container_name"
-
-            if [ $acceptDefaults ] || prompt_continue 'Would you like to initialize the db? (Y|n): '; then
-                geo_db_init $acceptDefaults
-            else
-                info "Initialize a running db anytime using $(txt_underline 'geo db init')"
+                success OK
             fi
         fi
-        success Done
-        ;;
-    psql)
-        local sql_user=$(geo_get SQL_USER)
+    else
+        db_version="$1"
+        db_version=$(geo_make_alphanumeric "$db_version")
+
+        if [ ! $acceptDefaults ]; then
+            prompt_continue "Db container $(txt_italic ${db_version}) doesn't exist. Would you like to create it? (Y|n): " || return
+        fi
+        local opts=-s
+        [ $acceptDefaults ] && opts+=y
+
+        geo_db create $opts "$db_version" ||
+            (Error 'Failed to create db' && return 1)
+
+        try_to_start_db $container_name
+        container_id=$(docker ps -aqf "name=$container_name")
+
+        if [[ -n $output ]]; then
+            Error "Port 5432 is already in use."
+            info "Fix: Stop postgresql"
+            if prompt_continue "Do you want to try to stop the postgresql service? (Y|n): "; then
+                sudo service postgresql stop && success 'postgresql service stopped'
+                sleep 2
+                status_bi "Trying to start new container"
+                try_to_start_db $container_name
+                if [[ -n $output ]]; then
+                    Error "Port 5432 is still in use. It's not possible to start a db container until this port is available."
+                    return 1
+                fi
+            else
+                Error 'Cannot start db while port 5432 is in use.'
+                return 1
+            fi
+
+        fi
+
+        status_bi "Starting new container:"
+        status "  ID: $container_id"
+        status "  NAME: $container_name"
+
+        if [ $acceptDefaults ] || prompt_continue 'Would you like to initialize the db? (Y|n): '; then
+            geo_db_init $acceptDefaults
+        else
+            info "Initialize a running db anytime using $(txt_underline 'geo db init')"
+        fi
+    fi
+    success Done
+}
+
+geo_db_psql() {
+    local sql_user=$(geo_get SQL_USER)
         local sql_password=$(geo_get SQL_PASSWORD)
         local db_name=geotabdemo
         local query=
         local docker_options='-it'
         local psql_options=
-
-        while [[ $2 =~ ^-[a-z] ]]; do
-            local option=$2
-            local arg="$3"
+        # local OPTIND
+        # local -
+        # set -o noglob
+        # while getopts ":d:u:q:p:" opt; do
+        #     debug opt = "$opt", arg = "$OPTARG"
+        #     case "$opt" in
+        #         d )
+        #             db_name="${OPTARG:-$db_name}"
+        #             ;;
+        #         u )
+        #             sql_user="${OPTARG:-$sql_user}"
+        #             ;;
+        #         p )
+        #             sql_password="${OPTARG:-$sql_password}"
+        #             ;;
+        #         s )
+        #             query="$OPTARG"
+        #             docker_options=''
+        #             psql_options='-c'
+        #             ;;
+        #         \? )
+        #             Error "Unknown option '$OPTARG'."
+        #             return 1
+        #             ;;
+        #         : )
+        #             Error "Invalid argument for '$OPTARG'."
+        #             return 1
+        #             ;;
+        #     esac
+        # done
+        # debug db_name=$db_name, sql_user=$sql_user, query=$query, psql_options=$psql_options
+        # return
+        while [[ $1 =~ ^-[a-z] ]]; do
+            local option=$1
+            local arg="$2"
             shift
             # It's an error if the argument to an option is an option.
             [[ ! $arg || $arg =~ ^-[a-z] ]] && Error "Argument missing for option ${option}" && return 1
@@ -466,6 +544,9 @@ geo_db() {
                 query="$arg"
                 docker_options=''
                 psql_options='-c'
+                if [[ -f $GEO_CLI_SCRIPT_DIR/$query ]]; then
+                    query="$(cat $GEO_CLI_SCRIPT_DIR/$query)"
+                fi
                 ;;
             *)
                 Error "Unknown option '$option'."
@@ -494,18 +575,22 @@ geo_db() {
         else
             docker exec -it -e PGPASSWORD=$sql_password $running_container_id psql -U $sql_user -h localhost -p 5432 -d $db_name
         fi
-        ;;
-    bash)
-        local running_container_id=$(geo_get_running_container_id)
-        [[ ! $running_container_id ]]
-        if [[ -z $running_container_id ]]; then
-            Error 'No geo-cli containers are running to connect to.'
-            info "Run $(txt_underline 'geo db ls') to view available containers and $(txt_underline 'geo db start <name>') to start one."
-            return 1
-        fi
+}
 
-        docker exec -it $running_container_id /bin/bash
-        ;;
+geo_db_script() {
+    [[ ! -d $GEO_CLI_SCRIPT_DIR ]] && mkdir -p $GEO_CLI_SCRIPT_DIR
+    [[ -z $EDITOR ]] && EDITOR=nano
+
+    case "$1" in
+        add | edit )
+            $EDITOR $GEO_CLI_SCRIPT_DIR/$2
+            ;;
+        ls )
+            ls $GEO_CLI_SCRIPT_DIR
+            ;;
+        rm )
+            rm $GEO_CLI_SCRIPT_DIR/$2
+            ;;
     esac
 }
 
