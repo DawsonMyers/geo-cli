@@ -155,6 +155,18 @@ geo_db_doc() {
     doc_cmd_option 'bash'
         doc_cmd_option_desc 'Open a bash session with the running geo-cli db container.'
 
+    doc_cmd_option 'script <add|edit|ls|rm> <script_name>'
+        doc_cmd_option_desc "Add, edit, list, or remove scripts that can be run with $(txt_italic geo db psql -q script_name)."
+        doc_cmd_sub_options_title
+            doc_cmd_sub_option 'add'
+                doc_cmd_sub_option_desc 'Adds a new script and opens it in a text editor.'
+            doc_cmd_sub_option 'edit'
+                doc_cmd_sub_option_desc 'Opens an existing script in a text editor.'
+            doc_cmd_sub_option 'ls'
+                doc_cmd_sub_option_desc 'Lists existing scripts.'
+            doc_cmd_sub_option 'rm'
+                doc_cmd_sub_option_desc 'Removes a script.'
+
     doc_cmd_examples_title
         doc_cmd_example 'geo db start 2004'
         doc_cmd_example 'geo db start -y 2004'
@@ -580,13 +592,44 @@ geo_db_psql() {
 geo_db_script() {
     [[ ! -d $GEO_CLI_SCRIPT_DIR ]] && mkdir -p $GEO_CLI_SCRIPT_DIR
     [[ -z $EDITOR ]] && EDITOR=nano
+    
+    local command="$1"
+    local script_name=$(geo_make_alphanumeric $2)
+    local script_path="$GEO_CLI_SCRIPT_DIR/$script_name"
 
-    case "$1" in
-        add | edit )
-            $EDITOR $GEO_CLI_SCRIPT_DIR/$2
+    check_for_script() {
+        if [[ -f $script_path ]]; then
+                success 'Saved'
+            else
+                warn "Script '$script_name' wasn't found in script directory, did you save it before closing the text editor?"
+            fi
+    }
+
+    case "$command" in
+        add )
+            if [[ -f $script_path ]]; then
+                if ! prompt_continue "Script '$script_name' already exists. Would you like to edit it? (Y|n): "; then
+                    return
+                fi
+            else
+                if ! prompt_continue "Create script called '$script_name'? (Y|n): "; then
+                    return
+                fi
+            fi
+            $EDITOR $script_path
+            check_for_script
+            ;;
+        edit )
+            if [[ ! -f $script_path ]]; then
+                if ! prompt_continue "Script '$script_name' doesn't exist. Would you like to create it? (Y|n): "; then
+                    return
+                fi
+            fi
+            $EDITOR $script_path
+            check_for_script
             ;;
         ls )
-            ls $GEO_CLI_SCRIPT_DIR
+            ls $GEO_CLI_SCRIPT_DIR | tr ' ' '\n'
             ;;
         rm )
             rm $GEO_CLI_SCRIPT_DIR/$2
