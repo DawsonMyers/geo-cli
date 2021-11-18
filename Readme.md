@@ -120,6 +120,9 @@ You can confirm that the `2001` database has been removed by listing your `geo-c
 
 ![geo db create](res/geo-db-create-1.png)
 
+This creates a postgres db with the sql admin as **geotabuser** and the password as **vircom43**.
+
+If you would like a completely empty Postgres 12 db without any initialization, add the **-e** option to the command, e.g., `goe db create -e <db name>`. 
 >The `geo db create` command does not start the container after creating it.
 
 ### Querying the Database
@@ -170,6 +173,8 @@ Gives you the following:
                   Options:
                     -y
                       Accept all prompts.
+                    -e
+                      Create blank Postgres 12 container.
             start [option] [name]
                 Starts (creating if necessary) a versioned db container and volume. If no name is provided, the most recent db container name is started.
                   Options:
@@ -245,6 +250,8 @@ Available commands:
                   Options:
                     -y
                       Accept all prompts.
+                    -e
+                      Create blank Postgres 12 container.
             start [option] [name]
                 Starts (creating if necessary) a versioned db container and volume. If no name is provided, the most recent db container name is started.
                   Options:

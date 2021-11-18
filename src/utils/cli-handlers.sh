@@ -104,6 +104,8 @@ geo_db_doc() {
         doc_cmd_sub_options_title
             doc_cmd_sub_option '-y'
             doc_cmd_sub_option_desc 'Accept all prompts.'
+            doc_cmd_sub_option '-e'
+            doc_cmd_sub_option_desc 'Create blank Postgres 12 container.'
 
     doc_cmd_option 'start [option] [name]'
         doc_cmd_option_desc 'Starts (creating if necessary) a versioned db container and volume. If no name is provided,
@@ -306,11 +308,13 @@ geo_db_stop() {
 geo_db_create() {
     local silent=false
     local acceptDefaults=
+    local empty_db=false
     local OPTIND
-    while getopts "sy" opt; do
+    while getopts "sye" opt; do
         case "${opt}" in
             s ) silent=true ;;
             y ) acceptDefaults=true ;;
+            e ) empty_db=true && status_bi 'Creating empty Postgres container';;
             \? ) 
                 Error "Invalid option: -$OPTARG"
                 return 1
@@ -352,7 +356,9 @@ geo_db_create() {
     # docker run -v $container_name:/var/lib/postgresql/11/main -p 5432:5432 --name=$container_name -d $IMAGE > /dev/null && success OK
     local vol_mount="$container_name:/var/lib/postgresql/12/main"
     local port=5432:5432
-    docker create -v $vol_mount -p $port --name=$container_name $IMAGE >/dev/null &&
+    local image_name=$IMAGE
+    [[ $empty_db == true ]] && image_name=postgres:12
+    docker create -v $vol_mount -p $port --name=$container_name $image_name >/dev/null &&
         success 'OK' || (Error 'Failed to create volume' && return 1)
 
     if [[ $silent == false ]]; then
