@@ -68,6 +68,7 @@ if ! type docker > /dev/null; then
         sudo apt-get install -y docker-ce
 
         # Add user to the docker group to allow docker to be run without sudo.
+        sudo usermod -aG docker $USER
         sudo usermod -a -G docker $USER
 
         sudo chmod +x /usr/local/bin/docker-compose
