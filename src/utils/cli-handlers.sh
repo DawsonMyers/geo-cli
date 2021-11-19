@@ -357,13 +357,36 @@ geo_db_create() {
     local vol_mount="$container_name:/var/lib/postgresql/12/main"
     local port=5432:5432
     local image_name=$IMAGE
-    [[ $empty_db == true ]] && image_name=postgres:12
+    local sql_user=postgres
+    local sql_password='!@)(vircom44'
+
+    if [[ $empty_db == true ]]; then
+        image_name=geo_cli_postgres
+        dockerfile="
+            FROM postgres:12
+            ENV POSTGRES_USER postgres
+            ENV POSTGRES_PASSWORD password
+            RUN mkdir -p /var/lib/postgresql/12/main
+        "
+        sql_password=password
+        docker build -t $image_name - <<< "$dockerfile"
+    fi
+
     docker create -v $vol_mount -p $port --name=$container_name $image_name >/dev/null &&
-        success 'OK' || (Error 'Failed to create volume' && return 1)
+        (echo && success 'OK') || (Error 'Failed to create container' && return 1)
+    
+    echo
 
     if [[ $silent == false ]]; then
         info "Start your new db with $(txt_underline geo db start $db_version)"
         info "Initialize it with $(txt_underline geo db init $db_version)"
+        echo
+        info_bi "Connect with pgAdmin (after starting with $(txt_underline geo db start $db_version))"
+        info 'Create a new server and entering the following information:'
+        info "  Name: db (or whatever you want)"
+        info "  Host: 127.0.0.1"
+        info "  Username: $sql_user"
+        info "  Password: $sql_password"
     fi
 }
 

@@ -122,8 +122,9 @@ You can confirm that the `2001` database has been removed by listing your `geo-c
 
 This creates a postgres db with the sql admin as **geotabuser** and the password as **vircom43**.
 
-If you would like a completely empty Postgres 12 db without any initialization, add the **-e** option to the command, e.g., `goe db create -e <db name>`. 
->The `geo db create` command does not start the container after creating it.
+If you would like a completely empty Postgres 12 db without any initialization, add the **-e** option to the command, e.g., `goe db create -e <name>`. The default user for Postgres is `postgres` and the password is `password`. This username/password can be used to connect to the db (once started) using pgAdmin.
+
+>The `geo db create` command does not start the container after creating it. Use `geo db start <name>` to start it.
 
 ### Querying the Database
 `geo db psql` can be used to start an interactive psql session with a running database container. If you just want to run a single query, you can use the `-q` option to specify an sql query:
