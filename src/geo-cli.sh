@@ -119,6 +119,8 @@ function geo()
         return
     fi
 
+    check_for_docker_group_membership
+
     # At this point we know that the command is valid and command help isn't being 
     # requested. So run the command.
     "geo_${cmd}" "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" 
@@ -127,3 +129,18 @@ function geo()
     [[ $cmd != update ]] && geo_show_msg_if_outdated
 }
 
+function check_for_docker_group_membership() {
+    local dockerGroup=$(cat /etc/group | grep 'docker:')
+    if [[ -z $dockerGroup || ! $dockerGroup =~ "$USER" ]]; then
+        warn 'You are not a member of the docker group. This is required to be able to use the "docker" command without sudo.'
+        if prompt_continue "Add your username to the docker group? (Y|n): "; then
+            [[ -z $dockerGroup ]] && sudo groupadd docker
+            sudo usermod -aG docker $USER || (Error "Failed to add '$USER' to the docker group" && return 1)
+            success "Added $USER to the docker group"
+            warn 'You may need to fully log out and then back in again for these changes to take effect.'
+            newgrp docker
+        else
+            warn "geo-cli won't be able to use docker until you're user is added to the docker group"
+        fi
+    fi
+}
