@@ -1419,13 +1419,18 @@ geo_analyze() {
     # Default to running individually until cmd test batching is supported in more releases currently only 2104.
     local run_individually=true
 
-    # Parse options.
-    while [[ $1 =~ ^- ]]; do
-        case $1 in
-            # Check if the run previous analyzers option (-) was supplied.
-            - ) ids=$(geo_get ANALYZER_IDS) ;;
+    # Check if the run previous analyzers option (-) was supplied.
+    if [[ $1 =~ ^-$ ]]; then
+        ids=$(geo_get ANALYZER_IDS)
+        [[ -n $ids ]] && echo && status "Using previous analyzer id(s): $ids"
+        shift
+    fi
+
+    local OPTIND
+    while getopts "ab" opt; do
+        case "${opt}" in
             # Check if the run all analyzers option (-a) was supplied.
-            -a )
+            a )
                  ids=$(seq -s ' ' 0 $max_id)
                  echo
                  status_bi 'Running all analyzers'
@@ -1433,24 +1438,28 @@ geo_analyze() {
             # Check if the run individually option (-i) was supplied.
             # -i ) run_individually=true ;;
             # Check if the batch run option (-b) was supplied.
-            -b ) 
+            b ) 
                 run_individually=false
                 echo 
                 status_bi 'Running analyzers in batches'
                 ;;
+            \? ) 
+                Error "Invalid option: $1"
+                return 1
+                ;;
         esac
-        shift
     done
+    shift $((OPTIND - 1))
     
-    # Get supplied test ids (if any).
+    # Get supplied test ids (if any, e.g., the user ran 'geo analyze 1 4 5').
     while [[ $1 =~ ^[0-9]+$ ]]; do
         ids+="$1 "
         shift
     done
 
+    # Validate id list (if the user passed in ids when running the command). 
     if [[ $ids =~ ^( *[0-9]+ *)+$ ]]; then
         # Make sure the numbers are valid ids between 0 and max_id.
-        # while [[ $1 =~ ^( *[0-9]+ *)+$ ]]; do
         for id in $ids; do
             if ((id < 0 | id > max_id)); then
                 error "Invalid ID: ${id}. Only IDs from 0 to ${max_id} are valid"
@@ -1463,10 +1472,10 @@ geo_analyze() {
         done
     fi
 
-    # Get the list of ids from the user. Asking repeatedly if invalid input is given.
+    # If the user didn't pass in a list of ids, then get the list of ids from the user, interactively. Asking repeatedly if invalid input is given.
     until [[ $valid_input == true ]]; do
         prompt_for_info_n "$prompt_txt"
-        # Make sure the input consits of only numbers separated by spaces.
+        # Make sure the input consists of only numbers separated by spaces.
         while [[ ! $prompt_return =~ ^( *[0-9]+ *)+$ ]]; do
             error 'Invalid input. Only space-separated integer IDs are accepted'
             prompt_for_info_n "$prompt_txt"
