@@ -9,7 +9,7 @@ export GEO_CLI_CONF_FILE="$GEO_CLI_CONFIG_DIR/.geo.conf"
 export GEO_CLI_SCRIPT_DIR="${GEO_CLI_CONFIG_DIR}/scripts"
 
 # The name of the base postgres image that will be used for creating all geo db containers.
-export IMAGE=geo_cli_db_postgres11
+export IMAGE=geo_cli_db_postgres
 
 # A list of all of the top-level geo commands.
 # This is used in geo-cli.sh to confirm that the first param passed to geo (i.e. in 'geo db ls', db is the top-level command) is a valid command.
@@ -186,6 +186,8 @@ geo_db() {
         return 1
     fi
 
+    geo_db_check_for_old_image_prefix
+
     case "$1" in
     init)
         geo_db_init "$2"
@@ -208,34 +210,6 @@ geo_db() {
         ;;
     stop)
         geo_db_stop "${@:2}"
-        # local silent=false
-
-        # if [[ $2 =~ -s ]]; then
-        #     silent=true
-        #     shift
-        # fi
-        # local container_name=$(geo_container_name $db_version)
-
-        # db_version="$2"
-
-        # if [[ -z $db_version ]]; then
-        #     container_id=$(geo_get_running_container_id)
-        #     # container_id=`docker ps --filter name="$IMAGE*" --filter status=running -aq`
-        # else
-        #     container_id=$(geo_get_running_container_id "${container_name}")
-        #     # container_id=`docker ps --filter name="${container_name}" --filter status=running -aq`
-        # fi
-
-        # if [[ -z $container_id ]]; then
-        #     [[ $silent = false ]] &&
-        #         warn 'No geo-cli db containers running'
-        #     return
-        # fi
-
-        # status_bi 'Stopping container...'
-
-        # # Stop all running containers.
-        # echo $container_id | xargs docker stop >/dev/null && success 'OK'
         return
         ;;
     rm | remove)
@@ -272,6 +246,24 @@ geo_db() {
         docker exec -it $running_container_id /bin/bash
         ;;
     esac
+}
+
+geo_db_check_for_old_image_prefix() {
+    old_container_prefix='geo_cli_db_postgres11_'
+    containers=$(docker container ls -a --format '{{.Names}}' | grep $old_container_prefix)
+
+    # Return if there aren't any containers with old prefixes.
+    [[ -z $containers || -z $IMAGE ]] && return
+
+    for old_container_name in $containers; do
+        cli_name=${old_container_name#$old_container_prefix}
+        new_container_name="${IMAGE}_${cli_name}"
+        debug $old_container_name -> $new_container_name
+        docker rename $old_container_name $new_container_name
+    done
+
+    # Rename existing image.
+    docker image tag geo_cli_db_postgres11 $IMAGE 2>-
 }
 
 geo_db_stop() {
