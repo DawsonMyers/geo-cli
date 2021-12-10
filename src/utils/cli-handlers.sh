@@ -1168,6 +1168,9 @@ geo_env_doc() {
     doc_cmd_option 'set <env_var> <value>'
     doc_cmd_option_desc 'Sets the value for the env var.'
 
+    doc_cmd 'rm <env_var>'
+    doc_cmd_desc 'Remove geo environment variable.'
+
     doc_cmd_option 'ls'
     doc_cmd_option_desc 'Lists all env vars.'
 
@@ -1177,6 +1180,7 @@ geo_env_doc() {
     doc_cmd_example 'geo env ls'
 }
 geo_env() {
+    # Check if there is any arguments.
     if [[ -z $1 ]]; then
         geo_env_doc
         return
@@ -1184,20 +1188,21 @@ geo_env() {
 
     case $1 in
     'set')
-        # Create an array out of the arguments.
-        local args=($@)
-        # Remove the first arg, which is "set".
-        unset "args[0]"
-        # Get the key from the second arg, then remove it from the array.
-        local key="${args[1]}"
-        unset "args[1]"
+        # Get the key from the second arg.
+        local key="$2"
         # Get the new value by concatenating the rest of the args together.
-        local value="${args[@]}"
+        local value="${@:3}"
         geo_set -s "$key" "$value"
         ;;
     'get')
-        shift
+        # Show error message if the key doesn't exist.
+        geo_haskey "$2" || (Error "Key '$2' does not exist." && return 1)
         geo_get "$2"
+        ;;
+    'rm')
+        # Show error message if the key doesn't exist.
+        geo_haskey "$2" || (Error "Key '$2' does not exist." && return 1)
+        geo_rm "$2"
         ;;
     'ls')
         local header=$(printf "%-26s %-26s\n" 'Variable' 'Value')
@@ -1208,41 +1213,14 @@ geo_env() {
     esac
 }
 
-# ##########################################################
-# COMMANDS+=('config')
-# geo_config_doc() {
-#     doc_cmd 'set <ENV_VAR> <value>'
-#     doc_cmd_desc 'Set geo environment variable'
-#     doc_cmd_examples_title
-#     doc_cmd_example 'geo set DEV_REPO_DIR /home/username/repos/Development'
-# }
-# geo_config() {
-#     if [[ -z $1 ]]; then
-#         geo_config_doc
-#         return
-#     fi
-
-#     case $1 in
-#         'set' )
-#             shift
-#             geo_set "$@"
-#             ;;
-#         'get' )
-#             shift
-#             geo_get "$@"
-#             ;;
-#         'ls' )
-#             local env_vars=`cat $GEO_CONF_FILE`
-#             detail "$env_vars"
-#             ;;
-#     esac
-# }
-
 ###########################################################
 COMMANDS+=('set')
 geo_set_doc() {
     doc_cmd 'set <env_var> <value>'
     doc_cmd_desc 'Set geo environment variable.'
+    doc_cmd_options_title
+    doc_cmd_option 's'
+    doc_cmd_option_desc 'Shows the old and new value of the environment variable.'
     doc_cmd_examples_title
     doc_cmd_example 'geo set DEV_REPO_DIR /home/username/repos/Development'
 }
@@ -1251,18 +1229,22 @@ geo_set() {
     # $1 - name of env var in conf file
     # $2 - value
     local show_status=false
+    local shifted=false
     [[ $1 == -s ]] && show_status=true && shift
 
     local key="$1"
-    [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
+    local geo_key="$1"
+    shift
+    [[ ! $key =~ ^GEO_CLI_ ]] && geo_key="GEO_CLI_${key}"
 
-    local old=$(cfg_read $GEO_CLI_CONF_FILE "$key")
+    local value="$@"
+    local old=$(cfg_read $GEO_CLI_CONF_FILE "$geo_key")
 
-    cfg_write $GEO_CLI_CONF_FILE "$key" "$2"
+    cfg_write $GEO_CLI_CONF_FILE "$geo_key" "$value"
 
     if [[ $show_status == true ]]; then
-        info_bi "$1"
-        info -p '  New value: ' && data "$2"
+        info_bi "$key"
+        info -p '  New value: ' && data "$value"
         if [[ -n $old ]]; then
             info -p '  Old value: ' && data "$old"
         fi
@@ -1279,14 +1261,37 @@ geo_get_doc() {
     doc_cmd_examples_title
     doc_cmd_example 'geo get DEV_REPO_DIR'
 }
-geo_get() {
-    # Get value of env var
+geo_get() { 
+    # Get value of env var.
     local key="$1"
     [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
 
     value=$(cfg_read $GEO_CLI_CONF_FILE $key)
     [[ -z $value ]] && return
     echo "$value"
+}
+
+geo_haskey() {
+    local key="$1"
+    [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
+    cfg_haskey $GEO_CLI_CONF_FILE "$key"
+}
+
+###########################################################
+COMMANDS+=('rm')
+geo_get_doc() {
+    doc_cmd 'rm <env_var>'
+    doc_cmd_desc 'Remove geo environment variable.'
+
+    doc_cmd_examples_title
+    doc_cmd_example 'geo rm DEV_REPO_DIR'
+}
+geo_rm() { 
+    # Get value of env var.
+    local key="$1"
+    [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
+
+    cfg_delete $GEO_CLI_CONF_FILE "$key"
 }
 
 geo_haskey() {
