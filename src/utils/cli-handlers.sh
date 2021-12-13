@@ -411,7 +411,19 @@ geo_db_start() {
 
     # docker run -v 2002:/var/lib/postgresql/11/main -p 5432:5432 postgres11
 
+    # Check to see if the db is already running.
+    local db_already_running=$(docker ps --format "{{.Names}}" -f name=$container_name)
+    [[ -n $db_already_running ]] && success "Db '$db_version' is already running" && return
+
     local volume=$(docker volume ls | grep " $container_name")
+    # local volume_created=false
+    # local recreate_container=false
+    # [[ -n $volume ]] && volume_created=true
+
+    # if [[ -z $volume ]]; then
+    #     volume=$(docker volume ls | grep " geo_cli_db_postgres11_${db_version}")
+    #     [[ -n $volume ]] && volume_created=true && recreate_container=true
+    # fi
 
     geo_db stop -s
 
@@ -437,7 +449,6 @@ geo_db_start() {
 
     local container_id=$(geo_get_container_id "$container_name")
     # local container_id=`docker ps -aqf "name=$container_name"`
-    local volume_created=false
 
     local output=''
 
@@ -451,6 +462,13 @@ geo_db_start() {
         status_bi "Starting existing container:"
         status "  ID: $container_id"
         status "  NAME: $container_name"
+
+        # if [[ $recreate_container == true ]]; then
+        #     docker container rm $container_id
+        #     local vol_mount="geo_cli_db_postgres11_${db_version}:/var/lib/postgresql/12/main"
+        #     local port=5432:5432
+        #     docker create -v $vol_mount -p $port --name=$container_name $IMAGE >-
+        # fi
 
         try_to_start_db $container_id
 
@@ -1506,6 +1524,9 @@ geo_analyze() {
 
         # Run analyzers in a function so that the total time for all analyzers to run can be calculated.
         run_analyzers() {
+            echo
+            warn "Press 'ctrl + \' to abort analyzers"
+            
             if [[ $run_individually = false ]]; then
                 local core_analyzers=
                 local core_analyzers_count=0
@@ -1537,6 +1558,7 @@ geo_analyze() {
                         success 'MyGeotab.Core analyzer(s) done'
                     fi
                 fi
+                
                 if [[ $test_analyzers_count > 0 ]]; then
                     echo
                     status_bi "Running the following $test_analyzers_count analyzer(s) against MyGeotab.Core.Tests:"
@@ -1566,7 +1588,11 @@ geo_analyze() {
                 echo
                 status_bi "Running ($((run_count++)) of $id_count): $analyzer_name"
                 echo
-                if ! dotnet build -p:DebugAnalyzers=${analyzer_name} -p:TreatWarningsAsErrors=false -p:RunAnalyzersDuringBuild=true ${analyzer_proj}; then
+                
+                dotnet build -p:DebugAnalyzers=${analyzer_name} -p:TreatWarningsAsErrors=false -p:RunAnalyzersDuringBuild=true ${analyzer_proj}
+                
+                # Check the return code to see if there were any errors.
+                if [[ $? != 0 ]]; then
                     echo
                     Error "$analyzer_name failed"
                     ((fail_count++))
