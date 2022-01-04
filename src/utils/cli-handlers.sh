@@ -412,8 +412,8 @@ geo_db_start() {
     # docker run -v 2002:/var/lib/postgresql/11/main -p 5432:5432 postgres11
 
     # Check to see if the db is already running.
-    local db_already_running=$(docker ps --format "{{.Names}}" -f name=$container_name)
-    [[ -n $db_already_running ]] && success "Db '$db_version' is already running" && return
+    local running_db=$(docker ps --format "{{.Names}}" -f name=geo_cli_db_)
+    [[ $running_db == $container_name ]] && success "Db '$db_version' is already running" && return
 
     local volume=$(docker volume ls | grep " $container_name")
     # local volume_created=false
@@ -892,8 +892,7 @@ function geo_db_init() {
         Error 'Failed to initialize db'
         error 'Have you built the assembly for the current branch?'
         return 1
-    fi
-
+    fi   
 }
 
 geo_db_rm() {
@@ -1526,7 +1525,7 @@ geo_analyze() {
         run_analyzers() {
             echo
             warn "Press 'ctrl + \' to abort analyzers"
-            
+
             if [[ $run_individually = false ]]; then
                 local core_analyzers=
                 local core_analyzers_count=0
