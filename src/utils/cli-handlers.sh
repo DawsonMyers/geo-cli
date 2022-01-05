@@ -1528,8 +1528,10 @@ geo_analyze() {
             if [[ $run_individually = false ]]; then
                 local core_analyzers=
                 local core_analyzers_count=0
+                local core_analyzers_result=
                 local test_analyzers=
                 local test_analyzers_count=0
+                local test_analyzers_result=
                 for id in $ids; do
                     # echo $id
                     read -r -a analyzer <<<"${analyzers[$id]}"
@@ -1544,31 +1546,49 @@ geo_analyze() {
                     fi
                 done
 
+                print_analyzers() {
+                    for analyzer in $1; do status_i "  * $analyzer"; done
+                }
+
                 if [[ $core_analyzers_count > 0 ]]; then
                     echo
                     status_bi "Running the following $core_analyzers_count analyzer(s) against MyGeotab.Core:"
-                    status_i "$(tr ' ' '\n' <<< $core_analyzers)"
+                    print_analyzers "$core_analyzers"
                     echo
+
                     if ! dotnet build -p:DebugAnalyzers="${core_analyzers}" -p:TreatWarningsAsErrors=false -p:RunAnalyzersDuringBuild=true ${MYG_CORE_PROJ}; then
                         echo
                         Error "Running MyGeotab.Core analyzer(s) failed"
+                        core_analyzers_result=$(red FAIL)
                     else
                         success 'MyGeotab.Core analyzer(s) done'
+                        core_analyzers_result=$(green PASS)
                     fi
                 fi
                 
                 if [[ $test_analyzers_count > 0 ]]; then
                     echo
                     status_bi "Running the following $test_analyzers_count analyzer(s) against MyGeotab.Core.Tests:"
-                    status_i "$(tr ' ' '\n' <<< $test_analyzers)"
+                    print_analyzers "$test_analyzers"
                     echo
+                    
                     if ! dotnet build -p:DebugAnalyzers="${test_analyzers}" -p:TreatWarningsAsErrors=false -p:RunAnalyzersDuringBuild=true ${MYG_TEST_PROJ}; then
                         echo
-                        Error "Running MyGeotab.Core analyzer(s) failed"
+                        Error "Running MyGeotab.Core.Tests analyzer(s) failed"
+                        test_analyzers_result=$(red FAIL)
                     else
                         success 'MyGeotab.Core.Tests analyzer(s) done'
+                        test_analyzers_result=$(green PASS)
                     fi
                 fi
+
+                echo
+                info -b 'Results'
+                data_header 'Project                     Status'
+                       data "MyGeotab.Core               $core_analyzers_result"
+                       data "MyGeotab.Core.Tests         $test_analyzers_result"
+                echo
+                info_b 'The total time was:'
                 return
             fi
 
@@ -1601,20 +1621,21 @@ geo_analyze() {
             done
 
             echo
+
+            if [[ $fail_count > 0 ]]; then
+                warn "$fail_count out of $id_count analyzers failed. The following analyzers failed:"
+                failed_tests=$(echo -e "$failed_tests")
+                detail "$failed_tests"
+            else
+                success 'All analyzers completed successfully'
+            fi
+            echo
             info_b 'The total time was:'
         }
         
         time run_analyzers
 
-        echo
-
-        if [[ $fail_count > 0 ]]; then
-            warn "$fail_count out of $id_count analyzers failed. The following analyzers failed:"
-            failed_tests=$(echo -e "$failed_tests")
-            detail "$failed_tests"
-        else
-            success 'All analyzers completed successfully'
-        fi
+        
         echo
     )
 }
