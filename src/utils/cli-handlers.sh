@@ -1258,7 +1258,6 @@ geo_set() {
             info -p '  Old value: ' && data "$old"
         fi
     fi
-    export $key="$2"
 }
 
 ###########################################################
@@ -1328,10 +1327,10 @@ geo_update() {
         return 1
     fi
 
-    GEO_CLI_DIR="$(geo_get GEO_CLI_DIR)"
+    geo_cli_dir="$(geo_get GEO_CLI_DIR)"
     
     (
-        cd $GEO_CLI_DIR
+        cd $geo_cli_dir
         if ! git pull >/dev/null; then
             Error 'Unable to pull changes from remote'
             popd
@@ -1339,7 +1338,7 @@ geo_update() {
         fi
     )
 
-    bash $GEO_CLI_DIR/install.sh
+    bash $geo_cli_dir/install.sh
     # Re-source .bashrc to reload geo in this terminal
     . ~/.bashrc
 }
@@ -1743,10 +1742,12 @@ geo_check_for_updates() {
     fi
     # popd
 
+
     # The sed cmds filter out any colour codes that might be in the text
     local v_current=$(geo_get VERSION) #  | sed -r "s/[[:cntrl:]]\[[0-9]{1,3}m//g"`
     if [[ -z $v_current ]]; then
-        v_current=$(cat "$GEO_CLI_DIR/version.txt")
+        geo_cli_dir="$(geo_get GEO_CLI_DIR)"
+        v_current=$(cat "$geo_cli_dir/version.txt")
         geo_set VERSION "$v_current"
     fi
     # ver converts semver to int (e.g. 1.2.3 => 001002003) so that it can easliy be compared
