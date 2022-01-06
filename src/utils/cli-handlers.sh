@@ -255,10 +255,11 @@ geo_db_check_for_old_image_prefix() {
     # Return if there aren't any containers with old prefixes.
     [[ -z $containers || -z $IMAGE ]] && return
 
+    debug 'Fixing container names'
     for old_container_name in $containers; do
         cli_name=${old_container_name#$old_container_prefix}
         new_container_name="${IMAGE}_${cli_name}"
-        debug $old_container_name -> $new_container_name
+        debug "$old_container_name -> $new_container_name"
         docker rename $old_container_name $new_container_name
     done
 
@@ -943,10 +944,16 @@ geo_db_rm() {
         return 1
     fi
 
-    if docker volume rm $container_name >/dev/null; then
+    local volume_name=$(docker volume ls -f name=geo_cli --format '{{.Name}}' | grep $container_name'$')
+    if [[ -z $volume_name ]]; then
+        old_container_prefix='geo_cli_db_postgres11_'
+        volume_name=$(docker volume ls -f name=geo_cli --format '{{.Name}}' | grep "${old_container_prefix}${db_name}"'$')
+    fi
+
+    if docker volume rm $volume_name >/dev/null; then
         success "Volume $db_name removed"
     else
-        Error "Could not remove volume $container_name"
+        Error "Could not remove volume $volume_name"
         return 1
     fi
 
@@ -1571,7 +1578,7 @@ geo_analyze() {
                     status_bi "Running the following $test_analyzers_count analyzer(s) against MyGeotab.Core.Tests:"
                     print_analyzers "$test_analyzers"
                     echo
-                    
+
                     if ! dotnet build -p:DebugAnalyzers="${test_analyzers}" -p:TreatWarningsAsErrors=false -p:RunAnalyzersDuringBuild=true ${MYG_TEST_PROJ}; then
                         echo
                         Error "Running MyGeotab.Core.Tests analyzer(s) failed"
