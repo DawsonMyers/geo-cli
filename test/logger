@@ -1,6 +1,0 @@
-for variant in "${variants[@]}"; do
-        read -a args <<< "$variant"
-        local options=${args[0]}
-        local suffix=${args[1]}
-	echo "info_b${suffix}() { echo -${options} cmd"
-done

@@ -944,6 +944,7 @@ geo_db_rm() {
         return 1
     fi
 
+    # Check if the volume has the old container prefix.
     local volume_name=$(docker volume ls -f name=geo_cli --format '{{.Name}}' | grep $container_name'$')
     if [[ -z $volume_name ]]; then
         old_container_prefix='geo_cli_db_postgres11_'

@@ -27,15 +27,15 @@ geo_set OUTDATED false
 # at "#geo-cli-end" comments.
 sed -i '/#geo-cli-start/,/#geo-cli-end/d' ~/.bashrc
 sed -i '/#geo-cli-start/,/#geo-cli-end/d' ~/.profile
-# sed -i '/#geo-cli-start/,/#geo-cli-end/d' ~/.zshrc
+[[ -f ~/.zshrc ]] && sed -i '/#geo-cli-start/,/#geo-cli-end/d' ~/.zshrc
 # sed -i '/source .*geo-cli-init.*/d' ~/.zshrc
 
 # Append cli alias and env config to ~/.bashrc so that the geo command can be 
 # used in any terminal.
 # Substitute the env vars into init file text and append to .bashrc. 
 envsubst < $GEO_CLI_DIR/src/init/bashrc.sh >> ~/.bashrc
+[[ -f $HOME/.zshrc ]] && sed "s+GEO_CLI_SRC_DIR+$GEO_CLI_SRC_DIR+" $GEO_CLI_SRC_DIR/init/zshrc.sh >> ~/.zshrc
 # cat $GEO_CLI_DIR/src/init/bashrc.sh >> ~/.profile
-# cat $GEO_CLI_DIR/src/init/zshrc.sh >> ~/.zshrc
 
 # Install Docker and Docker Compose if needed
 if ! type docker > /dev/null; then
