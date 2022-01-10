@@ -10,6 +10,8 @@ export GEO_CLI_SCRIPT_DIR="${GEO_CLI_CONFIG_DIR}/scripts"
 
 # The name of the base postgres image that will be used for creating all geo db containers.
 export IMAGE=geo_cli_db_postgres
+export GEO_DB_PREFIX=$IMAGE
+export OLD_GEO_DB_PREFIX=geo_cli_db_postgres11
 
 # A list of all of the top-level geo commands.
 # This is used in geo-cli.sh to confirm that the first param passed to geo (i.e. in 'geo db ls', db is the top-level command) is a valid command.
@@ -694,14 +696,58 @@ geo_db_ls_containers() {
         docker container ls -a -f name=geo_cli
         return
     fi
-    local output=$(docker container ls -a -f name=geo_cli --format '{{.Names}}\t{{.ID}}\t{{.Image}}')
-    local header=$(printf "%-24s %-16s %-24s\n" "Image" "Container ID" "geo-cli Name")
-    local filtered=$(echo $"$output" | awk '{ gsub($3"_","",$1);  printf "%-24s %-16s %-24s\n",$3,$2,$1 } ')
+
+    
+    datediff() {
+        d1=$(date -d "$1" +%s)
+        d2=$(date -d "$2" +%s)
+        days=$(( (d1 - d2) / 86400 ))
+        msg=$days
+        ((days > 1)) && msg="$days days ago"
+        ((days == 1)) && msg="yesterday"
+        ((days == 0)) && msg="today"
+        echo $msg
+    }
+    local now="$(date)"
+
+    local output=$(docker container ls -a -f name=geo_cli --format '{{.Names}}\t{{.ID}}\t{{.Names}}\t{{.CreatedAt}}')
+
+    # local filtered=$(echo "$output" | awk 'printf "%-24s %-16s %-24s\n",$1,$2,$3 } ')
+    local filtered=$(echo "$output" | awk '{ gsub("geo_cli_db_postgres_","",$1);  printf "%-20s %-16s %-28s\n",$1,$2,$3 } ')
+    # echo "$output" | awk { gsub($3"_","",$1);  printf "%-24s %-16s %-24s\n",$3,$2,$1 } '
     # filtered=`echo $"$output" | awk 'BEGIN { format="%-24s %-24s %-24s\n"; ; printf format, "Name","Container ID","Image" } { gsub($3"_","",$1);  printf " %-24s %-24s %-24s\n",$1,$2,$3 } '`
 
+    local names=$(docker container ls -a -f name=geo_cli --format '{{.Names}}')
+    local longest_field_length=$(awk '{ print length }' <<<"$names" | sort -n | tail -1)
+    local container_name_field_length=$((longest_field_length + 4))
+    local name_field_length=$((${#longest_field_length} - ${#GEO_DB_PREFIX} + 4))
+    ((name_field_length < 16)) && name_field_length=16
+
+    local line_format="%-${name_field_length}s %-16s %-${container_name_field_length}s %-16s\n"
+    local header=$(printf "$line_format" "geo-cli Name" "Container ID" "Container Name" "Created")
+    # Print the table header.
     data_header "$header"
-    # info_bi "$header"
-    data "$filtered"
+
+    local created_date=
+    local rest_of_line=
+
+
+    while read -r line; do
+        _ifs=$IFS
+        # Split the 4 fields in the line into an array (using tab as the delimiter).
+        IFS=$'\t' read -r -a line_array <<<"$line"
+        IFS=$_ifs
+
+        created_date="${line_array[3]}"
+        # Trim off timezone.
+        created_date="${created_date:0:19}"
+
+        days_since_created=$(datediff "$now" "$created_date")
+        new_line="$(echo -e "${line_array[0]}\t${line_array[1]}\t${line_array[2]}\t$days_since")"
+        # Remove the geo db prefix from the container name to get the geo-cli name for the db.
+        line_array[0]="${line_array[0]#${GEO_DB_PREFIX}_}"
+        printf "$line_format" "${line_array[0]}" "${line_array[1]}" "${line_array[2]}" "$days_since_created"
+    done <<< "$output"
 }
 geo_db_ls_volumes() {
     info Volumes
@@ -874,7 +920,7 @@ function geo_db_init() {
 
     sleep 5
     
-    if dotnet "${path}" CreateDatabase postgres companyName="$db_name" administratorUser="$user" administratorPassword="$password" sqluser="$sql_user" sqlpassword="$sql_password"; then
+    if dotnet "${path}" CreateDatabase postgres companyName="$db_name" administratorUser="$user" administratorPassword="$password" sqluser="$sql_user" sqlpassword="$sql_password" useMasterLogin='true'; then
         success "$db_name initialized"
         info_bi 'Connect with pgAdmin (if not already set up)'
         info 'Create a new server and entering the following information:'
