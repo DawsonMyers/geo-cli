@@ -856,25 +856,25 @@ function geo_db_init() {
     get_user() {
         prompt_n "Enter MyGeotab admin username (your email): "
         read user
-        geo_set DB_USER $user
+        geo_set DB_USER "$user"
     }
 
     get_password() {
         prompt_n "Enter MyGeotab admin password: "
         read password
-        geo_set DB_PASSWORD $password
+        geo_set DB_PASSWORD "$password"
     }
 
     get_sql_user() {
         prompt_n "Enter db admin username: "
         read sql_user
-        geo_set SQL_USER $sql_user
+        geo_set SQL_USER "$sql_user"
     }
 
     get_sql_password() {
         prompt_n "Enter db admin password: "
         read sql_password
-        geo_set SQL_PASSWORD $sql_password
+        geo_set SQL_PASSWORD "$sql_password"
     }
 
     if [ ! $acceptDefaults ]; then
