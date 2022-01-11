@@ -146,4 +146,6 @@ function check_for_docker_group_membership() {
 }
 
 # Run geo if this file was executed (instead of sourced) as a stand-alone script and arguments were passed in.
-[[ -n $@ ]] && geo "$@"
+if [[ -n $@ ]]; then
+    geo "$@"
+fi
