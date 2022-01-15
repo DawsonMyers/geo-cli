@@ -4,12 +4,12 @@ if [[ `whoami` = 'root' ]]; then echo 'ERROR: Do not run geo as root (sudo)'; ex
 
 # Init geo config directory if it doesn't exist.
 export GEO_CLI_CONFIG_DIR="$HOME/.geo-cli"
-[ ! -d $GEO_CLI_CONFIG_DIR ] && mkdir -p $GEO_CLI_CONFIG_DIR
+[[ ! -d $GEO_CLI_CONFIG_DIR ]] && mkdir -p $GEO_CLI_CONFIG_DIR
 
 # Init geo config file if it doesn't exist. This file stores key-value settings (i.e. username and password used to
 # initialize geotabdemo database) for geo.
 export GEO_CLI_CONF_FILE="$GEO_CLI_CONFIG_DIR/.geo.conf"
-[ ! -f $GEO_CLI_CONF_FILE ] && touch $GEO_CLI_CONF_FILE
+[[ ! -f $GEO_CLI_CONF_FILE ]] && touch $GEO_CLI_CONF_FILE
 
 # Load all saved key-value settings into the environment.
 # while read line; do
@@ -26,8 +26,8 @@ alias brc=". ~/.bashrc"
 alias zrc=". ~/.zshrc"
 
 # Gets the absolute path of the root geo-cli directory.
-export GEO_CLI_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
-export GEO_CLI_SRC_DIR="${GEO_CLI_CLI_DIR}/src"
+export GEO_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
+export GEO_CLI_SRC_DIR="${GEO_CLI_DIR}/src"
 
 # Gives the path of the file that was passed in when the script was executed. Could be relative
 # SOURCE="${BASH_SOURCE[0]}"
@@ -35,7 +35,7 @@ export GEO_CLI_SRC_DIR="${GEO_CLI_CLI_DIR}/src"
 # echo $SOURCE
 
 # Import cli handlers to get access to all of the geo-cli commands and command names (through the COMMMAND array).
-. $GEO_CLI_SRC_DIR/utils/cli-handlers.sh
+. "$GEO_CLI_SRC_DIR/utils/cli-handlers.sh"
 
 function geo()
 {
@@ -51,7 +51,7 @@ function geo()
     # Check if colour variables have been changed by the terminal (wraped in \[ ... \]). Reload everything if they have to fix.
     # This issue would cause coloured log output to start with '\[\] some log message'.
     if [[ $Green =~ ^'\['.*'\]' ]]; then
-        . $GEO_CLI_SRC_DIR/utils/cli-handlers.sh
+        . "$GEO_CLI_SRC_DIR/utils/cli-handlers.sh"
         # debug 'Colours reloaded'
     fi
 
@@ -123,7 +123,7 @@ function geo()
 
     # At this point we know that the command is valid and command help isn't being 
     # requested. So run the command.
-    "geo_${cmd}" "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" 
+    "geo_${cmd}" "$@"
     
     # Don't show outdated msg if update was just run.
     [[ $cmd != update ]] && geo_show_msg_if_outdated
