@@ -1,9 +1,14 @@
 #!/bin/bash
 
+# Gets the absolute path of the root geo-cli directory.
+export GEO_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
+export GEO_CLI_SRC_DIR="${GEO_CLI_DIR}/src"
+
 # Import colour constants/functions and config file read/write helper functions.
 . $GEO_CLI_SRC_DIR/utils/colors.sh
 . $GEO_CLI_SRC_DIR/utils/config-file-utils.sh
 
+# Set up config paths (used to store config info about geo-cli)
 export GEO_CLI_CONFIG_DIR="$HOME/.geo-cli"
 export GEO_CLI_CONF_FILE="$GEO_CLI_CONFIG_DIR/.geo.conf"
 export GEO_CLI_SCRIPT_DIR="${GEO_CLI_CONFIG_DIR}/scripts"
@@ -577,13 +582,16 @@ geo_db_psql() {
         # done
         # debug db_name=$db_name, sql_user=$sql_user, query=$query, psql_options=$psql_options
         # return
-        while [[ $1 =~ ^-[a-z] ]]; do
+        local script_param_count=0
+        declare -A cli_param_lookup
+        while [[ $1 =~ ^-{1,2}[a-z] ]]; do
             local option=$1
             local arg="$2"
             shift
             # It's an error if the argument to an option is an option.
             [[ ! $arg || $arg =~ ^-[a-z] ]] && Error "Argument missing for option ${option}" && return 1
 
+            # debug "op=$option    arg=$arg"
             case $option in
             -d)
                 db_name="$arg"
@@ -598,9 +606,18 @@ geo_db_psql() {
                 query="$arg"
                 docker_options=''
                 psql_options='-c'
-                if [[ -f $GEO_CLI_SCRIPT_DIR/$query ]]; then
-                    query="$(cat $GEO_CLI_SCRIPT_DIR/$query)"
+                script_path="$GEO_CLI_SCRIPT_DIR/$query".sql
+
+                debug $script_path
+                if [[ -f $script_path ]]; then
+                    query="$(cat $script_path | sed "s/'/\'/g")"
                 fi
+                ;;
+            --*)
+                option="${option#--}"
+                debug $option $arg
+                cli_param_lookup["$option"]="$arg"
+                ((script_param_count++))
                 ;;
             *)
                 Error "Unknown option '$option'."
@@ -609,6 +626,49 @@ geo_db_psql() {
             esac
             shift
         done
+
+        # This isn't currently working
+        debug $script_param_count
+        if (( script_param_count > 0 )); then
+            param_definitions="$(echo "$query" | grep '^--- ' | sed 's/--- //g')"
+            param_names="$(sed 's/=.*//g' <<<"$param_definitions")"
+            param_names_array=()
+            default_param_values="$(sed 's/.*=//g' <<<"$param_definitions")"
+            default_param_values_array=()
+            declare -A param_lookup
+            # Extract param names and values.
+            default_param_count=0
+            while read -r line; do
+                param_names_array+=("$line")
+                ((default_param_count++))
+            done <<<"$param_names"
+            while read -r line; do
+                default_param_values_array+=("$line")
+            done <<<"$default_param_values"
+
+            for ((i = 0; i < default_param_count; i++)); do
+                key="${param_names_array[$i]}"
+                value="${default_param_values_array[$i]}"
+                param_lookup["$key"]="$value"
+            done
+            for key in "${!cli_param_lookup[@]}"; do
+                value="${cli_param_lookup[$key]}"
+                param_lookup["$key"]="$value"
+            done
+            
+            # debug "$query"
+
+            # Remove all comments and empty lines.
+            query="$(sed -e 's/--.*//g' -e '/^$/d' <<<"$query")"
+            for key in "${!param_lookup[@]}"; do
+                value="${param_lookup[$key]}"
+                [[ -v cli_param_lookup["$key"] ]] && value="${cli_param_lookup[$key]}"
+                debug "value=$value    key=$key"
+                query="$(sed "s/{{$key}}/$value/g" <<<"$query")"
+            done
+            query="$(echo "$query" | tr '\n' ' ')"
+            # debug "$query"
+        fi
 
         # Assign default values for sql user/passord.
         [[ -z $db_name ]] && db_name=geotabdemo
@@ -624,7 +684,8 @@ geo_db_psql() {
             return 1
         fi
 
-        if [[ $query ]]; then
+        if [[ -n $query ]]; then
+            debug "docker exec $docker_options -e PGPASSWORD=$sql_password $running_container_id /bin/bash -c \"psql -U $sql_user -h localhost -p 5432 -d $db_name '$psql_options $query'\""
             eval "docker exec $docker_options -e PGPASSWORD=$sql_password $running_container_id /bin/bash -c \"psql -U $sql_user -h localhost -p 5432 -d $db_name '$psql_options $query'\""
         else
             docker exec -it -e PGPASSWORD=$sql_password $running_container_id psql -U $sql_user -h localhost -p 5432 -d $db_name
@@ -632,12 +693,13 @@ geo_db_psql() {
 }
 
 geo_db_script() {
+    [[ -z $GEO_CLI_SCRIPT_DIR ]] && Error "GEO_CLI_SCRIPT_DIR doesn't have a value" && return 1
     [[ ! -d $GEO_CLI_SCRIPT_DIR ]] && mkdir -p $GEO_CLI_SCRIPT_DIR
     [[ -z $EDITOR ]] && EDITOR=nano
     
     local command="$1"
     local script_name=$(geo_make_alphanumeric $2)
-    local script_path="$GEO_CLI_SCRIPT_DIR/$script_name"
+    local script_path="$GEO_CLI_SCRIPT_DIR/$script_name".sql
 
     check_for_script() {
         if [[ -f $script_path ]]; then
@@ -658,7 +720,9 @@ geo_db_script() {
                     return
                 fi
             fi
-            $EDITOR $script_path
+            debug "$GEO_CLI_SRC_DIR/templates/geo-db-script.sql" "$script_path"
+            cp "$GEO_CLI_SRC_DIR/templates/geo-db-script.sql" "$script_path"
+            $EDITOR "$script_path"
             check_for_script
             ;;
         edit )
