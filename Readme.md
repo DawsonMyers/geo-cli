@@ -390,3 +390,6 @@ For issues while running `geo db start <version>`, try the following (to make th
 2. **DbUnavailable**
    * If you're trying to create a db using `geo db start <version>` and encounter a DbUnavilable exception, try running `geo db init`.
 
+3. **Unable to find image 'geo_cli_db_postgres:latest' locally**
+    * This error can happen when creating a db with `geo db start NAME`. This message indicates that `geo` cannot find the base Postgres image that it uses to create db containers. Fix this by running `geo image create`, followed by the same `geo db start NAME` command again. You may want to run `geo db rm NAME` first to remove anything that was created during the earlier failed attempt.
+
