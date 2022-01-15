@@ -1592,6 +1592,10 @@ geo_analyze() {
     done
     shift $((OPTIND - 1))
     
+    # See if only the core/test project should be run.
+    local run_project_only=
+    [[ $1 == 'core' || $1 == 'test' ]] && run_project_only="$1"
+
     # Get supplied test ids (if any, e.g., the user ran 'geo analyze 1 4 5').
     while [[ $1 =~ ^[0-9]+$ ]]; do
         ids+="$1 "
@@ -1678,7 +1682,24 @@ geo_analyze() {
                     for analyzer in $1; do status_i "  * $analyzer"; done
                 }
 
-                if [[ $core_analyzers_count > 0 ]]; then
+                local run_core=true
+                local run_test=true
+                case "$run_project_only" in
+                    'core' ) 
+                        run_test='false'
+                        test_analyzers_result='NOT RUN'
+                        echo
+                        status_bi 'Running Core project tests only'
+                        ;;
+                    'test' ) 
+                        run_core='false'
+                        core_analyzers_result='NOT RUN'
+                        echo
+                        status_bi 'Running Core.Tests project tests only'
+                        ;;
+                esac
+
+                if [[ $core_analyzers_count > 0 && $run_core == 'true' ]]; then
                     echo
                     status_bi "Running the following $core_analyzers_count analyzer(s) against MyGeotab.Core:"
                     print_analyzers "$core_analyzers"
@@ -1694,7 +1715,7 @@ geo_analyze() {
                     fi
                 fi
                 
-                if [[ $test_analyzers_count > 0 ]]; then
+                if [[ $test_analyzers_count > 0  && $run_test == 'true' ]]; then
                     echo
                     status_bi "Running the following $test_analyzers_count analyzer(s) against MyGeotab.Core.Tests:"
                     print_analyzers "$test_analyzers"
