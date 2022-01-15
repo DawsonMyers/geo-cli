@@ -754,7 +754,7 @@ geo_db_ls_images() {
     docker image ls geo_cli* #--format 'table {{.Names}}\t{{.ID}}\t{{.Image}}'
 }
 geo_db_ls_containers() {
-    info DB Containers
+    info 'DB Containers'
     # docker container ls -a -f name=geo_cli
     if [[ $1 = -a ]]; then
         docker container ls -a -f name=geo_cli
@@ -766,10 +766,20 @@ geo_db_ls_containers() {
         d1=$(date -d "$1" +%s)
         d2=$(date -d "$2" +%s)
         days=$(( (d1 - d2) / 86400 ))
+        weeks=$(( (d1 - d2) / (86400 * 7) ))
+        months=$(( (d1 - d2) / (86400 * 30) ))
+        years=$(( (d1 - d2) / (86400 * 365) ))
+
         msg=$days
         ((days > 1)) && msg="$days days ago"
         ((days == 1)) && msg="yesterday"
         ((days == 0)) && msg="today"
+        ((weeks == 1)) && msg="1 week ago"
+        ((weeks > 1)) && msg="$weeks weeks ago"
+        ((months == 1)) && msg="1 month ago"
+        ((months > 1)) && msg="$months months ago"
+        ((years == 1)) && msg="1 year ago"
+        ((years > 1)) && msg="$years years ago"
         echo $msg
     }
     local now="$(date)"
