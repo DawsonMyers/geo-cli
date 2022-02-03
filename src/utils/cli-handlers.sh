@@ -71,29 +71,29 @@ geo_image_doc() {
 }
 geo_image() {
     case "$1" in
-        rm | remove)
-            docker image rm "$IMAGE"
-            # if [[ -z $2 ]]; then
-            #     Error "No database version provided for removal"
-            #     return
-            # fi
-            # geo_db_rm "$2"
-            return
-            ;;
-        create)
-            status 'Building image...'
-            local dir=$(geo_get DEV_REPO_DIR)
-            dir="${dir}/Checkmate/Docker/postgres"
-            local dockerfile="Debug.Dockerfile"
-            (
-                cd "$dir"
-                docker build --file "$dockerfile" -t "$IMAGE" . && success 'geo-cli Postgres image created' || warn 'Failed to create geo-cli Postgres image'
-            )
-            return
-            ;;
-        ls)
-            docker image ls | grep "$IMAGE"
-            ;;
+    rm | remove)
+        docker image rm "$IMAGE"
+        # if [[ -z $2 ]]; then
+        #     Error "No database version provided for removal"
+        #     return
+        # fi
+        # geo_db_rm "$2"
+        return
+        ;;
+    create)
+        status 'Building image...'
+        local dir=$(geo_get DEV_REPO_DIR)
+        dir="${dir}/Checkmate/Docker/postgres"
+        local dockerfile="Debug.Dockerfile"
+        (
+            cd "$dir"
+            docker build --file "$dockerfile" -t "$IMAGE" . && success 'geo-cli Postgres image created' || warn 'Failed to create geo-cli Postgres image'
+        )
+        return
+        ;;
+    ls)
+        docker image ls | grep "$IMAGE"
+        ;;
     esac
 
 }
@@ -102,90 +102,90 @@ geo_image() {
 COMMANDS+=('db')
 geo_db_doc() {
     doc_cmd 'db'
-        doc_cmd_desc 'Database commands.'
+    doc_cmd_desc 'Database commands.'
 
     doc_cmd_options_title
 
     doc_cmd_option 'create [option] <name>'
-        doc_cmd_option_desc 'Creates a versioned db container and volume.'
-        doc_cmd_sub_options_title
-            doc_cmd_sub_option '-y'
-            doc_cmd_sub_option_desc 'Accept all prompts.'
-            doc_cmd_sub_option '-e'
-            doc_cmd_sub_option_desc 'Create blank Postgres 12 container.'
+    doc_cmd_option_desc 'Creates a versioned db container and volume.'
+    doc_cmd_sub_options_title
+    doc_cmd_sub_option '-y'
+    doc_cmd_sub_option_desc 'Accept all prompts.'
+    doc_cmd_sub_option '-e'
+    doc_cmd_sub_option_desc 'Create blank Postgres 12 container.'
 
     doc_cmd_option 'start [option] [name]'
-        doc_cmd_option_desc 'Starts (creating if necessary) a versioned db container and volume. If no name is provided,
+    doc_cmd_option_desc 'Starts (creating if necessary) a versioned db container and volume. If no name is provided,
                             the most recent db container name is started.'
-        doc_cmd_sub_options_title
-            doc_cmd_sub_option '-y'
-            doc_cmd_sub_option_desc 'Accept all prompts.'
+    doc_cmd_sub_options_title
+    doc_cmd_sub_option '-y'
+    doc_cmd_sub_option_desc 'Accept all prompts.'
 
     doc_cmd_option 'rm, remove <version>'
-        doc_cmd_option_desc 'Removes the container and volume associated with the provided version (e.g. 2004).'
-        doc_cmd_sub_options_title
-            doc_cmd_sub_option '-a, --all'
-            doc_cmd_sub_option_desc 'Remove all db containers and volumes.'
+    doc_cmd_option_desc 'Removes the container and volume associated with the provided version (e.g. 2004).'
+    doc_cmd_sub_options_title
+    doc_cmd_sub_option '-a, --all'
+    doc_cmd_sub_option_desc 'Remove all db containers and volumes.'
 
     doc_cmd_option 'stop [version]'
-        doc_cmd_option_desc 'Stop geo-cli db container.'
+    doc_cmd_option_desc 'Stop geo-cli db container.'
 
     doc_cmd_option 'ls [option]'
-        doc_cmd_option_desc 'List geo-cli db containers.'
-        doc_cmd_sub_options_title
-            doc_cmd_sub_option '-a, --all'
-                doc_cmd_sub_option_desc 'Display all geo images, containers, and volumes.'
+    doc_cmd_option_desc 'List geo-cli db containers.'
+    doc_cmd_sub_options_title
+    doc_cmd_sub_option '-a, --all'
+    doc_cmd_sub_option_desc 'Display all geo images, containers, and volumes.'
 
     doc_cmd_option 'ps'
-        doc_cmd_option_desc 'List running geo-cli db containers.'
+    doc_cmd_option_desc 'List running geo-cli db containers.'
 
     doc_cmd_option 'init'
-        doc_cmd_option_desc 'Initialize a running db container with geotabdemo or an empty db with a custom name.'
-        doc_cmd_sub_options_title
-            doc_cmd_sub_option '-y'
-                doc_cmd_sub_option_desc 'Accept all prompts.'
+    doc_cmd_option_desc 'Initialize a running db container with geotabdemo or an empty db with a custom name.'
+    doc_cmd_sub_options_title
+    doc_cmd_sub_option '-y'
+    doc_cmd_sub_option_desc 'Accept all prompts.'
 
     doc_cmd_option 'psql [options]'
-        doc_cmd_option_desc 'Open an interactive psql session to geotabdemo (or a different db, if a db name was provided with the -d option) in 
+    doc_cmd_option_desc 'Open an interactive psql session to geotabdemo (or a different db, if a db name was provided with the -d option) in 
                             the running geo-cli db container. You can also use the -q option to execute a query on the 
                             database instead of starting an interactive session. The default username and password used to
                             connect is geotabuser and vircom43, respectively.'
-        doc_cmd_sub_options_title
-            doc_cmd_sub_option '-d'
-                doc_cmd_sub_option_desc 'The name of the postgres database you want to connect to. The default value used is "geotabdemo"'
-            doc_cmd_sub_option '-p'
-                doc_cmd_sub_option_desc 'The admin sql password. The default value used is "vircom43"'
-            doc_cmd_sub_option '-q'
-                doc_cmd_sub_option_desc 'A query to run with psql in the running container. This option will cause the result of the query to be returned 
+    doc_cmd_sub_options_title
+    doc_cmd_sub_option '-d'
+    doc_cmd_sub_option_desc 'The name of the postgres database you want to connect to. The default value used is "geotabdemo"'
+    doc_cmd_sub_option '-p'
+    doc_cmd_sub_option_desc 'The admin sql password. The default value used is "vircom43"'
+    doc_cmd_sub_option '-q'
+    doc_cmd_sub_option_desc 'A query to run with psql in the running container. This option will cause the result of the query to be returned 
                                         instead of starting an interactive psql terminal.'
-            doc_cmd_sub_option '-u'
-                doc_cmd_sub_option_desc 'The admin sql user. The default value used is "geotabuser"'
+    doc_cmd_sub_option '-u'
+    doc_cmd_sub_option_desc 'The admin sql user. The default value used is "geotabuser"'
 
     doc_cmd_option 'bash'
-        doc_cmd_option_desc 'Open a bash session with the running geo-cli db container.'
+    doc_cmd_option_desc 'Open a bash session with the running geo-cli db container.'
 
     doc_cmd_option 'script <add|edit|ls|rm> <script_name>'
-        doc_cmd_option_desc "Add, edit, list, or remove scripts that can be run with $(txt_italic geo db psql -q script_name)."
-        doc_cmd_sub_options_title
-            doc_cmd_sub_option 'add'
-                doc_cmd_sub_option_desc 'Adds a new script and opens it in a text editor.'
-            doc_cmd_sub_option 'edit'
-                doc_cmd_sub_option_desc 'Opens an existing script in a text editor.'
-            doc_cmd_sub_option 'ls'
-                doc_cmd_sub_option_desc 'Lists existing scripts.'
-            doc_cmd_sub_option 'rm'
-                doc_cmd_sub_option_desc 'Removes a script.'
+    doc_cmd_option_desc "Add, edit, list, or remove scripts that can be run with $(txt_italic geo db psql -q script_name)."
+    doc_cmd_sub_options_title
+    doc_cmd_sub_option 'add'
+    doc_cmd_sub_option_desc 'Adds a new script and opens it in a text editor.'
+    doc_cmd_sub_option 'edit'
+    doc_cmd_sub_option_desc 'Opens an existing script in a text editor.'
+    doc_cmd_sub_option 'ls'
+    doc_cmd_sub_option_desc 'Lists existing scripts.'
+    doc_cmd_sub_option 'rm'
+    doc_cmd_sub_option_desc 'Removes a script.'
 
     doc_cmd_examples_title
-        doc_cmd_example 'geo db start 2004'
-        doc_cmd_example 'geo db start -y 2004'
-        doc_cmd_example 'geo db create 2004'
-        doc_cmd_example 'geo db rm 2004'
-        doc_cmd_example 'geo db rm --all'
-        doc_cmd_example 'geo db ls'
-        doc_cmd_example 'geo db psql'
-        doc_cmd_example 'geo db psql -u mySqlUser -p mySqlPassword -d dbName'
-        doc_cmd_example 'geo db psql -q "SELECT * FROM deviceshare LIMIT 10"'
+    doc_cmd_example 'geo db start 2004'
+    doc_cmd_example 'geo db start -y 2004'
+    doc_cmd_example 'geo db create 2004'
+    doc_cmd_example 'geo db rm 2004'
+    doc_cmd_example 'geo db rm --all'
+    doc_cmd_example 'geo db ls'
+    doc_cmd_example 'geo db psql'
+    doc_cmd_example 'geo db psql -u mySqlUser -p mySqlPassword -d dbName'
+    doc_cmd_example 'geo db psql -q "SELECT * FROM deviceshare LIMIT 10"'
 }
 geo_db() {
     # Check to make sure that the current user is added to the docker group. All subcommands in this command need to use docker.
@@ -227,7 +227,7 @@ geo_db() {
             return
         fi
 
-        geo_db_rm "$2" "$3"
+        geo_db_rm "${@:2}"
         return
         ;;
     create)
@@ -374,7 +374,7 @@ geo_db_create() {
 
     docker create -v $vol_mount -p $port --name=$container_name $image_name >/dev/null &&
         (echo && success 'OK') || (Error 'Failed to create container' && return 1)
-    
+
     echo
 
     if [[ $silent == false ]]; then
@@ -545,168 +545,168 @@ geo_db_start() {
 
 geo_db_psql() {
     local sql_user=$(geo_get SQL_USER)
-        local sql_password=$(geo_get SQL_PASSWORD)
-        local db_name=geotabdemo
-        local query=
-        local docker_options='-it'
-        local psql_options=
-        # local OPTIND
-        # local -
-        # set -o noglob
-        # while getopts ":d:u:q:p:" opt; do
-        #     debug opt = "$opt", arg = "$OPTARG"
-        #     case "$opt" in
-        #         d )
-        #             db_name="${OPTARG:-$db_name}"
-        #             ;;
-        #         u )
-        #             sql_user="${OPTARG:-$sql_user}"
-        #             ;;
-        #         p )
-        #             sql_password="${OPTARG:-$sql_password}"
-        #             ;;
-        #         s )
-        #             query="$OPTARG"
-        #             docker_options=''
-        #             psql_options='-c'
-        #             ;;
-        #         \? )
-        #             Error "Unknown option '$OPTARG'."
-        #             return 1
-        #             ;;
-        #         : )
-        #             Error "Invalid argument for '$OPTARG'."
-        #             return 1
-        #             ;;
-        #     esac
-        # done
-        # debug db_name=$db_name, sql_user=$sql_user, query=$query, psql_options=$psql_options
-        # return
-        local script_param_count=0
-        declare -A cli_param_lookup
-        while [[ $1 =~ ^-{1,2}[a-z] ]]; do
-            local option=$1
-            local arg="$2"
-            shift
-            # It's an error if the argument to an option is an option.
-            [[ ! $arg || $arg =~ ^-[a-z] ]] && Error "Argument missing for option ${option}" && return 1
+    local sql_password=$(geo_get SQL_PASSWORD)
+    local db_name=geotabdemo
+    local query=
+    local docker_options='-it'
+    local psql_options=
+    # local OPTIND
+    # local -
+    # set -o noglob
+    # while getopts ":d:u:q:p:" opt; do
+    #     debug opt = "$opt", arg = "$OPTARG"
+    #     case "$opt" in
+    #         d )
+    #             db_name="${OPTARG:-$db_name}"
+    #             ;;
+    #         u )
+    #             sql_user="${OPTARG:-$sql_user}"
+    #             ;;
+    #         p )
+    #             sql_password="${OPTARG:-$sql_password}"
+    #             ;;
+    #         s )
+    #             query="$OPTARG"
+    #             docker_options=''
+    #             psql_options='-c'
+    #             ;;
+    #         \? )
+    #             Error "Unknown option '$OPTARG'."
+    #             return 1
+    #             ;;
+    #         : )
+    #             Error "Invalid argument for '$OPTARG'."
+    #             return 1
+    #             ;;
+    #     esac
+    # done
+    # debug db_name=$db_name, sql_user=$sql_user, query=$query, psql_options=$psql_options
+    # return
+    local script_param_count=0
+    declare -A cli_param_lookup
+    while [[ $1 =~ ^-{1,2}[a-z] ]]; do
+        local option=$1
+        local arg="$2"
+        shift
+        # It's an error if the argument to an option is an option.
+        [[ ! $arg || $arg =~ ^-[a-z] ]] && Error "Argument missing for option ${option}" && return 1
 
-            # debug "op=$option    arg=$arg"
-            case $option in
-            -d)
-                db_name="$arg"
-                ;;
-            -u)
-                sql_user="$arg"
-                ;;
-            -p)
-                sql_password="$arg"
-                ;;
-            -q)
-                query="$arg"
-                docker_options=''
-                psql_options='-c'
-                script_path="$GEO_CLI_SCRIPT_DIR/$query".sql
+        # debug "op=$option    arg=$arg"
+        case $option in
+        -d)
+            db_name="$arg"
+            ;;
+        -u)
+            sql_user="$arg"
+            ;;
+        -p)
+            sql_password="$arg"
+            ;;
+        -q)
+            query="$arg"
+            docker_options=''
+            psql_options='-c'
+            script_path="$GEO_CLI_SCRIPT_DIR/$query".sql
 
-                debug $script_path
-                if [[ -f $script_path ]]; then
-                    query="$(cat $script_path | sed "s/'/\'/g")"
-                fi
-                ;;
-            --*)
-                option="${option#--}"
-                debug $option $arg
-                cli_param_lookup["$option"]="$arg"
-                ((script_param_count++))
-                ;;
-            *)
-                Error "Unknown option '$option'."
-                return 1
-                ;;
-            esac
-            shift
+            debug $script_path
+            if [[ -f $script_path ]]; then
+                query="$(cat $script_path | sed "s/'/\'/g")"
+            fi
+            ;;
+        --*)
+            option="${option#--}"
+            debug $option $arg
+            cli_param_lookup["$option"]="$arg"
+            ((script_param_count++))
+            ;;
+        *)
+            Error "Unknown option '$option'."
+            return 1
+            ;;
+        esac
+        shift
+    done
+
+    # This isn't currently working
+    debug $script_param_count
+    if (( script_param_count > 0 )); then
+        param_definitions="$(echo "$query" | grep '^--- ' | sed 's/--- //g')"
+        param_names="$(sed 's/=.*//g' <<<"$param_definitions")"
+        param_names_array=()
+        default_param_values="$(sed 's/.*=//g' <<<"$param_definitions")"
+        default_param_values_array=()
+        declare -A param_lookup
+        # Extract param names and values.
+        default_param_count=0
+        while read -r line; do
+            param_names_array+=("$line")
+            ((default_param_count++))
+        done <<<"$param_names"
+        while read -r line; do
+            default_param_values_array+=("$line")
+        done <<<"$default_param_values"
+
+        for ((i = 0; i < default_param_count; i++)); do
+            key="${param_names_array[$i]}"
+            value="${default_param_values_array[$i]}"
+            param_lookup["$key"]="$value"
+        done
+        for key in "${!cli_param_lookup[@]}"; do
+            value="${cli_param_lookup[$key]}"
+            param_lookup["$key"]="$value"
         done
 
-        # This isn't currently working
-        debug $script_param_count
-        if (( script_param_count > 0 )); then
-            param_definitions="$(echo "$query" | grep '^--- ' | sed 's/--- //g')"
-            param_names="$(sed 's/=.*//g' <<<"$param_definitions")"
-            param_names_array=()
-            default_param_values="$(sed 's/.*=//g' <<<"$param_definitions")"
-            default_param_values_array=()
-            declare -A param_lookup
-            # Extract param names and values.
-            default_param_count=0
-            while read -r line; do
-                param_names_array+=("$line")
-                ((default_param_count++))
-            done <<<"$param_names"
-            while read -r line; do
-                default_param_values_array+=("$line")
-            done <<<"$default_param_values"
+        # debug "$query"
 
-            for ((i = 0; i < default_param_count; i++)); do
-                key="${param_names_array[$i]}"
-                value="${default_param_values_array[$i]}"
-                param_lookup["$key"]="$value"
-            done
-            for key in "${!cli_param_lookup[@]}"; do
-                value="${cli_param_lookup[$key]}"
-                param_lookup["$key"]="$value"
-            done
-            
-            # debug "$query"
+        # Remove all comments and empty lines.
+        query="$(sed -e 's/--.*//g' -e '/^$/d' <<<"$query")"
+        for key in "${!param_lookup[@]}"; do
+            value="${param_lookup[$key]}"
+            [[ -v cli_param_lookup["$key"] ]] && value="${cli_param_lookup[$key]}"
+            debug "value=$value    key=$key"
+            query="$(sed "s/{{$key}}/$value/g" <<<"$query")"
+        done
+        query="$(echo "$query" | tr '\n' ' ')"
+        # debug "$query"
+    fi
 
-            # Remove all comments and empty lines.
-            query="$(sed -e 's/--.*//g' -e '/^$/d' <<<"$query")"
-            for key in "${!param_lookup[@]}"; do
-                value="${param_lookup[$key]}"
-                [[ -v cli_param_lookup["$key"] ]] && value="${cli_param_lookup[$key]}"
-                debug "value=$value    key=$key"
-                query="$(sed "s/{{$key}}/$value/g" <<<"$query")"
-            done
-            query="$(echo "$query" | tr '\n' ' ')"
-            # debug "$query"
-        fi
+    # Assign default values for sql user/passord.
+    [[ -z $db_name ]] && db_name=geotabdemo
+    [[ -z $sql_user ]] && sql_user=geotabuser
+    [[ -z $sql_password ]] && sql_password=vircom43
 
-        # Assign default values for sql user/passord.
-        [[ -z $db_name ]] && db_name=geotabdemo
-        [[ -z $sql_user ]] && sql_user=geotabuser
-        [[ -z $sql_password ]] && sql_password=vircom43
+    local running_container_id=$(geo_get_running_container_id)
+    # debug $sql_user $sql_password $db_name $running_container_id
 
-        local running_container_id=$(geo_get_running_container_id)
-        # debug $sql_user $sql_password $db_name $running_container_id
+    if [[ -z $running_container_id ]]; then
+        Error 'No geo-cli containers are running to connect to.'
+        info "Run $(txt_underline 'geo db ls') to view available containers and $(txt_underline 'geo db start <name>') to start one."
+        return 1
+    fi
 
-        if [[ -z $running_container_id ]]; then
-            Error 'No geo-cli containers are running to connect to.'
-            info "Run $(txt_underline 'geo db ls') to view available containers and $(txt_underline 'geo db start <name>') to start one."
-            return 1
-        fi
-
-        if [[ -n $query ]]; then
-            debug "docker exec $docker_options -e PGPASSWORD=$sql_password $running_container_id /bin/bash -c \"psql -U $sql_user -h localhost -p 5432 -d $db_name '$psql_options $query'\""
-            eval "docker exec $docker_options -e PGPASSWORD=$sql_password $running_container_id /bin/bash -c \"psql -U $sql_user -h localhost -p 5432 -d $db_name '$psql_options $query'\""
-        else
-            docker exec -it -e PGPASSWORD=$sql_password $running_container_id psql -U $sql_user -h localhost -p 5432 -d $db_name
-        fi
+    if [[ -n $query ]]; then
+        debug "docker exec $docker_options -e PGPASSWORD=$sql_password $running_container_id /bin/bash -c \"psql -U $sql_user -h localhost -p 5432 -d $db_name '$psql_options $query'\""
+        eval "docker exec $docker_options -e PGPASSWORD=$sql_password $running_container_id /bin/bash -c \"psql -U $sql_user -h localhost -p 5432 -d $db_name '$psql_options $query'\""
+    else
+        docker exec -it -e PGPASSWORD=$sql_password $running_container_id psql -U $sql_user -h localhost -p 5432 -d $db_name
+    fi
 }
 
 geo_db_script() {
     [[ -z $GEO_CLI_SCRIPT_DIR ]] && Error "GEO_CLI_SCRIPT_DIR doesn't have a value" && return 1
     [[ ! -d $GEO_CLI_SCRIPT_DIR ]] && mkdir -p $GEO_CLI_SCRIPT_DIR
     [[ -z $EDITOR ]] && EDITOR=nano
-    
+
     local command="$1"
     local script_name=$(geo_make_alphanumeric $2)
     local script_path="$GEO_CLI_SCRIPT_DIR/$script_name".sql
 
     check_for_script() {
         if [[ -f $script_path ]]; then
-                success 'Saved'
-            else
-                warn "Script '$script_name' wasn't found in script directory, did you save it before closing the text editor?"
-            fi
+            success 'Saved'
+        else
+            warn "Script '$script_name' wasn't found in script directory, did you save it before closing the text editor?"
+        fi
     }
 
     case "$command" in
@@ -739,7 +739,7 @@ geo_db_script() {
             ;;
         rm )
             rm $GEO_CLI_SCRIPT_DIR/$2
-            ;;
+        ;;
     esac
 }
 
@@ -761,14 +761,13 @@ geo_db_ls_containers() {
         return
     fi
 
-    
     datediff() {
         d1=$(date -d "$1" +%s)
         d2=$(date -d "$2" +%s)
-        days=$(( (d1 - d2) / 86400 ))
-        weeks=$(( (d1 - d2) / (86400 * 7) ))
-        months=$(( (d1 - d2) / (86400 * 30) ))
-        years=$(( (d1 - d2) / (86400 * 365) ))
+        days=$(((d1 - d2) / 86400))
+        weeks=$(((d1 - d2) / (86400 * 7)))
+        months=$(((d1 - d2) / (86400 * 30)))
+        years=$(((d1 - d2) / (86400 * 365)))
 
         msg=$days
         ((days > 1)) && msg="$days days ago"
@@ -804,7 +803,6 @@ geo_db_ls_containers() {
 
     local created_date=
     local rest_of_line=
-
 
     while read -r line; do
         _ifs=$IFS
@@ -993,7 +991,7 @@ function geo_db_init() {
     info 'Waiting for db to start...'
 
     sleep 5
-    
+
     if dotnet "${path}" CreateDatabase postgres companyName="$db_name" administratorUser="$user" administratorPassword="$password" sqluser="$sql_user" sqlpassword="$sql_password" useMasterLogin='true'; then
         success "$db_name initialized"
         info_bi 'Connect with pgAdmin (if not already set up)'
@@ -1013,7 +1011,7 @@ function geo_db_init() {
         Error 'Failed to initialize db'
         error 'Have you built the assembly for the current branch?'
         return 1
-    fi   
+    fi
 }
 
 geo_db_rm() {
@@ -1157,6 +1155,98 @@ geo_check_for_dev_repo_dir() {
 
     geo_set DEV_REPO_DIR "$dev_repo"
 }
+
+##########################################################
+COMMANDS+=('ar')
+geo_ar_doc() {
+    doc_cmd 'ar'
+    doc_cmd_desc 'Helpers for working with access requests.'
+    doc_cmd_options_title
+    doc_cmd_option 'tunnel [gcloud start-iap-tunnel cmd]'
+    doc_cmd_option_desc "Starts the IAP tunnel using the gcloud start-iap-tunnel command copied from MyAdmin after opening 
+                        an access request. The port is saved and used when you ssh to the server using $(green 'geo ar ssh'). This command will be saved and re-used next time you call the command without any arguments (i.e. $(green geo ar tunnel))"
+    doc_cmd_option 'ssh'
+    doc_cmd_option_desc "SSH into a server through the IAP tunnel started with $(green 'geo ar ssh')."
+    doc_cmd_sub_options_title
+    doc_cmd_sub_option '-p <port>'
+    doc_cmd_sub_option_desc "The port to use when connecting to the server. This value is option since the port that the IAP tunnel was opened on using $(green 'geo ar ssh') is used as the default value"
+    doc_cmd_sub_option '-u <user>'
+    doc_cmd_sub_option_desc "The user to use when connecting to the server. This value is option since the username stored in \$USER is used as the default value. The value supplied here will be stored and reused next time you call the command"
+
+    doc_cmd_examples_title
+    doc_cmd_example 'geo ar tunnel gcloud compute start-iap-tunnel gceseropst4-20220109062647 22 --project=geotab-serverops --zone=projects/709472407379/zones/northamerica-northeast1-b'
+    doc_cmd_example 'geo ar ssh'
+    doc_cmd_example 'geo ar ssh -p 12345'
+    doc_cmd_example 'geo ar ssh -u dawsonmyers'
+    doc_cmd_example 'geo ar ssh -u dawsonmyers -p 12345'
+}
+geo_ar() {
+    case "$1" in
+        tunnel)
+            shift
+            local gcloud_cmd="$*"
+            [[ -z $gcloud_cmd ]] && gcloud_cmd="$(geo_get AR_IAP_CMD)"
+            [[ -z $gcloud_cmd ]] && Error 'The gcloud compute start-iap-tunnel command (copied from MyAdmin for you access request) is required.' && return 1
+            geo_set AR_IAP_CMD "$gcloud_cmd"
+
+            local open_port=$(python -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')
+            [ -z $open_port ] && Error 'Open port could not be found' && return 12
+            status "Using port: '$open_port'"
+            local port_arg='--local-host-port=localhost:'$open_port
+            geo_set AR_PORT "$open_port"
+            status 'Opening tunnel'
+            info "Note: the port is saved and will be used when you call '$(txt_italic geo ar ssh)'"
+            $gcloud_cmd $port_arg
+            ;;
+        ssh)
+            shift
+            local user=$(geo_get AR_USER)
+            [[ -z $user ]] && user="$USER"
+            local port=$(geo_get AR_PORT)
+            local option_count=0
+            [[ $1 == '-p' ]] && port=$2 && shift 2 && ((option_count++))
+            [[ $1 == '-u' ]] && user=$2 && shift 2 && ((option_count++))
+            [[ -z port ]] && Error "No port found. Add a port with the -p <port> option." && return 1
+            status_bi "Using user '$user' and port '$port'."
+            [[ $option_count == 0 ]] && info "Note: The -u <user> or the -p <port> options can be used to supply different values."
+            geo_set AR_USER "$user"
+            geo_set AR_PORT "$port"
+            local cmd="ssh $user@localhost -p $port"
+            status "$cmd"
+            $cmd
+            ;;
+    esac
+}
+
+# pa() {
+#     echo "$@"
+#     # while getopts "p:u:" options ; do
+#     #     echo "$optname + $options + $OPTARG + $1"
+#     #     case "${options}" in
+#     #         p) echo "p: $OPTARG" ;;
+#     #         u) echo "u: $OPTARG" ;;
+#     #         # \?)
+#     #         #     Error "Invalid option: -$OPTARG"
+#     #         #     return 1
+#     #         #     ;;
+#     #         :) # If expected argument omitted:
+#     #             echo "Error: -${OPTARG} requires an argument."
+#     #             ;;
+#     #         *) warn "Unknown argument " ;;
+#     #     esac
+#     # done
+# while getopts ":pu" opt; do
+#   case ${opt} in
+#     u ) echo "process option h"
+#       ;;
+#     p ) echo  "process option t"
+#       ;;
+#     \? ) echo "Usage: cmd [-h] [-t]"
+#       ;;
+#   esac
+# done
+# }
+#  pa -p 234 -u dawson
 
 ###########################################################
 COMMANDS+=('stop')
@@ -1397,7 +1487,7 @@ geo_get_doc() {
     doc_cmd_examples_title
     doc_cmd_example 'geo get DEV_REPO_DIR'
 }
-geo_get() { 
+geo_get() {
     # Get value of env var.
     local key="$1"
     [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
@@ -1422,7 +1512,7 @@ geo_get_doc() {
     doc_cmd_examples_title
     doc_cmd_example 'geo rm DEV_REPO_DIR'
 }
-geo_rm() { 
+geo_rm() {
     # Get value of env var.
     local key="$1"
     [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
@@ -1456,7 +1546,7 @@ geo_update() {
     fi
 
     geo_cli_dir="$(geo_get GEO_CLI_DIR)"
-    
+
     (
         cd $geo_cli_dir
         if ! git pull >/dev/null; then
@@ -1572,26 +1662,26 @@ geo_analyze() {
         case "${opt}" in
             # Check if the run all analyzers option (-a) was supplied.
             a )
-                 ids=$(seq -s ' ' 0 $max_id)
-                 echo
-                 status_bi 'Running all analyzers'
+                ids=$(seq -s ' ' 0 $max_id)
+                echo
+                status_bi 'Running all analyzers'
                 ;;
             # Check if the run individually option (-i) was supplied.
             # -i ) run_individually=true ;;
             # Check if the batch run option (-b) was supplied.
-            b ) 
+            b )
                 run_individually=false
-                echo 
+                echo
                 status_bi 'Running analyzers in batches'
                 ;;
-            \? ) 
+            \? )
                 Error "Invalid option: $1"
                 return 1
                 ;;
         esac
     done
     shift $((OPTIND - 1))
-    
+
     # See if only the core/test project should be run.
     local run_project_only=
     [[ $1 == 'core' || $1 == 'test' ]] && run_project_only="$1"
@@ -1602,7 +1692,7 @@ geo_analyze() {
         shift
     done
 
-    # Validate id list (if the user passed in ids when running the command). 
+    # Validate id list (if the user passed in ids when running the command).
     if [[ $ids =~ ^( *[0-9]+ *)+$ ]]; then
         # Make sure the numbers are valid ids between 0 and max_id.
         for id in $ids; do
@@ -1685,18 +1775,18 @@ geo_analyze() {
                 local run_core=true
                 local run_test=true
                 case "$run_project_only" in
-                    'core' ) 
-                        run_test='false'
-                        test_analyzers_result='NOT RUN'
-                        echo
-                        status_bi 'Running Core project tests only'
-                        ;;
-                    'test' ) 
-                        run_core='false'
-                        core_analyzers_result='NOT RUN'
-                        echo
-                        status_bi 'Running Core.Tests project tests only'
-                        ;;
+                'core' )
+                    run_test='false'
+                    test_analyzers_result='NOT RUN'
+                    echo
+                    status_bi 'Running Core project tests only'
+                    ;;
+                'test' )
+                    run_core='false'
+                    core_analyzers_result='NOT RUN'
+                    echo
+                    status_bi 'Running Core.Tests project tests only'
+                    ;;
                 esac
 
                 if [[ $core_analyzers_count > 0 && $run_core == 'true' ]]; then
@@ -1714,8 +1804,8 @@ geo_analyze() {
                         core_analyzers_result=$(green PASS)
                     fi
                 fi
-                
-                if [[ $test_analyzers_count > 0  && $run_test == 'true' ]]; then
+
+                if [[ $test_analyzers_count > 0 && $run_test == 'true' ]]; then
                     echo
                     status_bi "Running the following $test_analyzers_count analyzer(s) against MyGeotab.Core.Tests:"
                     print_analyzers "$test_analyzers"
@@ -1734,8 +1824,8 @@ geo_analyze() {
                 echo
                 info -b 'Results'
                 data_header 'Project                     Status'
-                       data "MyGeotab.Core               $core_analyzers_result"
-                       data "MyGeotab.Core.Tests         $test_analyzers_result"
+                data "MyGeotab.Core               $core_analyzers_result"
+                data "MyGeotab.Core.Tests         $test_analyzers_result"
                 echo
                 info_b 'The total time was:'
                 return
@@ -1755,9 +1845,9 @@ geo_analyze() {
                 echo
                 status_bi "Running ($((run_count++)) of $id_count): $analyzer_name"
                 echo
-                
+
                 dotnet build -p:DebugAnalyzers=${analyzer_name} -p:TreatWarningsAsErrors=false -p:RunAnalyzersDuringBuild=true ${analyzer_proj}
-                
+
                 # Check the return code to see if there were any errors.
                 if [[ $? != 0 ]]; then
                     echo
@@ -1781,10 +1871,9 @@ geo_analyze() {
             echo
             info_b 'The total time was:'
         }
-        
+
         time run_analyzers
 
-        
         echo
     )
 }
@@ -1911,7 +2000,6 @@ geo_check_for_updates() {
         geo_set REMOTE_VERSION "$v_remote"
     fi
     # popd
-
 
     # The sed cmds filter out any colour codes that might be in the text
     local v_current=$(geo_get VERSION) #  | sed -r "s/[[:cntrl:]]\[[0-9]{1,3}m//g"`

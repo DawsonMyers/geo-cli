@@ -18,6 +18,7 @@ A tool that makes MyGeotab development easier. Specifically, this tool aims to s
     - [Querying the Database](#querying-the-database)
     - [Running Analyzers](#running-analyzers)
     - [Options](#options)
+    - [Connecting to Servers Using IAP Tunnels](#connecting-to-servers-using-iap-tunnels)
   - [Help](#help)
 - [Troubleshooting](#troubleshooting)
   - [Update issues](#update-issues)
@@ -157,6 +158,25 @@ The following options can be used with `geo analyze`:
 - **\-a** This option will run all tests
 - **\-b** Run analyzers in batches (reduces runtime, but is only supported in 2104+)
 
+### Connecting to Servers Using IAP Tunnels
+`geo-cli` can be used to simplify connecting to servers over IAP tunnels. First, make an access request for a server using MyAdmin. Then copy *gcloud compute start-iap-tunnel* command by pressing the copy button:
+
+
+![mya access request](res/geo-ar-myadmin.png)
+
+After that, paste the gcloud command in a terminal as an argument to `geo ar tunnel` as shown below:
+
+![geo ar tunnel](res/geo-ar-tunnel.png)
+
+> `geo-cli` will remember the gcloud command so that you can re-open the tunnel by running just `geo ar tunnel` without the gcloud command. It also remembers the port that the tunnel is running on so that you don't have to include it when running `geo ar ssh`
+
+Now you can open another terminal and run the `geo ar ssh` command to ssh into the server:
+![geo ar ssh](res/geo-ar-ssh.png)
+
+> By default, the username stored in th $USER environment variable is used when connecting to the server with `geo ar ssh`. You can set the default username by supplying it with the `-u <username>` option. You can also use a different port using the `-p <port>` option.
+
+
+
 ## Help
 Get help for a specific command by entering `geo [command] help`.
 
@@ -174,7 +194,7 @@ Gives you the following:
                   Options:
                     -y
                       Accept all prompts.
-                    -e
+                    
                       Create blank Postgres 12 container.
             start [option] [name]
                 Starts (creating if necessary) a versioned db container and volume. If no name is provided, the most recent db container name is started.
@@ -201,8 +221,8 @@ Gives you the following:
                     -y
                       Accept all prompts.
             psql [options]
-                Open an interactive psql session to geotabdemo (or a different db, if a db name was provided with the -d option) in the running geo-cli db container. You can also use the -q option to execute a query on the database instead of starting an
-                interactive session. The default username and password used to connect is geotabuser and vircom43, respectively.
+                Open an interactive psql session to geotabdemo (or a different db, if a db name was provided with the -d option) in the running geo-cli db container. You can also use the -q option to execute a query on the database instead of starting an interactive session. The default
+                username and password used to connect is geotabuser and vircom43, respectively.
                   Options:
                     -d
                       The name of the postgres database you want to connect to. The default value used is "geotabdemo"
@@ -224,6 +244,7 @@ Gives you the following:
             geo db psql
             geo db psql -u mySqlUser -p mySqlPassword -d dbName
             geo db psql -q "SELECT * FROM deviceshare LIMIT 10"
+
 ```
 
 While running the following results in all help being printed:
@@ -251,7 +272,7 @@ Available commands:
                   Options:
                     -y
                       Accept all prompts.
-                    -e
+                    
                       Create blank Postgres 12 container.
             start [option] [name]
                 Starts (creating if necessary) a versioned db container and volume. If no name is provided, the most recent db container name is started.
@@ -278,8 +299,8 @@ Available commands:
                     -y
                       Accept all prompts.
             psql [options]
-                Open an interactive psql session to geotabdemo (or a different db, if a db name was provided with the -d option) in the running geo-cli db container. You can also use the -q option to execute a query on the database instead of starting an
-                interactive session. The default username and password used to connect is geotabuser and vircom43, respectively.
+                Open an interactive psql session to geotabdemo (or a different db, if a db name was provided with the -d option) in the running geo-cli db container. You can also use the -q option to execute a query on the database instead of starting an interactive session. The default
+                username and password used to connect is geotabuser and vircom43, respectively.
                   Options:
                     -d
                       The name of the postgres database you want to connect to. The default value used is "geotabdemo"
@@ -299,8 +320,27 @@ Available commands:
             geo db rm --all
             geo db ls
             geo db psql
-            geo db psql -u mySqlUser -p mySqlPassword dbName
+            geo db psql -u mySqlUser -p mySqlPassword -d dbName
             geo db psql -q "SELECT * FROM deviceshare LIMIT 10"
+    ar
+      Helpers for working with access requests.
+        Options:
+            tunnel [gcloud start-iap-tunnel cmd]
+                Starts the IAP tunnel using the gcloud start-iap-tunnel command copied from MyAdmin after opening an access request. The port is saved and used when you ssh to the server using geo ar ssh. This command will be saved and re-used next time you call the command
+                without any arguments (i.e. geo ar tunnel)
+            ssh
+                SSH into a server through the IAP tunnel started with geo ar ssh.
+                  Options:
+                    -p <port>
+                      The port to use when connecting to the server. This value is option since the port that the IAP tunnel was opened on using geo ar ssh is used as the default value
+                    -u <user>
+                      The user to use when connecting to the server. This value is option since the username stored in $USER is used as the default value. The value supplied here will be stored and reused next time you call the command
+        Example:
+            geo ar tunnel gcloud compute start-iap-tunnel gceseropst4-20220109062647 22 --project=geotab-serverops --zone=projects/709472407379/zones/northamerica-northeast1-b
+            geo ar ssh
+            geo ar ssh -p 12345
+            geo ar ssh -u dawsonmyers
+            geo ar ssh -u dawsonmyers -p 12345
     stop
       Stops all geo-cli containers.
         Example:
@@ -319,6 +359,8 @@ Available commands:
                 Gets the value for the env var.
             set <env_var> <value>
                 Sets the value for the env var.
+    rm <env_var>
+      Remove geo environment variable.
             ls
                 Lists all env vars.
         Example:
@@ -327,12 +369,16 @@ Available commands:
             geo env ls
     set <env_var> <value>
       Set geo environment variable.
+        Options:
+            s
+                Shows the old and new value of the environment variable.
         Example:
             geo set DEV_REPO_DIR /home/username/repos/Development
-    get <env_var>
-      Get geo environment variable.
+    rm <env_var>
+      Remove geo environment variable.
         Example:
-            geo get DEV_REPO_DIR
+            geo rm DEV_REPO_DIR
+geo_rm_doc: command not found
     update
       Update geo to latest version.
         Options:
