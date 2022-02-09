@@ -1164,17 +1164,21 @@ geo_ar_doc() {
     doc_cmd_options_title
     doc_cmd_option 'tunnel [gcloud start-iap-tunnel cmd]'
     doc_cmd_option_desc "Starts the IAP tunnel using the gcloud start-iap-tunnel command copied from MyAdmin after opening 
-                        an access request. The port is saved and used when you ssh to the server using $(green 'geo ar ssh'). This command will be saved and re-used next time you call the command without any arguments (i.e. $(green geo ar tunnel))"
+                        an access request. The port is saved and used when you ssh to the server using $(green 'geo ar ssh'). 
+                        This command will be saved and re-used next time you call the command without any arguments (i.e. $(green geo ar tunnel))"
+        doc_cmd_sub_options_title
+        doc_cmd_sub_option '-s'
+        doc_cmd_sub_option_desc "Starts an SSH session to the server immediately after opening up the IAP tunnel."
     doc_cmd_option 'ssh'
     doc_cmd_option_desc "SSH into a server through the IAP tunnel started with $(green 'geo ar ssh')."
-    doc_cmd_sub_options_title
-    doc_cmd_sub_option '-p <port>'
-    doc_cmd_sub_option_desc "The port to use when connecting to the server. This value is option since the port that the IAP tunnel was opened on using $(green 'geo ar ssh') is used as the default value"
-    doc_cmd_sub_option '-u <user>'
-    doc_cmd_sub_option_desc "The user to use when connecting to the server. This value is option since the username stored in \$USER is used as the default value. The value supplied here will be stored and reused next time you call the command"
+        doc_cmd_sub_options_title
+        doc_cmd_sub_option '-p <port>'
+        doc_cmd_sub_option_desc "The port to use when connecting to the server. This value is option since the port that the IAP tunnel was opened on using $(green 'geo ar ssh') is used as the default value"
+        doc_cmd_sub_option '-u <user>'
+        doc_cmd_sub_option_desc "The user to use when connecting to the server. This value is option since the username stored in \$USER is used as the default value. The value supplied here will be stored and reused next time you call the command"
 
     doc_cmd_examples_title
-    doc_cmd_example 'geo ar tunnel gcloud compute start-iap-tunnel gceseropst4-20220109062647 22 --project=geotab-serverops --zone=projects/709472407379/zones/northamerica-northeast1-b'
+    doc_cmd_example 'geo ar tunnel -s gcloud compute start-iap-tunnel gceseropst4-20220109062647 22 --project=geotab-serverops --zone=projects/709472407379/zones/northamerica-northeast1-b'
     doc_cmd_example 'geo ar ssh'
     doc_cmd_example 'geo ar ssh -p 12345'
     doc_cmd_example 'geo ar ssh -u dawsonmyers'
@@ -1183,20 +1187,57 @@ geo_ar_doc() {
 geo_ar() {
     case "$1" in
         tunnel)
-            shift
-            local gcloud_cmd="$*"
-            [[ -z $gcloud_cmd ]] && gcloud_cmd="$(geo_get AR_IAP_CMD)"
-            [[ -z $gcloud_cmd ]] && Error 'The gcloud compute start-iap-tunnel command (copied from MyAdmin for you access request) is required.' && return 1
-            geo_set AR_IAP_CMD "$gcloud_cmd"
+            # Catch EXIT so that it doesn't close the terminal (since geo runs as a function, not in it's own subshell)
+            trap '' EXIT
+            ( # Run in subshell to catch EXIT signals
+                shift
+                local start_ssh=
+                # Option for starting ssh after starting tunnel
+                [[ $1 == -s ]] && start_ssh='true' && shift
+                local gcloud_cmd="$*"
+                # debug $gcloud_cmd
+                [[ -z $gcloud_cmd ]] && gcloud_cmd="$(geo_get AR_IAP_CMD)"
+                [[ -z $gcloud_cmd ]] && Error 'The gcloud compute start-iap-tunnel command (copied from MyAdmin for you access request) is required.' && return 1
+                geo_set AR_IAP_CMD "$gcloud_cmd"
 
-            local open_port=$(python -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')
-            [ -z $open_port ] && Error 'Open port could not be found' && return 12
-            status "Using port: '$open_port'"
-            local port_arg='--local-host-port=localhost:'$open_port
-            geo_set AR_PORT "$open_port"
-            status 'Opening tunnel'
-            info "Note: the port is saved and will be used when you call '$(txt_italic geo ar ssh)'"
-            $gcloud_cmd $port_arg
+                local open_port=$(python -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')
+                [ -z $open_port ] && Error 'Open port could not be found' && return 1
+                status "Using port: '$open_port'"
+                local port_arg='--local-host-port=localhost:'$open_port
+                # [[ $start_ssh ]] &&  port_arg+=' &'
+                geo_set AR_PORT "$open_port"
+                status 'Opening tunnel'
+                info "Note: the port is saved and will be used when you call '$(txt_italic geo ar ssh)'"
+                # debug $gcloud_cmd $port_arg
+                if [[ $start_ssh ]]; then
+                    cleanup() {
+                        # debug 'cleaning up'
+                        kill %1
+                        exit
+                    }
+                    # Catch signals and run cleanup function to make sure the IAP tunnel is closed.
+                    trap cleanup INT TERM QUIT EXIT
+                    $gcloud_cmd $port_arg &
+                    sleep 4
+                    geo_ar ssh -n -p $open_port
+                    # Continuously ask the user to re-open the ssh session (until ctrl + C is pressed, killing the tunnel).
+                    # This allows users to easily re-connect to the server after the session times out.
+                    while true; do
+                        echo
+                        status -b 'SSH closed'
+                        status 'Options:'
+                        status '    - Press ENTER to SSH back into the server'
+                        status '    - Press CTRL + C to close this tunnel'
+                        status '    - Open a new terminal and run '$(txt_italic geo ar ssh)' to reconnect to this tunnel'
+                        # status 'SSH closed. Listening to IAP tunnel again. Open a new terminal and run "geo ar ssh" to reconnect to this tunnel.'
+                        read response
+                        geo_ar ssh -n -p $open_port
+                    done
+                    fg
+                else
+                    $gcloud_cmd $port_arg
+                fi
+            )
             ;;
         ssh)
             shift
@@ -1204,15 +1245,22 @@ geo_ar() {
             [[ -z $user ]] && user="$USER"
             local port=$(geo_get AR_PORT)
             local option_count=0
+            local save='true'
+            # Don't save port/user if -n (no save) option supplied. This option is used in geo ar tunnel so that re-opening
+            # an SSH session (when the -s option is supplied) doesn't overwrite the most recent port (from the newest IAP tunnel, which may be different from this one).
+            [[ $1 == '-n' ]] && save= && shift
             [[ $1 == '-p' ]] && port=$2 && shift 2 && ((option_count++))
             [[ $1 == '-u' ]] && user=$2 && shift 2 && ((option_count++))
             [[ -z port ]] && Error "No port found. Add a port with the -p <port> option." && return 1
             status_bi "Using user '$user' and port '$port'."
             [[ $option_count == 0 ]] && info "Note: The -u <user> or the -p <port> options can be used to supply different values."
-            geo_set AR_USER "$user"
-            geo_set AR_PORT "$port"
+            if [[ $save ]]; then
+                geo_set AR_USER "$user"
+                geo_set AR_PORT "$port"
+            fi
             local cmd="ssh $user@localhost -p $port"
             status "$cmd"
+            echo
             $cmd
             ;;
     esac
