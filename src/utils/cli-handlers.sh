@@ -21,6 +21,10 @@ export OLD_GEO_DB_PREFIX=geo_cli_db_postgres11
 # A list of all of the top-level geo commands.
 # This is used in geo-cli.sh to confirm that the first param passed to geo (i.e. in 'geo db ls', db is the top-level command) is a valid command.
 export COMMANDS=()
+declare -A SUBCOMMANDS
+export CURRENT_COMMAND=''
+export CURRENT_SUBCOMMAND=''
+export CURRENT_SUBCOMMANDS=()
 
 # First argument commands
 ###############################################################################
@@ -59,14 +63,14 @@ COMMANDS+=('image')
 geo_image_doc() {
     doc_cmd 'image'
     doc_cmd_desc 'Commands for working with db images.'
-    doc_cmd_options_title
-    doc_cmd_option 'create'
-    doc_cmd_option_desc 'Creates the base Postgres image configured to be used with geotabdemo.'
-    doc_cmd_option 'remove'
-    doc_cmd_option_desc 'Removes the base Postgres image.'
-    doc_cmd_option 'ls'
-    doc_cmd_option_desc 'List existing geo-cli Postgres images.'
-    doc_cmd_examples_title
+    doc_cmd_sub_cmds_title
+        doc_cmd_sub_cmd 'create'
+            doc_cmd_sub_cmd_desc 'Creates the base Postgres image configured to be used with geotabdemo.'
+        doc_cmd_sub_cmd 'remove'
+            doc_cmd_sub_cmd_desc 'Removes the base Postgres image.'
+        doc_cmd_sub_cmd 'ls'
+            doc_cmd_sub_cmd_desc 'List existing geo-cli Postgres images.'
+        doc_cmd_examples_title
     doc_cmd_example 'geo image create'
 }
 geo_image() {
@@ -104,77 +108,77 @@ geo_db_doc() {
     doc_cmd 'db'
     doc_cmd_desc 'Database commands.'
 
-    doc_cmd_options_title
+    doc_cmd_sub_cmds_title
 
-    doc_cmd_option 'create [option] <name>'
-    doc_cmd_option_desc 'Creates a versioned db container and volume.'
-    doc_cmd_sub_options_title
-    doc_cmd_sub_option '-y'
-    doc_cmd_sub_option_desc 'Accept all prompts.'
-    doc_cmd_sub_option '-e'
-    doc_cmd_sub_option_desc 'Create blank Postgres 12 container.'
+    doc_cmd_sub_cmd 'create [option] <name>'
+        doc_cmd_sub_cmd_desc 'Creates a versioned db container and volume.'
+        doc_cmd_sub_options_title
+            doc_cmd_sub_option '-y'
+                doc_cmd_sub_option_desc 'Accept all prompts.'
+            doc_cmd_sub_option '-e'
+                doc_cmd_sub_option_desc 'Create blank Postgres 12 container.'
 
-    doc_cmd_option 'start [option] [name]'
-    doc_cmd_option_desc 'Starts (creating if necessary) a versioned db container and volume. If no name is provided,
+    doc_cmd_sub_cmd 'start [option] [name]'
+        doc_cmd_sub_cmd_desc 'Starts (creating if necessary) a versioned db container and volume. If no name is provided,
                             the most recent db container name is started.'
     doc_cmd_sub_options_title
-    doc_cmd_sub_option '-y'
-    doc_cmd_sub_option_desc 'Accept all prompts.'
+        doc_cmd_sub_option '-y'
+            doc_cmd_sub_option_desc 'Accept all prompts.'
 
-    doc_cmd_option 'rm, remove <version>'
-    doc_cmd_option_desc 'Removes the container and volume associated with the provided version (e.g. 2004).'
-    doc_cmd_sub_options_title
-    doc_cmd_sub_option '-a, --all'
-    doc_cmd_sub_option_desc 'Remove all db containers and volumes.'
+    doc_cmd_sub_cmd 'rm, remove <version>'
+        doc_cmd_sub_cmd_desc 'Removes the container and volume associated with the provided version (e.g. 2004).'
+        doc_cmd_sub_options_title
+            doc_cmd_sub_option '-a, --all'
+            doc_cmd_sub_option_desc 'Remove all db containers and volumes.'
 
-    doc_cmd_option 'stop [version]'
-    doc_cmd_option_desc 'Stop geo-cli db container.'
+    doc_cmd_sub_cmd 'stop [version]'
+        doc_cmd_sub_cmd_desc 'Stop geo-cli db container.'
 
-    doc_cmd_option 'ls [option]'
-    doc_cmd_option_desc 'List geo-cli db containers.'
-    doc_cmd_sub_options_title
-    doc_cmd_sub_option '-a, --all'
-    doc_cmd_sub_option_desc 'Display all geo images, containers, and volumes.'
+    doc_cmd_sub_cmd 'ls [option]'
+        doc_cmd_sub_cmd_desc 'List geo-cli db containers.'
+        doc_cmd_sub_options_title
+            doc_cmd_sub_option '-a, --all'
+            doc_cmd_sub_option_desc 'Display all geo images, containers, and volumes.'
 
-    doc_cmd_option 'ps'
-    doc_cmd_option_desc 'List running geo-cli db containers.'
+    doc_cmd_sub_cmd 'ps'
+        doc_cmd_sub_cmd_desc 'List running geo-cli db containers.'
 
-    doc_cmd_option 'init'
-    doc_cmd_option_desc 'Initialize a running db container with geotabdemo or an empty db with a custom name.'
-    doc_cmd_sub_options_title
-    doc_cmd_sub_option '-y'
-    doc_cmd_sub_option_desc 'Accept all prompts.'
+    doc_cmd_sub_cmd 'init'
+        doc_cmd_sub_cmd_desc 'Initialize a running db container with geotabdemo or an empty db with a custom name.'
+        doc_cmd_sub_options_title
+            doc_cmd_sub_option '-y'
+            doc_cmd_sub_option_desc 'Accept all prompts.'
 
-    doc_cmd_option 'psql [options]'
-    doc_cmd_option_desc 'Open an interactive psql session to geotabdemo (or a different db, if a db name was provided with the -d option) in 
+    doc_cmd_sub_cmd 'psql [options]'
+        doc_cmd_sub_cmd_desc 'Open an interactive psql session to geotabdemo (or a different db, if a db name was provided with the -d option) in 
                             the running geo-cli db container. You can also use the -q option to execute a query on the 
                             database instead of starting an interactive session. The default username and password used to
                             connect is geotabuser and vircom43, respectively.'
-    doc_cmd_sub_options_title
-    doc_cmd_sub_option '-d'
-    doc_cmd_sub_option_desc 'The name of the postgres database you want to connect to. The default value used is "geotabdemo"'
-    doc_cmd_sub_option '-p'
-    doc_cmd_sub_option_desc 'The admin sql password. The default value used is "vircom43"'
-    doc_cmd_sub_option '-q'
-    doc_cmd_sub_option_desc 'A query to run with psql in the running container. This option will cause the result of the query to be returned 
-                                        instead of starting an interactive psql terminal.'
-    doc_cmd_sub_option '-u'
-    doc_cmd_sub_option_desc 'The admin sql user. The default value used is "geotabuser"'
+        doc_cmd_sub_options_title
+            doc_cmd_sub_option '-d'
+                doc_cmd_sub_option_desc 'The name of the postgres database you want to connect to. The default value used is "geotabdemo"'
+            doc_cmd_sub_option '-p'
+                doc_cmd_sub_option_desc 'The admin sql password. The default value used is "vircom43"'
+            doc_cmd_sub_option '-q'
+                doc_cmd_sub_option_desc 'A query to run with psql in the running container. This option will cause the result of the query to be returned 
+                                                instead of starting an interactive psql terminal.'
+            doc_cmd_sub_option '-u'
+                doc_cmd_sub_option_desc 'The admin sql user. The default value used is "geotabuser"'
 
-    doc_cmd_option 'bash'
-    doc_cmd_option_desc 'Open a bash session with the running geo-cli db container.'
+    doc_cmd_sub_cmd 'bash'
+        doc_cmd_sub_cmd_desc 'Open a bash session with the running geo-cli db container.'
 
-    doc_cmd_option 'script <add|edit|ls|rm> <script_name>'
-    doc_cmd_option_desc "Add, edit, list, or remove scripts that can be run with $(txt_italic geo db psql -q script_name)."
-    doc_cmd_sub_options_title
-    doc_cmd_sub_option 'add'
-    doc_cmd_sub_option_desc 'Adds a new script and opens it in a text editor.'
-    doc_cmd_sub_option 'edit'
-    doc_cmd_sub_option_desc 'Opens an existing script in a text editor.'
-    doc_cmd_sub_option 'ls'
-    doc_cmd_sub_option_desc 'Lists existing scripts.'
-    doc_cmd_sub_option 'rm'
-    doc_cmd_sub_option_desc 'Removes a script.'
+    doc_cmd_sub_cmd 'script <add|edit|ls|rm> <script_name>'
+        doc_cmd_sub_cmd_desc "Add, edit, list, or remove scripts that can be run with $(txt_italic geo db psql -q script_name)."
+        doc_cmd_sub_options_title
+            doc_cmd_sub_sub_cmd 'add'
+                doc_cmd_sub_sub_cmd_desc 'Adds a new script and opens it in a text editor.'
+            doc_cmd_sub_sub_cmd 'edit'
+                doc_cmd_sub_sub_cmd_desc 'Opens an existing script in a text editor.'
+            doc_cmd_sub_sub_cmd 'ls'
+                doc_cmd_sub_option_desc 'Lists existing scripts.'
+            doc_cmd_sub_sub_cmd 'rm'
+                doc_cmd_sub_sub_cmd_desc 'Removes a script.'
 
     doc_cmd_examples_title
     doc_cmd_example 'geo db start 2004'
@@ -1161,28 +1165,28 @@ COMMANDS+=('ar')
 geo_ar_doc() {
     doc_cmd 'ar'
     doc_cmd_desc 'Helpers for working with access requests.'
-    doc_cmd_options_title
-    doc_cmd_option 'tunnel [gcloud start-iap-tunnel cmd]'
-    doc_cmd_option_desc "Starts the IAP tunnel using the gcloud start-iap-tunnel command copied from MyAdmin after opening 
-                        an access request. The port is saved and used when you ssh to the server using $(green 'geo ar ssh'). 
-                        This command will be saved and re-used next time you call the command without any arguments (i.e. $(green geo ar tunnel))"
-        doc_cmd_sub_options_title
-        doc_cmd_sub_option '-s'
-        doc_cmd_sub_option_desc "Starts an SSH session to the server immediately after opening up the IAP tunnel."
-    doc_cmd_option 'ssh'
-    doc_cmd_option_desc "SSH into a server through the IAP tunnel started with $(green 'geo ar ssh')."
-        doc_cmd_sub_options_title
-        doc_cmd_sub_option '-p <port>'
-        doc_cmd_sub_option_desc "The port to use when connecting to the server. This value is option since the port that the IAP tunnel was opened on using $(green 'geo ar ssh') is used as the default value"
-        doc_cmd_sub_option '-u <user>'
-        doc_cmd_sub_option_desc "The user to use when connecting to the server. This value is option since the username stored in \$USER is used as the default value. The value supplied here will be stored and reused next time you call the command"
-
+    doc_cmd_sub_cmds_title
+        doc_cmd_sub_cmd 'tunnel [gcloud start-iap-tunnel cmd]'
+            doc_cmd_sub_cmd_desc "Starts the IAP tunnel using the gcloud start-iap-tunnel command copied from MyAdmin after opening 
+                            an access request. The port is saved and used when you ssh to the server using $(green 'geo ar ssh'). 
+                            This command will be saved and re-used next time you call the command without any arguments (i.e. $(green geo ar tunnel))"
+            doc_cmd_sub_options_title
+            doc_cmd_sub_option '-s'
+            doc_cmd_sub_option_desc "Only start the IAP tunnel without SSHing into it."
+            # doc_cmd_sub_option_desc "Starts an SSH session to the server immediately after opening up the IAP tunnel."
+        doc_cmd_sub_cmd 'ssh'
+            doc_cmd_sub_cmd_desc "SSH into a server through the IAP tunnel started with $(green 'geo ar ssh')."
+            doc_cmd_sub_options_title
+            doc_cmd_sub_option '-p <port>'
+            doc_cmd_sub_option_desc "The port to use when connecting to the server. This value is option since the port that the IAP tunnel was opened on using $(green 'geo ar ssh') is used as the default value"
+            doc_cmd_sub_option '-u <user>'
+            doc_cmd_sub_option_desc "The user to use when connecting to the server. This value is option since the username stored in \$USER is used as the default value. The value supplied here will be stored and reused next time you call the command"
     doc_cmd_examples_title
-    doc_cmd_example 'geo ar tunnel -s gcloud compute start-iap-tunnel gceseropst4-20220109062647 22 --project=geotab-serverops --zone=projects/709472407379/zones/northamerica-northeast1-b'
-    doc_cmd_example 'geo ar ssh'
-    doc_cmd_example 'geo ar ssh -p 12345'
-    doc_cmd_example 'geo ar ssh -u dawsonmyers'
-    doc_cmd_example 'geo ar ssh -u dawsonmyers -p 12345'
+        doc_cmd_example 'geo ar tunnel -s gcloud compute start-iap-tunnel gceseropst4-20220109062647 22 --project=geotab-serverops --zone=projects/709472407379/zones/northamerica-northeast1-b'
+        doc_cmd_example 'geo ar ssh'
+        doc_cmd_example 'geo ar ssh -p 12345'
+        doc_cmd_example 'geo ar ssh -u dawsonmyers'
+        doc_cmd_example 'geo ar ssh -u dawsonmyers -p 12345'
 }
 geo_ar() {
     case "$1" in
@@ -1191,9 +1195,10 @@ geo_ar() {
             trap '' EXIT
             ( # Run in subshell to catch EXIT signals
                 shift
-                local start_ssh=
+                local start_ssh='true'
                 # Option for starting ssh after starting tunnel
-                [[ $1 == -s ]] && start_ssh='true' && shift
+                [[ $1 == -s ]] && start_ssh= && shift
+
                 local gcloud_cmd="$*"
                 # debug $gcloud_cmd
                 [[ -z $gcloud_cmd ]] && gcloud_cmd="$(geo_get AR_IAP_CMD)"
@@ -1318,9 +1323,9 @@ geo_init_doc() {
     doc_cmd 'init'
     doc_cmd_desc 'Initialize repo directory.'
 
-    doc_cmd_options_title
-    doc_cmd_option 'repo'
-    doc_cmd_option_desc 'Init Development repo directory using the current directory.'
+    doc_cmd_sub_cmds_title
+    doc_cmd_sub_cmd 'repo'
+    doc_cmd_sub_cmd_desc 'Init Development repo directory using the current directory.'
 
     doc_cmd_examples_title
     doc_cmd_example 'geo init repo'
@@ -1435,19 +1440,19 @@ COMMANDS+=('env')
 geo_env_doc() {
     doc_cmd 'env <cmd> [arg1] [arg2]'
     doc_cmd_desc 'Get, set, or list geo environment variable.'
-    doc_cmd_options_title
+    
+    doc_cmd_sub_cmds_title
+        doc_cmd_sub_cmd 'get <env_var>'
+            doc_cmd_sub_cmd_desc 'Gets the value for the env var.'
 
-    doc_cmd_option 'get <env_var>'
-    doc_cmd_option_desc 'Gets the value for the env var.'
+        doc_cmd_sub_cmd 'set <env_var> <value>'
+            doc_cmd_sub_cmd_desc 'Sets the value for the env var.'
 
-    doc_cmd_option 'set <env_var> <value>'
-    doc_cmd_option_desc 'Sets the value for the env var.'
+        doc_cmd_sub_cmd 'rm <env_var>'
+            doc_cmd_sub_cmd_desc 'Remove geo environment variable.'
 
-    doc_cmd 'rm <env_var>'
-    doc_cmd_desc 'Remove geo environment variable.'
-
-    doc_cmd_option 'ls'
-    doc_cmd_option_desc 'Lists all env vars.'
+        doc_cmd_sub_cmd 'ls'
+            doc_cmd_sub_cmd_desc 'Lists all env vars.'
 
     doc_cmd_examples_title
     doc_cmd_example 'geo env get DEV_REPO_DIR'
@@ -1553,7 +1558,7 @@ geo_haskey() {
 
 ###########################################################
 COMMANDS+=('rm')
-geo_get_doc() {
+geo_rm_doc() {
     doc_cmd 'rm <env_var>'
     doc_cmd_desc 'Remove geo environment variable.'
 
@@ -1578,13 +1583,13 @@ geo_haskey() {
 COMMANDS+=('update')
 geo_update_doc() {
     doc_cmd 'update'
-    doc_cmd_desc 'Update geo to latest version.'
+        doc_cmd_desc 'Update geo to latest version.'
     doc_cmd_options_title
-    doc_cmd_option '-f, --force'
-    doc_cmd_sub_option_desc 'Force update, even if already at latest version.'
+        doc_cmd_option '-f, --force'
+            doc_cmd_sub_option_desc 'Force update, even if already at latest version.'
     doc_cmd_examples_title
-    doc_cmd_example 'geo update'
-    doc_cmd_example 'geo update --force'
+        doc_cmd_example 'geo update'
+        doc_cmd_example 'geo update --force'
 }
 geo_update() {
     # Don't install if already at latest version unless the force flag is present (-f or --force)
@@ -1613,11 +1618,11 @@ geo_update() {
 COMMANDS+=('uninstall')
 geo_uninstall_doc() {
     doc_cmd 'uninstall'
-    doc_cmd_desc "Remove geo-cli installation. This prevents geo-cli from being loaded into new bash terminals, but does
-        not remove the geo-cli repo directory. Navigate to the geo-cli repo directory and run 'bash install.sh' to reinstall."
+        doc_cmd_desc "Remove geo-cli installation. This prevents geo-cli from being loaded into new bash terminals, but does
+            not remove the geo-cli repo directory. Navigate to the geo-cli repo directory and run 'bash install.sh' to reinstall."
 
     doc_cmd_examples_title
-    doc_cmd_example 'geo uninstall'
+        doc_cmd_example 'geo uninstall'
 }
 geo_uninstall() {
 
@@ -1644,19 +1649,19 @@ geo_analyze_doc() {
     doc_cmd_desc 'Allows you to select and run various pre-build analyzers. You can optionaly include the list of analyzers if already known.'
 
     doc_cmd_options_title
-    doc_cmd_option -a
-    doc_cmd_option_desc 'Run all analyzers'
-    doc_cmd_option -
-    doc_cmd_option_desc 'Run previous analyzers'
-    doc_cmd_option -b
-    doc_cmd_option_desc 'Run analyzers in batches (reduces runtime, but is only supported in 2104+)'
+        doc_cmd_option -a
+            doc_cmd_option_desc 'Run all analyzers'
+        doc_cmd_option -
+            doc_cmd_option_desc 'Run previous analyzers'
+        doc_cmd_option -b
+            doc_cmd_option_desc 'Run analyzers in batches (reduces runtime, but is only supported in 2104+)'
     # doc_cmd_option -i
     # doc_cmd_option_desc 'Run analyzers individually (building each time)'
 
     doc_cmd_examples_title
-    doc_cmd_example 'geo analyze'
-    doc_cmd_example 'geo analyze -a'
-    doc_cmd_example 'geo analyze 0 3 6'
+        doc_cmd_example 'geo analyze'
+        doc_cmd_example 'geo analyze -a'
+        doc_cmd_example 'geo analyze 0 3 6'
 }
 geo_analyze() {
     MYG_CORE_PROJ='Checkmate/MyGeotab.Core.csproj'
@@ -1944,13 +1949,13 @@ COMMANDS+=('cd')
 geo_cd_doc() {
     doc_cmd 'cd <dir>'
     doc_cmd_desc 'Change to directory'
-    doc_cmd_options_title
+    doc_cmd_sub_cmds_title
 
-    doc_cmd_option 'dev, myg'
-    doc_cmd_option_desc 'Change to the Development repo directory.'
+    doc_cmd_sub_cmd 'dev, myg'
+    doc_cmd_sub_cmd_desc 'Change to the Development repo directory.'
 
-    doc_cmd_option 'geo, cli'
-    doc_cmd_option_desc 'Change to the geo-cli install directory.'
+    doc_cmd_sub_cmd 'geo, cli'
+    doc_cmd_sub_cmd_desc 'Change to the geo-cli install directory.'
 
     doc_cmd_examples_title
     doc_cmd_example 'geo cd dev'
@@ -2375,6 +2380,7 @@ prompt_n() {
 
 # The name of a command
 doc_cmd() {
+    doc_handle_command "${1/[, <]*/}"
     local indent=4
     local txt=$(fmt_text "$@" $indent)
     # detail_u "$txt"
@@ -2400,20 +2406,56 @@ doc_cmd_example() {
     local txt=$(fmt_text "$@" $indent)
     data "$txt"
 }
+
 doc_cmd_options_title() {
     local indent=8
     local txt=$(fmt_text "Options:" $indent)
     info_i "$txt"
     # data_bi "$txt"
 }
-
 doc_cmd_option() {
+    # doc_handle_subcommand "$1"
     local indent=12
     local txt=$(fmt_text "$@" $indent)
     verbose_bi "$txt"
 }
 doc_cmd_option_desc() {
     local indent=16
+    local txt=$(fmt_text "$@" $indent)
+    data "$txt"
+}
+
+doc_cmd_sub_cmds_title() {
+    local indent=8
+    local txt=$(fmt_text "Commands:" $indent)
+    info_i "$txt"
+    # data_bi "$txt"
+}
+doc_cmd_sub_cmd() {
+    doc_handle_subcommand "$1"
+    local indent=12
+    local txt=$(fmt_text "$@" $indent)
+    verbose_bi "$txt"
+}
+doc_cmd_sub_cmd_desc() {
+    local indent=16
+    local txt=$(fmt_text "$@" $indent)
+    data "$txt"
+}
+
+doc_cmd_sub_sub_cmds_title() {
+    local indent=18
+    local txt=$(fmt_text "Commands:" $indent)
+    info "$txt"
+    # data_bi "$txt"
+}
+doc_cmd_sub_sub_cmd() {
+    local indent=20
+    local txt=$(fmt_text "$@" $indent)
+    verbose "$txt"
+}
+doc_cmd_sub_sub_cmd_desc() {
+    local indent=22
     local txt=$(fmt_text "$@" $indent)
     data "$txt"
 }
@@ -2488,6 +2530,45 @@ geotab_logo() {
 #     # detail ''
 # }
 
+doc_handle_command() {
+    local cur="${1/[, <]*/}"
+    # debug "cur cmd = $cur"
+    [[ -z $CURRENT_COMMAND ]] && CURRENT_COMMAND="$cur" && return
+    if [[ $cur != $CURRENT_COMMAND ]]; then
+        # CURRENT_COMMAND="${CURRENT_COMMAND/[, <]*/}"
+        # debug "CURRENT_COMMAND = $CURRENT_COMMAND"
+        # debug "SUBCOMMANDS[$CURRENT_COMMAND]='${CURRENT_SUBCOMMANDS[@]}'"
+        SUBCOMMANDS[$CURRENT_COMMAND]="${CURRENT_SUBCOMMANDS[@]}"
+        # debug "CURRENT_SUBCOMMANDS = ${CURRENT_SUBCOMMANDS[@]}"
+        CURRENT_SUBCOMMANDS=()
+    fi
+    CURRENT_COMMAND="$cur"
+}
+
+doc_handle_subcommand() {
+    local cur="${1/[, <]*/}"
+    [[ -z $cur ]] && return
+    # debug "cur: $cur"
+    # CURRENT_SUBCOMMAND="$cur"
+    CURRENT_SUBCOMMANDS+=("$cur")
+    # [[ -z $CURRENT_SUBCOMMAND ]] && CURRENT_SUBCOMMAND=$cur && return
+    # if [[ $cur != $CURRENT_SUBCOMMAND ]]; then
+    #     SUBCOMMANDS[$CURRENT_SUBCOMMAND]=("${CURRENT_SUBCOMMANDS[@]}")
+    #     CURRENT_SUBCOMMANDS=()
+    # fi
+}
+# populate the command info by running all of geo's help commands
+init_completions() {
+    geo_help > /dev/null
+    doc_handle_command 'DONE'
+    # debug "${!SUBCOMMANDS[@]}"
+    # for x in "${!SUBCOMMANDS[@]}"; do printf "[%s]=%s\n" "$x" "${SUBCOMMANDS[$x]}" ; done
+    # for x in "${!SUBCOMMANDS[@]}"; do printf "[%s]\n" "$x" ; done
+}
+
+init_completions &
+init_completions &
+
 # Auto-complete for commands
 completions=(
     "${COMMANDS[@]}"
@@ -2498,4 +2579,51 @@ completions=(
 
 # Get list of completions separated by spaces (required as imput to complete command)
 comp_string=$(echo "${completions[@]}")
-complete -W "$comp_string" geo
+# complete -W "$comp_string" geo
+
+# echo "" > bcompletions.txt
+_geo_complete()
+{
+    local cur prev
+    # echo "COMP_WORDS: ${COMP_WORDS[@]}" >> bcompletions.txt
+    # echo "COMP_CWORD: $COMP_CWORD" >> bcompletions.txt
+    cur=${COMP_WORDS[COMP_CWORD]} 
+    # echo "cur: ${COMP_WORDS[COMP_CWORD]}"  >> bcompletions.txt
+    # debug "$cur"
+    prev=${COMP_WORDS[$COMP_CWORD-1]}
+    # echo "prev: $prev"  >> bcompletions.txt
+    # echo cur $cur
+    # echo prev $prev
+    # echo COMP_CWORD $COMP_CWORD
+    case ${COMP_CWORD} in
+        1)
+            local words="${COMMANDS[@]}"
+            
+            COMPREPLY=($(compgen -W "$words" -- ${cur}))
+            ;;
+        2)
+            # echo "$cur"
+            local subcommand_completions
+            # echo "$words" >> bcompletions.txt
+            if [[ -v SUBCOMMANDS[$prev] ]]; then
+                # echo "SUBCOMMANDS[$cur]: ${SUBCOMMANDS[$prev]}" >> bcompletions.txt
+                COMPREPLY=($(compgen -W "${SUBCOMMANDS[$prev]}" -- ${cur}))
+            else
+                COMPREPLY=(ss aa)
+            fi
+            # case ${prev} in
+            #     configure)
+            #         COMPREPLY=($(compgen -W "CM DSP NPU" -- ${cur}))
+            #         ;;
+            #     show)
+            #         COMPREPLY=($(compgen -W "some other args" -- ${cur}))
+            #         ;;
+            # esac
+            ;;
+        *)
+            COMPREPLY=()
+            ;;
+    esac
+}
+
+complete -F _geo_complete geo
