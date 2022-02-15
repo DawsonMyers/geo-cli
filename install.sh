@@ -50,6 +50,9 @@ fi
 
 echo
 
+# Generate geo autocompletions.
+geo_generate_autocompletions
+
 geo_check_for_dev_repo_dir
 
 if [[ $previously_installed_version ]]; then

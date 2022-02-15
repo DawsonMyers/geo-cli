@@ -11,6 +11,7 @@ export GEO_CLI_SRC_DIR="${GEO_CLI_DIR}/src"
 # Set up config paths (used to store config info about geo-cli)
 export GEO_CLI_CONFIG_DIR="$HOME/.geo-cli"
 export GEO_CLI_CONF_FILE="$GEO_CLI_CONFIG_DIR/.geo.conf"
+export GEO_CLI_AUTOCOMPLETE_FILE="$GEO_CLI_CONFIG_DIR/geo-cli-autocompletions.txt"
 export GEO_CLI_SCRIPT_DIR="${GEO_CLI_CONFIG_DIR}/scripts"
 
 # The name of the base postgres image that will be used for creating all geo db containers.
@@ -22,6 +23,7 @@ export OLD_GEO_DB_PREFIX=geo_cli_db_postgres11
 # This is used in geo-cli.sh to confirm that the first param passed to geo (i.e. in 'geo db ls', db is the top-level command) is a valid command.
 export COMMANDS=()
 declare -A SUBCOMMANDS
+declare -A SUBCOMMAND_COMPLETIONS
 export CURRENT_COMMAND=''
 export CURRENT_SUBCOMMAND=''
 export CURRENT_SUBCOMMANDS=()
@@ -2532,14 +2534,9 @@ geotab_logo() {
 
 doc_handle_command() {
     local cur="${1/[, <]*/}"
-    # debug "cur cmd = $cur"
     [[ -z $CURRENT_COMMAND ]] && CURRENT_COMMAND="$cur" && return
     if [[ $cur != $CURRENT_COMMAND ]]; then
-        # CURRENT_COMMAND="${CURRENT_COMMAND/[, <]*/}"
-        # debug "CURRENT_COMMAND = $CURRENT_COMMAND"
-        # debug "SUBCOMMANDS[$CURRENT_COMMAND]='${CURRENT_SUBCOMMANDS[@]}'"
         SUBCOMMANDS[$CURRENT_COMMAND]="${CURRENT_SUBCOMMANDS[@]}"
-        # debug "CURRENT_SUBCOMMANDS = ${CURRENT_SUBCOMMANDS[@]}"
         CURRENT_SUBCOMMANDS=()
     fi
     CURRENT_COMMAND="$cur"
@@ -2548,37 +2545,47 @@ doc_handle_command() {
 doc_handle_subcommand() {
     local cur="${1/[, <]*/}"
     [[ -z $cur ]] && return
-    # debug "cur: $cur"
-    # CURRENT_SUBCOMMAND="$cur"
     CURRENT_SUBCOMMANDS+=("$cur")
-    # [[ -z $CURRENT_SUBCOMMAND ]] && CURRENT_SUBCOMMAND=$cur && return
-    # if [[ $cur != $CURRENT_SUBCOMMAND ]]; then
-    #     SUBCOMMANDS[$CURRENT_SUBCOMMAND]=("${CURRENT_SUBCOMMANDS[@]}")
-    #     CURRENT_SUBCOMMANDS=()
-    # fi
 }
-# populate the command info by running all of geo's help commands
+
 init_completions() {
+    local cmd=
+    local completions=
+    while read line; do
+        (( ${#line} == 0 )) && continue
+        # debug $line
+        cmd=${line%=*}
+        completions=${line#*=}
+        SUBCOMMAND_COMPLETIONS[$cmd]="$completions"
+    done <"$GEO_CLI_AUTOCOMPLETE_FILE"
+
+    # for x in "${!SUBCOMMAND_COMPLETIONS[@]}"; do echo "[$x] = '${SUBCOMMAND_COMPLETIONS[$x]}'"; done
+}
+
+geo_generate_autocompletions() {
+    # populate the command info by running all of geo's help commands
     geo_help > /dev/null
     doc_handle_command 'DONE'
-    # debug "${!SUBCOMMANDS[@]}"
-    # for x in "${!SUBCOMMANDS[@]}"; do printf "[%s]=%s\n" "$x" "${SUBCOMMANDS[$x]}" ; done
-    # for x in "${!SUBCOMMANDS[@]}"; do printf "[%s]\n" "$x" ; done
+    echo -n '' > "$GEO_CLI_AUTOCOMPLETE_FILE"
+
+    for cmd in "${!SUBCOMMANDS[@]}"; do
+        echo "$cmd=${SUBCOMMANDS[$cmd]}" >> "$GEO_CLI_AUTOCOMPLETE_FILE"
+    done
 }
 
-init_completions &
-init_completions &
+init_completions
+
 
 # Auto-complete for commands
-completions=(
-    "${COMMANDS[@]}"
-)
+# completions=(
+#     "${COMMANDS[@]}"
+# )
 
 # Doesn't work for some reason
 # complete -W "${completions[@]}" geo
 
 # Get list of completions separated by spaces (required as imput to complete command)
-comp_string=$(echo "${completions[@]}")
+# comp_string=$(echo "${completions[@]}")
 # complete -W "$comp_string" geo
 
 # echo "" > bcompletions.txt
@@ -2589,25 +2596,19 @@ _geo_complete()
     # echo "COMP_CWORD: $COMP_CWORD" >> bcompletions.txt
     cur=${COMP_WORDS[COMP_CWORD]} 
     # echo "cur: ${COMP_WORDS[COMP_CWORD]}"  >> bcompletions.txt
-    # debug "$cur"
     prev=${COMP_WORDS[$COMP_CWORD-1]}
     # echo "prev: $prev"  >> bcompletions.txt
-    # echo cur $cur
-    # echo prev $prev
-    # echo COMP_CWORD $COMP_CWORD
     case ${COMP_CWORD} in
         1)
-            local words="${COMMANDS[@]}"
+            local cmds="${COMMANDS[@]}"
             
-            COMPREPLY=($(compgen -W "$words" -- ${cur}))
+            COMPREPLY=($(compgen -W "$cmds" -- ${cur}))
             ;;
         2)
-            # echo "$cur"
-            local subcommand_completions
             # echo "$words" >> bcompletions.txt
-            if [[ -v SUBCOMMANDS[$prev] ]]; then
+            if [[ -v SUBCOMMAND_COMPLETIONS[$prev] ]]; then
                 # echo "SUBCOMMANDS[$cur]: ${SUBCOMMANDS[$prev]}" >> bcompletions.txt
-                COMPREPLY=($(compgen -W "${SUBCOMMANDS[$prev]}" -- ${cur}))
+                COMPREPLY=($(compgen -W "${SUBCOMMAND_COMPLETIONS[$prev]}" -- ${cur}))
             else
                 COMPREPLY=(ss aa)
             fi
