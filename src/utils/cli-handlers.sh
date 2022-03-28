@@ -1169,8 +1169,8 @@ geo_ar_doc() {
     doc_cmd_desc 'Helpers for working with access requests.'
     doc_cmd_sub_cmds_title
         doc_cmd_sub_cmd 'tunnel [gcloud start-iap-tunnel cmd]'
-            doc_cmd_sub_cmd_desc "Starts the IAP tunnel using the gcloud start-iap-tunnel command copied from MyAdmin after opening 
-                            an access request. The port is saved and used when you ssh to the server using $(green 'geo ar ssh'). 
+            doc_cmd_sub_cmd_desc "Starts the IAP tunnel (using the gcloud start-iap-tunnel command copied from MyAdmin after opening 
+                            an access request) and then connects to the server over SSH. The port is saved and used when you SSH to the server using $(green 'geo ar ssh'). 
                             This command will be saved and re-used next time you call the command without any arguments (i.e. $(green geo ar tunnel))"
             doc_cmd_sub_options_title
             doc_cmd_sub_option '-s'
@@ -1180,9 +1180,9 @@ geo_ar_doc() {
             doc_cmd_sub_cmd_desc "SSH into a server through the IAP tunnel started with $(green 'geo ar ssh')."
             doc_cmd_sub_options_title
             doc_cmd_sub_option '-p <port>'
-            doc_cmd_sub_option_desc "The port to use when connecting to the server. This value is option since the port that the IAP tunnel was opened on using $(green 'geo ar ssh') is used as the default value"
+            doc_cmd_sub_option_desc "The port to use when connecting to the server. This value is optional since the port that the IAP tunnel was opened on using $(green 'geo ar ssh') is used as the default value"
             doc_cmd_sub_option '-u <user>'
-            doc_cmd_sub_option_desc "The user to use when connecting to the server. This value is option since the username stored in \$USER is used as the default value. The value supplied here will be stored and reused next time you call the command"
+            doc_cmd_sub_option_desc "The user to use when connecting to the server. This value is optional since the username stored in \$USER is used as the default value. The value supplied here will be stored and reused next time you call the command"
     doc_cmd_examples_title
         doc_cmd_example 'geo ar tunnel -s gcloud compute start-iap-tunnel gceseropst4-20220109062647 22 --project=geotab-serverops --zone=projects/709472407379/zones/northamerica-northeast1-b'
         doc_cmd_example 'geo ar ssh'
@@ -1939,7 +1939,7 @@ geo_analyze() {
 COMMANDS+=('id')
 geo_id_doc() {
     doc_cmd 'id'
-        doc_cmd_desc "Both encodes and decodes long and Guid ids to simplify working with the MyGeotab API. The result is copied to your clipboard. Guid encoded ids must be prefixed with 'a' and long encoded ids must be prefixed with 'b'"
+        doc_cmd_desc "Both encodes and decodes long and guid ids to simplify working with the MyGeotab API. The result is copied to your clipboard. Guid encoded ids must be prefixed with 'a' and long encoded ids must be prefixed with 'b'"
 
     doc_cmd_examples_title
         doc_cmd_example 'geo id 1234 => b4d2'

@@ -19,6 +19,8 @@ A tool that makes MyGeotab development easier. Specifically, this tool aims to s
     - [Running Analyzers](#running-analyzers)
     - [Options](#options)
     - [Connecting to Servers Using IAP Tunnels](#connecting-to-servers-using-iap-tunnels)
+    - [Encode/Decode MyGeotab Long and Guid Ids](#encodedecode-mygeotab-long-and-guid-ids)
+      - [Examples](#examples)
   - [Help](#help)
 - [Troubleshooting](#troubleshooting)
   - [Update issues](#update-issues)
@@ -175,6 +177,42 @@ Now you can open another terminal and run the `geo ar ssh` command to ssh into t
 
 > By default, the username stored in th $USER environment variable is used when connecting to the server with `geo ar ssh`. You can set the default username by supplying it with the `-u <username>` option. You can also use a different port using the `-p <port>` option.
 
+### Encode/Decode MyGeotab Long and Guid Ids
+Use the `geo id <id>` command to both encode and decode long and guid ids to simplify working with the MyGeotab api. The result is copied to your clipboard (if you have xclip installed). Guid encoded ids must be prefixed with 'a' and long encoded ids must be prefixed with 'b'"
+
+#### Examples
+
+Long Encode
+```
+geo id 1234
+Encoded long id: 
+b4d2
+copied to clipboard
+```
+
+Long Decode
+```
+geo id b4d2
+Decoded long id: 
+1234
+copied to clipboard
+```
+
+Guid Encode
+```
+geo id 00e74ee1-97e7-4f28-9f5e-2ad222451f6d
+Encoded guid id: 
+aAOdO4ZfnTyifXirSIkUfbQ
+copied to clipboard
+```
+
+Guid Decode
+```
+geo id aAOdO4ZfnTyifXirSIkUfbQ
+Decoded guid id: 
+00e74ee1-97e7-4f28-9f5e-2ad222451f6d
+copied to clipboard
+```
 
 
 ## Help
@@ -404,6 +442,14 @@ geo_rm_doc: command not found
             geo analyze
             geo analyze -a
             geo analyze 0 3 6
+    id
+      Both encodes and decodes long and guid ids to simplify working with the MyGeotab API. The result is copied to your clipboard. Guid
+      encoded ids must be prefixed with 'a' and long encoded ids must be prefixed with 'b'
+        Example:
+            geo id 1234 => b4d2
+            geo id b4d2 => 1234
+            geo id 00e74ee1-97e7-4f28-9f5e-2ad222451f6d => aAOdO4ZfnTyifXirSIkUfbQ
+            geo id aAOdO4ZfnTyifXirSIkUfbQ => 00e74ee1-97e7-4f28-9f5e-2ad222451f6d
     version, -v, --version
       Gets geo-cli version.
         Example:
