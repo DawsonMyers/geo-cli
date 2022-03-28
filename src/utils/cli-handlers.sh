@@ -1951,33 +1951,46 @@ geo_id() {
     local arg="$1"
     local first_char=${arg:0:1}
     local id=
+    # The regex for identifing guids.
     local guid_re='^[[:alnum:]]+-[[:alnum:]]+-[[:alnum:]]+-[[:alnum:]]+-[[:alnum:]]+$'
     local msg=
     number_re='^[0-9]+$'
-    if [[ $first_char == b ]]; then
-        id=${arg:1}
-        id=$(printf '%d' 0x$id)
-        msg='Decoded long id'
-    elif [[ $arg =~ $number_re ]]; then
-        id=b$(printf '%x' $arg)
-        msg='Encoded long id'
+    
+    # Guid endcode
+    if [[ $arg =~ $guid_re ]]; then
+        id=$arg
+        # Remove all occurrences of '-'
+        id=${id//-/}
+        id=$(echo $id | xxd -r -p | base64)
+        # Remove trailing'=='
+        id=${id:0:-2}
+        # Replace '+' with '-'
+        id=${id//+/-}
+        # Replace '/' with '_'
+        id=${id//\//_}
+        id='a'$id
+        msg='Encoded guid id'
+    # Guid decode
     elif [[ $first_char =~ a ]]; then
         id=${arg:1}
+        # Add trailing'=='
         id+="=="
+        # Replace '-' with '+'
         id=${id//-/+}
+        # Replace '_' with '/'
         id=${id//_/\/}
         id=$(echo $id | base64 -d | xxd -p)
         id=${id:0:8}-${id:8:4}-${id:12:4}-${id:16:4}-${id:20}
         msg='Decoded guid id'
-    elif [[ $arg =~ $guid_re ]]; then
-        id=$arg
-        id=${id//-/}
-        id=$(echo $id | xxd -r -p | base64)
-        id=${id:0:-2}
-        id=${id//+/-}
-        id=${id//\//_}
-        id='a'$id
-        msg='Encoded guid id'
+    # Long encode
+    elif [[ $arg =~ $number_re ]]; then
+        id=b$(printf '%x' $arg)
+        msg='Encoded long id'
+    # Long decode
+    elif [[ $first_char == b ]]; then
+        id=${arg:1}
+        id=$(printf '%d' 0x$id)
+        msg='Decoded long id'
     else
         Error "Invalid input format."
         warn "Guid encoded ids must be prefixed with 'a' and long encoded ids must be prefixed with 'b'."
