@@ -173,6 +173,7 @@ After that, paste the gcloud command in a terminal as an argument to `geo ar tun
 > `geo-cli` will remember the gcloud command so that you can re-open the tunnel by running just `geo ar tunnel` without the gcloud command. It also remembers the port that the tunnel is running on so that you don't have to include it when running `geo ar ssh`
 
 Now you can open another terminal and run the `geo ar ssh` command to ssh into the server:
+
 ![geo ar ssh](res/geo-ar-ssh.png)
 
 > By default, the username stored in th $USER environment variable is used when connecting to the server with `geo ar ssh`. You can set the default username by supplying it with the `-u <username>` option. You can also use a different port using the `-p <port>` option.
