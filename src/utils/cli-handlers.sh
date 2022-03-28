@@ -1224,7 +1224,9 @@ geo_ar() {
                     }
                     # Catch signals and run cleanup function to make sure the IAP tunnel is closed.
                     trap cleanup INT TERM QUIT EXIT
+                    # Start up IAP tunnel in the background.
                     $gcloud_cmd $port_arg &
+                    # Wait for the tunnel to start.
                     sleep 4
                     geo_ar ssh -n -p $open_port
                     # Continuously ask the user to re-open the ssh session (until ctrl + C is pressed, killing the tunnel).
@@ -1234,7 +1236,7 @@ geo_ar() {
                         status -b 'SSH closed'
                         status 'Options:'
                         status '    - Press ENTER to SSH back into the server'
-                        status '    - Press CTRL + C to close this tunnel'
+                        status '    - Press CTRL + C to close this tunnel (running on port: '$open_port
                         status '    - Open a new terminal and run '$(txt_italic geo ar ssh)' to reconnect to this tunnel'
                         # status 'SSH closed. Listening to IAP tunnel again. Open a new terminal and run "geo ar ssh" to reconnect to this tunnel.'
                         read response
@@ -1934,6 +1936,66 @@ geo_analyze() {
 }
 
 ###########################################################
+COMMANDS+=('id')
+geo_id_doc() {
+    doc_cmd 'id'
+        doc_cmd_desc "Both encodes and decodes long and Guid ids to simplify working with the MyGeotab API. The result is copied to your clipboard. Guid encoded ids must be prefixed with 'a' and long encoded ids must be prefixed with 'b'"
+
+    doc_cmd_examples_title
+        doc_cmd_example 'geo id 1234 => b4d2'
+        doc_cmd_example 'geo id b4d2 => 1234'
+        doc_cmd_example 'geo id 00e74ee1-97e7-4f28-9f5e-2ad222451f6d => aAOdO4ZfnTyifXirSIkUfbQ'
+        doc_cmd_example 'geo id aAOdO4ZfnTyifXirSIkUfbQ => 00e74ee1-97e7-4f28-9f5e-2ad222451f6d'
+}
+geo_id() {
+    local arg="$1"
+    local first_char=${arg:0:1}
+    local id=
+    local guid_re='^[[:alnum:]]+-[[:alnum:]]+-[[:alnum:]]+-[[:alnum:]]+-[[:alnum:]]+$'
+    local msg=
+    number_re='^[0-9]+$'
+    if [[ $first_char == b ]]; then
+        id=${arg:1}
+        id=$(printf '%d' 0x$id)
+        msg='Decoded long id'
+    elif [[ $arg =~ $number_re ]]; then
+        id=b$(printf '%x' $arg)
+        msg='Encoded long id'
+    elif [[ $first_char =~ a ]]; then
+        id=${arg:1}
+        id+="=="
+        id=${id//-/+}
+        id=${id//_/\/}
+        id=$(echo $id | base64 -d | xxd -p)
+        id=${id:0:8}-${id:8:4}-${id:12:4}-${id:16:4}-${id:20}
+        msg='Decoded guid id'
+    elif [[ $arg =~ $guid_re ]]; then
+        id=$arg
+        id=${id//-/}
+        id=$(echo $id | xxd -r -p | base64)
+        id=${id:0:-2}
+        id=${id//+/-}
+        id=${id//\//_}
+        id='a'$id
+        msg='Encoded guid id'
+    else
+        Error "Invalid input format."
+        warn "Guid encoded ids must be prefixed with 'a' and long encoded ids must be prefixed with 'b'."
+        warn "Use 'geo id help' for usage info."
+        return 1
+    fi
+
+    status "$msg: "
+    status -b $id
+    if ! type xclip > /dev/null; then
+        warn 'Install xclip (sudo apt-get instal xclip) in order to have the id copied to your clipboard.'
+        return
+    fi
+    echo -n $id | xclip -selection c
+    info "copied to clipboard"
+}
+
+###########################################################
 COMMANDS+=('version')
 geo_version_doc() {
     doc_cmd 'version, -v, --version'
@@ -2261,7 +2323,7 @@ make_logger_function() {
                     msg=\$(txt_invert \$msg)
                     ;;&
                 # Prompt (doesn't add a new line after printing)
-                *p* )
+                *p* | *n* )
                     opts+=n
                     ;;&
             esac
@@ -2382,7 +2444,7 @@ prompt_n() {
 
 # The name of a command
 doc_cmd() {
-    doc_handle_command "${1/[, <]*/}"
+    doc_handle_command "$1"
     local indent=4
     local txt=$(fmt_text "$@" $indent)
     # detail_u "$txt"
@@ -2552,10 +2614,15 @@ init_completions() {
     local cmd=
     local completions=
     while read line; do
+        # Skip empty lines.
         (( ${#line} == 0 )) && continue
         # debug $line
+        # This is an example of a line: 'db=create start rm stop ls ps init psql bash script'
+        # Get the name of the command by removing everything after and including '='.
         cmd=${line%=*}
+        # Get the name of the command completions by removing everything before and including '='.
         completions=${line#*=}
+        # Store the completions for the command in the SUBCOMMAND_COMPLETIONS dictionary.
         SUBCOMMAND_COMPLETIONS[$cmd]="$completions"
     done <"$GEO_CLI_AUTOCOMPLETE_FILE"
 
