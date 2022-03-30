@@ -1209,16 +1209,22 @@ geo_ar() {
 
                 local open_port=$(python -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')
                 [ -z $open_port ] && Error 'Open port could not be found' && return 1
-                status "Using port: '$open_port'"
+
                 local port_arg='--local-host-port=localhost:'$open_port
-                # [[ $start_ssh ]] &&  port_arg+=' &'
+                
                 geo_set AR_PORT "$open_port"
-                status 'Opening tunnel'
+                status -bu 'Opening IAP tunnel'
+                info "Using port: '$open_port' to open IAP tunnel"
                 info "Note: the port is saved and will be used when you call '$(txt_italic geo ar ssh)'"
-                # debug $gcloud_cmd $port_arg
+                echo
+                debug $gcloud_cmd $port_arg
+                sleep 1
+                echo
+
                 if [[ $start_ssh ]]; then
                     cleanup() {
-                        # debug 'cleaning up'
+                        echo
+                        # status 'Closing IAP tunnel'
                         kill %1
                         exit
                     }
@@ -1227,21 +1233,14 @@ geo_ar() {
                     # Start up IAP tunnel in the background.
                     $gcloud_cmd $port_arg &
                     # Wait for the tunnel to start.
+                    status 'Waiting for tunnel to open before stating SSH session...'
+                    echo
                     sleep 4
-                    geo_ar ssh -n -p $open_port
                     # Continuously ask the user to re-open the ssh session (until ctrl + C is pressed, killing the tunnel).
                     # This allows users to easily re-connect to the server after the session times out.
-                    while true; do
-                        echo
-                        status -b 'SSH closed'
-                        status 'Options:'
-                        status '    - Press ENTER to SSH back into the server'
-                        status '    - Press CTRL + C to close this tunnel (running on port: '$open_port
-                        status '    - Open a new terminal and run '$(txt_italic geo ar ssh)' to reconnect to this tunnel'
-                        # status 'SSH closed. Listening to IAP tunnel again. Open a new terminal and run "geo ar ssh" to reconnect to this tunnel.'
-                        read response
-                        geo_ar ssh -n -p $open_port
-                    done
+                    # The -n option tells geo ar ssh not to store the port; the -p option specifies the ssh port.
+                    geo_ar ssh -n -p $open_port
+                    
                     fg
                 else
                     $gcloud_cmd $port_arg
@@ -1255,22 +1254,64 @@ geo_ar() {
             local port=$(geo_get AR_PORT)
             local option_count=0
             local save='true'
-            # Don't save port/user if -n (no save) option supplied. This option is used in geo ar tunnel so that re-opening
-            # an SSH session (when the -s option is supplied) doesn't overwrite the most recent port (from the newest IAP tunnel, which may be different from this one).
-            [[ $1 == '-n' ]] && save= && shift
-            [[ $1 == '-p' ]] && port=$2 && shift 2 && ((option_count++))
-            [[ $1 == '-u' ]] && user=$2 && shift 2 && ((option_count++))
+            local loop=true
+
+            while [[ ${1:0:1} == - ]]; do
+                debug "option $1"
+                # Don't save port/user if -n (no save) option supplied. This option is used in geo ar tunnel so that re-opening
+                # an SSH session doesn't overwrite the most recent port (from the newest IAP tunnel, which may be different from this one).
+                [[ $1 == '-n' ]] && save= && shift
+                # The -r option will cause the ssh tunnel to run ('r' for run) once and then return without looping. 
+                [[ $1 == '-r' ]] && loop=false && shift
+                [[ $1 == '-p' ]] && port=$2 && shift 2 && ((option_count++))
+                [[ $1 == '-u' ]] && user=$2 && shift 2 && ((option_count++))
+            done
+
             [[ -z port ]] && Error "No port found. Add a port with the -p <port> option." && return 1
-            status_bi "Using user '$user' and port '$port'."
+            
+            echo
+            status -bu 'Opening SSH session'
+            info "Using user '$user' and port '$port' to open SSH session."
+
             [[ $option_count == 0 ]] && info "Note: The -u <user> or the -p <port> options can be used to supply different values."
-            if [[ $save ]]; then
+            echo
+
+            if [[ $save == true ]]; then
                 geo_set AR_USER "$user"
                 geo_set AR_PORT "$port"
             fi
+
             local cmd="ssh $user@localhost -p $port"
-            status "$cmd"
-            echo
-            $cmd
+            
+            # Run the ssh command once and then return if loop was disabled (with the -r option)
+            if [[ $loop == false ]]; then
+                debug "$cmd"
+                echo
+                $cmd
+                return
+            fi
+            
+            # Continuously ask the user to re-open the ssh session (until ctrl + C is pressed, killing the tunnel).
+            # This allows users to easily re-connect to the server after the session times out.
+            while true; do
+                debug "$cmd"
+                echo
+                sleep 1
+                # Run ssh command.
+                $cmd
+                echo
+                sleep 1
+                status -bu 'SSH closed'
+                info 'Options:'
+                info '    - Press ENTER to SSH back into the server'
+                info '    - Press CTRL + C to close this tunnel (running on port: '$open_port
+                info '    - Open a new terminal and run '$(txt_italic geo ar ssh)' to reconnect to this tunnel'
+                # status 'SSH closed. Listening to IAP tunnel again. Open a new terminal and run "geo ar ssh" to reconnect to this tunnel.'
+                read response
+                status -bu 'Reopening SSH session'
+                echo
+                sleep 1
+            done
             ;;
     esac
 }
