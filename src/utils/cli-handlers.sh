@@ -258,6 +258,9 @@ geo_db() {
 
         docker exec -it $running_container_id /bin/bash
         ;;
+    *)
+        Error "Unknown subcommand '$1'"
+        ;;
     esac
 }
 
@@ -745,7 +748,10 @@ geo_db_script() {
             ;;
         rm )
             rm $GEO_CLI_SCRIPT_DIR/$2
-        ;;
+            ;;
+        *)
+            Error "Unknown subcommand '$command'"
+            ;;
     esac
 }
 
@@ -1313,6 +1319,9 @@ geo_ar() {
                 sleep 1
             done
             ;;
+        *)
+            Error "Unknown subcommand '$1'"
+            ;;
     esac
 }
 
@@ -1535,6 +1544,9 @@ geo_env() {
         info_bi "$header"
         data "$env_vars"
         ;;
+    *)
+        Error "Unknown subcommand '$1'"
+        ;;
     esac
 }
 
@@ -1649,7 +1661,6 @@ geo_update() {
         cd $geo_cli_dir
         if ! git pull >/dev/null; then
             Error 'Unable to pull changes from remote'
-            popd
             return 1
         fi
     )
@@ -2081,22 +2092,25 @@ geo_cd_doc() {
 }
 geo_cd() {
     case "$1" in
-    dev | myg)
-        local path=$(geo_get DEV_REPO_DIR)
-        if [[ -z $path ]]; then
-            Error "Development repo not set."
-            return 1
-        fi
-        cd "$path"
-        ;;
-    geo | cli)
-        local path=$(geo_get DIR)
-        if [[ -z $path ]]; then
-            Error "geo-cli directory not set."
-            return 1
-        fi
-        cd "$path"
-        ;;
+        dev | myg)
+            local path=$(geo_get DEV_REPO_DIR)
+            if [[ -z $path ]]; then
+                Error "Development repo not set."
+                return 1
+            fi
+            cd "$path"
+            ;;
+        geo | cli)
+            local path=$(geo_get DIR)
+            if [[ -z $path ]]; then
+                Error "geo-cli directory not set."
+                return 1
+            fi
+            cd "$path"
+            ;;
+        *)
+            Error "Unknown subcommand '$1'"
+            ;;
     esac
 }
 
@@ -2137,6 +2151,50 @@ cmd_exists() {
     cmd=$(echo "${COMMANDS[@]}" | tr ' ' '\n' | grep -E "$(echo ^$1$)")
     echo $cmd
     [[ -n $cmd ]]
+}
+
+# Install Docker and Docker Compose if needed.
+check_docker_installation() {
+    if ! type docker > /dev/null; then
+        warn 'Docker is not installed'
+        info_b -p 'Install Docker and Docker Compose? (Y|n): '
+        read answer
+        if [[ ! $answer =~ [n|N] ]]; then
+            info 'Installing Docker and Docker Compose'
+            # sudo apt-get remove docker docker-engine docker.io
+            sudo apt update
+            sudo apt upgrade
+            sudo apt-get install \
+                apt-transport-https \
+                ca-certificates \
+                curl \
+                software-properties-common
+            sudo apt-get install -y build-essential make gcc g++ python
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+            
+            # Remove old version of docker-compose
+            [ -f /usr/local/bin/docker-compose ] && sudo rm /usr/local/bin/docker-compose
+            # Get the latest docker-compose version
+            COMPOSE_VERSION=`git ls-remote https://github.com/docker/compose | grep refs/tags | grep -oE "[0-9]+\.[0-9][0-9]+\.[0-9]+$" | sort --version-sort | tail -n 1`
+            sudo curl -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION:-1.28.6}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+            
+            sudo apt-key fingerprint 0EBFCD88
+            sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+
+            sudo apt-get update
+            sudo apt-get install -y docker-ce
+
+            # Add user to the docker group to allow docker to be run without sudo.
+            sudo usermod -aG docker $USER
+            sudo usermod -a -G docker $USER
+
+            sudo chmod +x /usr/local/bin/docker-compose
+            docker-compose --version
+
+            warn 'You must completely log out of your account and log back in again to begin using docker.'
+            success 'OK'
+        fi
+    fi
 }
 
 # Docker Compose using the geo config file

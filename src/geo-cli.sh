@@ -43,7 +43,7 @@ function geo()
     ( geo_check_for_updates >& /dev/null & )
 
     # Check if the MyGeotab base repo dir has been set.
-    if ! geo_haskey DEV_REPO_DIR && [ "$1 $2" != "init repo" ]; then
+    if ! geo_haskey DEV_REPO_DIR && [[ "$1 $2" != "init repo" ]]; then
         warn 'MyGeotab repo directory not set.'
         detail 'Fix: Navigate to MyGeotab base repo (Development) directory, then run "geo init repo".'
     fi
@@ -57,7 +57,7 @@ function geo()
 
     # Save the first argument in cmd var, then shift all other args.
     # So the 2nd arg becomes the 1st, 3rd becomes the 2nd, and so on.
-    cmd="$1"
+    local cmd="$1"
     shift
 
     # Display help for all commands and quit if it was requested.
@@ -85,17 +85,20 @@ function geo()
         geo_show_msg_if_outdated
         return
     fi
+
+    # This can happen after force updating because we re-source .bashrc after updating. Just ignore it.
+    [[ $cmd == -f ]] && return
         
     # Quit if the command isn't valid
     if [ -z `cmd_exists $cmd` ]; then
-
-        [ ${#cmd} -gt 0 ] && echo && verbose_bi 'Unknown command'
+        [[ ${#cmd} == 0 ]] && echo && warn "geo was run without any command"
+        [ ${#cmd} -gt 0 ] && echo && warn "Unknown command: '$cmd'"
         
         # geotab_logo
         # geo_logo
 
-        verbose ''
-        verbose 'For help, run the following'
+        echo
+        verbose 'For help, run the following:'
         detail '    geo --help'
         verbose 'or'
         detail '    geo -h'
@@ -111,9 +114,9 @@ function geo()
     #  geo up --help
     #  geo up help
     # if [[ $1 =~ ^-h$ ]] || [[ $1 =~ ^--help$ ]]; then
-    if [[ $1 =~ ^-*h(elp)? ]]; then
+    if [[ $cmd =~ ^-*h(elp)? ]]; then
         "geo_${cmd}_doc"
-        echo ''
+        echo
         geo_show_msg_if_outdated
         # exit
         return
