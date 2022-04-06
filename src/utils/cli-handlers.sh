@@ -2041,7 +2041,9 @@ geo_id() {
         msg='Decoded guid id'
     # Long encode
     elif [[ $arg =~ $number_re ]]; then
-        id=b$(printf '%x' $arg)
+        id=$(printf '%x' $arg)
+        # To upper case
+        id=b${id^^}
         msg='Encoded long id'
     # Long decode
     elif [[ $first_char == b ]]; then
