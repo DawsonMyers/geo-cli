@@ -2033,6 +2033,8 @@ geo_id() {
         id=${id//_/\/}
         id=$(echo $id | base64 -d | xxd -p)
         id=${id:0:8}-${id:8:4}-${id:12:4}-${id:16:4}-${id:20}
+        # To upper case
+        id=${id^^}
         msg='Decoded guid id'
     # Long encode
     elif [[ $arg =~ $number_re ]]; then
