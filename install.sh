@@ -50,20 +50,36 @@ fi
 
 echo
 
+# Display commit messages between the old version and the new version (if any).
+# prev_commit=daf4b4adeaff0223b590d978d3fc41a5e2324332
+# cur_commit=901e0c31528e27b21216826b7cb338a39bec6185
+prev_commit=$1
+cur_commit=$2
+if [[ -n $prev_commit && -n $cur_commit ]]; then
+    _geo_print_messages_between_commits_after_update $prev_commit $cur_commit
+    echo
+fi
+
 # Generate geo autocompletions.
 geo_generate_autocompletions
 
 geo_check_for_dev_repo_dir
 
+installed_msg=''
 if [[ $previously_installed_version ]]; then
     . ~/.bashrc
-    success "The new version of geo-cli is now available in this terminal, as well as all new ones."
+    installed_msg="The new version of geo-cli is now available in this terminal, as well as all new ones."
 else
-    success "Open a new terminal or source .bashrc by running '. ~/.bashrc' in this one to start using geo-cli."
+    installed_msg="Open a new terminal or source .bashrc by running '. ~/.bashrc' in this one to start using geo-cli."
 fi
+success "$(fmt_text_and_indent_after_first_line "$installed_msg" 0 4)"
 echo
 
 info_bi "Next step: create a database container and start geotabdemo"
-info "1. Build MyGeotab.Core in your IDE (required when creating new dbs)"
-info "2. Run `txt_underline 'geo db start <name>'`, where 'name' is any alphanumeric name you want to give this db version (it could be related to the MyGeotab release, e.g., '2004')."
-info "3. Start MyGeotab.Core in your IDE"
+step1="1. Build MyGeotab.Core in your IDE (required when creating new dbs)"
+step2="2. Run `txt_underline 'geo db start <name>'`, where 'name' is any alphanumeric name you want to give this db version (it could be related to the MyGeotab release, e.g., '2004')."
+step3="3. Start MyGeotab.Core in your IDE"
+info "$(fmt_text_and_indent_after_first_line "$step1" 3 2)"
+info "$(fmt_text_and_indent_after_first_line "$step2" 3 2)"
+info "$(fmt_text_and_indent_after_first_line "$step3" 3 2)"
+echo

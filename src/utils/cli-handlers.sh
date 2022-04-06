@@ -1163,7 +1163,7 @@ geo_check_for_dev_repo_dir() {
         get_dev_repo_dir
     done
 
-    success "Checkmate directory found"
+    success " Checkmate directory found"
 
     geo_set DEV_REPO_DIR "$dev_repo"
 }
@@ -1655,17 +1655,20 @@ geo_update() {
         return 1
     fi
 
-    geo_cli_dir="$(geo_get GEO_CLI_DIR)"
-
+    local geo_cli_dir="$(geo_get GEO_CLI_DIR)"
+    local prev_commit=
+    local new_commit=
     (
         cd $geo_cli_dir
+        prev_commit=$(git rev-parse HEAD)
         if ! git pull >/dev/null; then
             Error 'Unable to pull changes from remote'
             return 1
         fi
+        new_commit=$(git rev-parse HEAD)
     )
-
-    bash $geo_cli_dir/install.sh
+    debug "$prev_commit $new_commit"
+    bash $geo_cli_dir/install.sh $prev_commit $new_commit
     # Re-source .bashrc to reload geo in this terminal
     . ~/.bashrc
 }
@@ -2199,6 +2202,32 @@ check_docker_installation() {
     fi
 }
 
+_geo_print_messages_between_commits_after_update() {
+    [[ -z $1 || -z $2 ]] && return
+    local prev_commit=$1
+    local cur_commit=$2
+
+    local geo_cli_dir="$(geo_get GEO_CLI_DIR)"
+    
+    (
+        cd $geo_cli_dir
+        local commit_msgs=$(git log --oneline --ancestry-path $prev_commit..$cur_commit)
+        # debug "$commit_msgs"
+        # Each line will look like this: a62b81f Fix geo id parsing order.
+        [[ -z $commit_msgs ]] && return
+
+        info -b "What's new:"
+
+        while read msg; do
+            # Trim off commit hash.
+            msg=${msg#* };
+            # Format the text (wrap long lines and indent by 4).
+            msg=$(fmt_text_and_indent_after_first_line "* $msg" 3 2)
+            detail "$msg"
+        done <<<$commit_msgs
+    )
+}
+
 # Docker Compose using the geo config file
 # dc_geo() {
 #     local dir=$GEO_REPO_DIR/env/full
@@ -2367,6 +2396,44 @@ fmt_text() {
     # indented using the sed substitution.
     echo "$txt" | fmt -w $width | sed "$sed_pattern"
     # echo $1 | fmt -w $width | sed "s/^/$(printf '$%.0s' `seq 1 $indent`)/g"
+}
+
+fmt_text_and_indent_after_first_line() {
+    local indent_char=' '
+    local msgs="$1"
+    # The amount to indent lines that wrap.
+    local base_indent=$2
+    local additional_indent=$3
+    local total_indent=$(( base_indent + additional_indent ))
+    local wrapped_line_indent_str=$(printf "$indent_char%.0s" $(seq 1 $additional_indent))
+    # debug "'${wrapped_line_indent_str}'"
+    local lines=$(fmt_text "$1" $base_indent)
+    # debug "$lines"
+    local line_number=0
+    local output=''
+
+    while read msg; do
+        # debug "$msg"
+        msg="${wrapped_line_indent_str}${msg}"
+        # debug "$msg"
+        local msg_lines=$(fmt_text "$msg" $total_indent)
+        # debug "$msg_lines"
+        msg_lines="${msg_lines:additional_indent}"
+        # debug -e "$msg_lines"
+        output+="$msg_lines\n"
+        # while read line; do
+        #     (( line_number++ ))
+        #     if [[ $line_number = 1 ]]; then
+        #         output+="$line\n"
+        #         continue
+        #     fi
+        #     # debug "$line"
+        #     # debug "${wrapped_line_indent_str}${line}\n"
+        #     output+="${wrapped_line_indent_str}${line}\n"
+        # done <<<"$lines"
+        # output+="${wrapped_line_indent_str}${line}\n"
+    done <<<"$msgs"
+    echo -n -e "$output"
 }
 
 # A function that dynamically creates multiple colour/format variants of logger functions.
