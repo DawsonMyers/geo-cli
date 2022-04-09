@@ -2875,6 +2875,7 @@ doc_handle_subcommand() {
 init_completions() {
     local cmd=
     local completions=
+    [[ ! -d "$GEO_CLI_AUTOCOMPLETE_FILE" ]] && touch "$GEO_CLI_AUTOCOMPLETE_FILE"
     while read line; do
         # Skip empty lines.
         (( ${#line} == 0 )) && continue
