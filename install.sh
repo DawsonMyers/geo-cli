@@ -51,14 +51,21 @@ fi
 echo
 
 # Display commit messages between the old version and the new version (if any).
-# prev_commit=daf4b4adeaff0223b590d978d3fc41a5e2324332
-# cur_commit=901e0c31528e27b21216826b7cb338a39bec6185
 prev_commit=$1
 cur_commit=$2
+# prev_commit=daf4b4adeaff0223b590d978d3fc41a5e2324332
+# cur_commit=901e0c31528e27b21216826b7cb338a39bec6185
 if [[ -n $prev_commit && -n $cur_commit ]]; then
     _geo_print_messages_between_commits_after_update $prev_commit $cur_commit
     echo
 fi
+
+# Enable notification if the SHOW_NOTIFICATIONS setting doesn't exist in the config file.
+show_notifications=$(geo_get SHOW_NOTIFICATIONS)
+[[ -z show_notifications ]] && geo_set SHOW_NOTIFICATIONS true
+
+# Reset update notification.
+geo_set UPDATE_NOTIFICATION_SENT false
 
 # Generate geo autocompletions.
 geo_generate_autocompletions
@@ -72,14 +79,33 @@ if [[ $previously_installed_version ]]; then
 else
     installed_msg="Open a new terminal or source .bashrc by running '. ~/.bashrc' in this one to start using geo-cli."
 fi
-success "$(fmt_text_and_indent_after_first_line "$installed_msg" 0 4)"
+success "$(fmt_text_and_indent_after_first_line "$installed_msg" 0 5)"
 echo
 
 info_bi "Next step: create a database container and start geotabdemo"
 step1="1. Build MyGeotab.Core in your IDE (required when creating new dbs)"
 step2="2. Run `txt_underline 'geo db start <name>'`, where 'name' is any alphanumeric name you want to give this db version (it could be related to the MyGeotab release, e.g., '2004')."
 step3="3. Start MyGeotab.Core in your IDE"
-info "$(fmt_text_and_indent_after_first_line "$step1" 3 2)"
-info "$(fmt_text_and_indent_after_first_line "$step2" 3 2)"
-info "$(fmt_text_and_indent_after_first_line "$step3" 3 2)"
+info "$(fmt_text_and_indent_after_first_line "$step1" 3 3)"
+info "$(fmt_text_and_indent_after_first_line "$step2" 3 3)"
+info "$(fmt_text_and_indent_after_first_line "$step3" 3 3)"
 echo
+
+# # Set up update cron job.
+# if type crontab > /dev/null; then
+#     check_for_updates_with_cron_job=$(geo_get CHECK_FOR_UPDATES_WITH_CRON_JOB)
+#     # Add the CHECK_FOR_UPDATES_WITH_CRON_JOB setting if it doesn't exist; enabling it by default.
+#     [[ -z $check_for_updates_with_cron_job ]] && geo_set CHECK_FOR_UPDATES_WITH_CRON_JOB true && check_for_updates_with_cron_job=true
+#     cron_function=geo_check_for_updates
+#     # Run the geo_check_for_updates function every weekday at 9am.
+#     cronjob="0 9 * * 1-5 $cron_function"
+
+#     if [[ $check_for_updates_with_cron_job == true ]]; then
+#         # Lists all of the current cron jobs, removes existing jobs containing the $cron_function, adds the new cron job
+#         # to the existing ones, and then adds all of them to crontab.
+#         ( crontab -l | grep -v -F "$cron_function" ; echo "$cronjob" ) | crontab -
+#     elif [[ $check_for_updates_with_cron_job == false ]]; then
+#         # Remove update cron job (if any).
+#         ( crontab -l | grep -v -F "$cron_function" ) | crontab -
+#     fi
+# fi

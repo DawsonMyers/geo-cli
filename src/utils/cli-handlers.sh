@@ -863,6 +863,18 @@ geo_get_running_container_id() {
     echo $(docker ps --filter name="$name" --filter status=running -aq)
 }
 
+geo_get_running_container_name() {
+    # local name=$1
+    [[ -z $name ]] && name="$IMAGE*"
+    
+    local container_name=$(docker ps --filter name="$name" --filter status=running -a --format="{{ .Names }}")
+    if [[ $1 == -r ]]; then
+        container_name=${container_name#geo_cli_db_postgres_}
+        container_name=${container_name#geo_cli_db_postgres11_}
+    fi
+    echo $container_name
+}
+
 geo_check_docker_permissions() {
     local ps_error_output=$(docker ps 2>&1 | grep docker.sock)
     if [[ -n $ps_error_output ]]; then
@@ -1163,7 +1175,7 @@ geo_check_for_dev_repo_dir() {
         get_dev_repo_dir
     done
 
-    success " Checkmate directory found"
+    success "Checkmate directory found"
 
     geo_set DEV_REPO_DIR "$dev_repo"
 }
@@ -2011,43 +2023,46 @@ geo_id() {
     local msg=
     number_re='^[0-9]+$'
     
-    # Guid endcode
+    # Guid endcode.
     if [[ $arg =~ $guid_re ]]; then
         id=$arg
-        # Remove all occurrences of '-'
+        # Remove all occurrences of '-'.
         id=${id//-/}
         id=$(echo $id | xxd -r -p | base64)
-        # Remove trailing'=='
+        # Remove trailing'=='.
         id=${id:0:-2}
-        # Replace '+' with '-'
+        # Replace '+' with '-'.
         id=${id//+/-}
-        # Replace '/' with '_'
+        # Replace '/' with '_'.
         id=${id//\//_}
         id='a'$id
         msg='Encoded guid id'
-    # Guid decode
+    # Guid decode.
     elif [[ $first_char =~ a ]]; then
         id=${arg:1}
-        # Add trailing'=='
+        # Add trailing'=='.
         id+="=="
-        # Replace '-' with '+'
+        # Replace '-' with '+'.
         id=${id//-/+}
-        # Replace '_' with '/'
+        # Replace '_' with '/'.
         id=${id//_/\/}
         id=$(echo $id | base64 -d | xxd -p)
+        # Format the decoded guid with hyphens so that it takes the same form as this example: 9567aac6-b5a9-4561-8b82-ca009760b1b3.
         id=${id:0:8}-${id:8:4}-${id:12:4}-${id:16:4}-${id:20}
-        # To upper case
+        # To upper case.
         id=${id^^}
         msg='Decoded guid id'
-    # Long encode
+    # Long encode.
     elif [[ $arg =~ $number_re ]]; then
         id=$(printf '%x' $arg)
-        # To upper case
+        # To upper case.
         id=b${id^^}
         msg='Encoded long id'
     # Long decode
     elif [[ $first_char == b ]]; then
+        # Trim 'b' suffix.
         id=${arg:1}
+        # Convert from hex to long.
         id=$(printf '%d' 0x$id)
         msg='Decoded long id'
     else
@@ -2218,15 +2233,26 @@ _geo_print_messages_between_commits_after_update() {
         # Each line will look like this: a62b81f Fix geo id parsing order.
         [[ -z $commit_msgs ]] && return
 
+        local line_count=0
+        local max_lines=20
+
         info -b "What's new:"
 
         while read msg; do
-            # Trim off commit hash.
+            (( line_count++ ))
+            (( line_count > max_lines )) && continue
+            # Trim off commit hash (trim off everything up to the first space).
             msg=${msg#* };
             # Format the text (wrap long lines and indent by 4).
             msg=$(fmt_text_and_indent_after_first_line "* $msg" 3 2)
             detail "$msg"
         done <<<$commit_msgs
+
+        if (( line_count > max_lines )); then
+            local msgs_not_shown=$(( line_count - max_lines ))
+            msg="   => Plus $msgs_not_shown more changes"
+            detail "$msg"
+        fi
     )
 }
 
@@ -2273,17 +2299,47 @@ geo_check_for_updates() {
     # ver converts semver to int (e.g. 1.2.3 => 001002003) so that it can easliy be compared
     if [ $(ver $v_current) -lt $(ver $v_remote) ]; then
         geo_set OUTDATED true
+        _geo_show_update_notification
         return
     else
         geo_set OUTDATED false
         return 1
     fi
-
 }
 
 geo_is_outdated() {
     outdated=$(geo_get OUTDATED)
     [[ $outdated =~ true ]]
+}
+
+# Sends an urgent geo-cli notification. This notification must be clicked by the user to dismiss.
+_geo_show_update_notification() {
+    local notification_shown=$(geo_get UPDATE_NOTIFICATION_SENT)
+    [[ $notification_shown != false ]] && return
+    local title="Update Available"
+    local msg="Run 'geo update' in a terminal to update geo-cli."
+    _geo_show_critical_notification "$msg" "$title"
+
+    # TODO uncomment before release
+    geo_set UPDATE_NOTIFICATION_SENT true
+}
+
+_geo_show_critical_notification() {
+    local msg="$1"
+    local title="$2"
+    _geo_show_notification "$msg" 'critical' "$title"
+}
+
+_geo_show_notification() {
+    [[ -z $GEO_CLI_DIR ]] && return
+    local show_notifications=$(geo_get SHOW_NOTIFICATIONS)
+    [[ $show_notifications != true ]] && return
+
+    local msg="$1"
+    local urgency=${2:-normal}
+    local title="${3:-geo-cli}"
+
+    notify-send -i $GEO_CLI_DIR/res/geo-cli-logo.png -u "$urgency" "$title" "$msg"
 }
 
 # This was a lot of work to get working right. There were issues with comparing
@@ -2367,18 +2423,24 @@ repeat_str() {
 # be indented.
 # 1: the long string to format
 # 2: the number of spaces to indent the text with
-# 3: the string/char used to indent then text with (a space, by default)
+# 3: the string/char used to indent then text with (a space, by default), or, if the 3rd arg is '--keep-spaces-and-breaks', then don't remove spaces or line breaks
 fmt_text() {
     local indent=0
     local indent_len=0
     local indent_str=' '
-    # Replace 2 or more spaces with a single space and \n with a single space.
-    local txt=$(echo "$1" | tr '\n' ' ' | sed -E 's/ {2,}/ /g')
+    local keep_spaces=false
+
+    local txt="$1"
     # Check if args 2 and 3 were provided.
     [ "$2" ] && indent=$2
-    [ "$3" ] && indent_str=$3
-
+    [[ $3 = '--keep-spaces-and-breaks' ]] && keep_spaces=true || indent_str=$3
+    
     [[ $indent = 0 ]] && indent_str=''
+
+    # Replace 2 or more spaces with a single space and \n with a single space.
+    [[ $keep_spaces = false ]] && txt=$(echo "$txt" | tr '\n' ' ' | sed -E 's/ {2,}/ /g')
+
+
     # Determin the total length of the repeated indent string.
     indent_len=$((${#indent_str} * indent))
     # Get the width of the console.
@@ -2400,25 +2462,42 @@ fmt_text() {
     # echo $1 | fmt -w $width | sed "s/^/$(printf '$%.0s' `seq 1 $indent`)/g"
 }
 
+# Takes a long string and wraps it according to the terminal width (linke left justifying text in Word or Goggle Doc),
+# but it allows wrapped lines to be indented more than the first line. The all lines created can also have a base indent.
+# Parameters:
+#   1 (long_text):  The long line of text
+#   2 (base_indent): The base indent amount that all of the text will be indented by (the number of spaces to add to prefix each line with)
+#   3 (additional_indent): The number of additional spaces to prefix wrapped lines with
+# Example: 
+#   (Assuming the terminal width is 40)
+#   long_text="A very very very very very very very very very very very very very very very very long line"
+#   base_indent=4
+#   additional_indent=2
+#   fmt_text_and_indent_after_first_line "$long_text" $base_indent $additional_indent
+#  Returns:
+#       A very very very very very very
+#         very very very very very very
+#         very very very very long line
 fmt_text_and_indent_after_first_line() {
     local indent_char=' '
-    local msgs="$1"
+    local long_text="$1"
     # The amount to indent lines that wrap.
     local base_indent=$2
     local additional_indent=$3
     local total_indent=$(( base_indent + additional_indent ))
     local wrapped_line_indent_str=$(printf "$indent_char%.0s" $(seq 1 $additional_indent))
     # debug "'${wrapped_line_indent_str}'"
-    local lines=$(fmt_text "$1" $base_indent)
+    local lines=$(fmt_text "$long_text" $base_indent --keep-spaces-and-breaks)
     # debug "$lines"
     local line_number=0
     local output=''
 
     while read msg; do
         # debug "$msg"
+        # Add the additional indent to the start of the line
         msg="${wrapped_line_indent_str}${msg}"
         # debug "$msg"
-        local msg_lines=$(fmt_text "$msg" $total_indent)
+        local msg_lines=$(fmt_text "$msg" $base_indent --keep-spaces-and-breaks)
         # debug "$msg_lines"
         msg_lines="${msg_lines:additional_indent}"
         # debug -e "$msg_lines"
@@ -2434,7 +2513,7 @@ fmt_text_and_indent_after_first_line() {
         #     output+="${wrapped_line_indent_str}${line}\n"
         # done <<<"$lines"
         # output+="${wrapped_line_indent_str}${line}\n"
-    done <<<"$msgs"
+    done <<<"$long_text"
     echo -n -e "$output"
 }
 
