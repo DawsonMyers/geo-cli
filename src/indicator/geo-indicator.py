@@ -19,29 +19,62 @@ BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 print(BASE_DIR)
 GEO_SRC_DIR = os.path.dirname(BASE_DIR)
 print(GEO_SRC_DIR)
+GEO_CMD_BASE = GEO_SRC_DIR + '/geo-cli.sh '
+
 icon_green_path = os.path.join(BASE_DIR, 'res', 'geo-icon-green.svg')
+icon_green_update_path = os.path.join(BASE_DIR, 'res', 'geo-icon-green-update.svg')
 icon_grey_path = os.path.join(BASE_DIR, 'res', 'geo-icon-grey.svg')
-icon_red_path = os.path.join(BASE_DIR, 'res', 'geo-icon-red1.svg')
+icon_grey_update_path = os.path.join(BASE_DIR, 'res', 'geo-icon-grey-update.svg')
+icon_red_path = os.path.join(BASE_DIR, 'res', 'geo-icon-red.svg')
+icon_red_update_path = os.path.join(BASE_DIR, 'res', 'geo-icon-red-update.svg')
 print(icon_green_path)
 
 indicator = None
+ICON_RED = 'red'
+ICON_GREEN = 'green'
+
+class IconManager:
+    def __init__(self, indicator):
+        self.indicator = indicator
+        self.cur_icon = ICON_RED
+        self.update_available = False
+        self.update_icon()
+
+    def set_update_available(self, update_available):
+        self.update_available = update_available
+        self.update_icon()
+
+    def update_icon(self):
+        if self.cur_icon == ICON_RED:
+            img_path = icon_red_update_path if self.update_available else icon_red_path
+            self.indicator.set_icon(img_path)
+        elif self.cur_icon == ICON_GREEN:
+            img_path = icon_green_update_path if self.update_available else icon_green_path
+            self.indicator.set_icon(img_path)
+
+    def set_icon(self, icon_type):
+        icon_changed = self.cur_icon is not icon_type
+        self.cur_icon = icon_type
+        if icon_changed:
+            self.update_icon()
 
 
 class Indicator(object):
     def __init__(self):
-        self.ind = appindicator.Indicator.new(APPINDICATOR_ID, icon_green_path, appindicator.IndicatorCategory.SYSTEM_SERVICES)
-        self.ind.set_status(appindicator.IndicatorStatus.ACTIVE)
+        self.indicator = appindicator.Indicator.new(APPINDICATOR_ID, icon_green_path, appindicator.IndicatorCategory.SYSTEM_SERVICES)
+        self.indicator.set_status(appindicator.IndicatorStatus.ACTIVE)
+        self.icon_manager = IconManager(self.indicator)
         # indicator.set_icon(icon_green_path)
-        self.ind.set_icon(icon_green_path)
+        # self.ind.set_icon(icon_green_path)
         # indicator.set_icon_full(icon_green_path, '')
         self.menu = Gtk.Menu()
         self.build_menu(self.menu)
-        self.ind.set_menu(self.menu)
+        self.indicator.set_menu(self.menu)
         # self.ind.set_menu(self.build_menu())
         Gtk.main()
 
     def build_menu(self, menu):
-        item_running_db = RunningDbMenuItem(self.ind)
+        item_running_db = RunningDbMenuItem(self)
         item_running_db.connect('activate', item_running_db.show_stop_menu)
         item_running_db.set_submenu(item_running_db.stop_menu)
         # item_separator = Gtk.SeparatorMenuItem()
@@ -63,16 +96,22 @@ class Indicator(object):
         # item_disable.connect('activate', self.disable)
         # self.item_disable = item_disable
 
+        item_update = self.build_update_item()
         item_help = self.build_help_item()
 
         menu.append(item_running_db)
         menu.append(Gtk.SeparatorMenuItem())
         # menu.append(item_disable)
+
         menu.append(item_start_db)
+        menu.append(Gtk.SeparatorMenuItem())
+
+        menu.append(item_update)
         menu.append(Gtk.SeparatorMenuItem())
 
         menu.append(item_help)
         menu.append(Gtk.SeparatorMenuItem())
+
         menu.append(item_quit)
         menu.show_all()
 
@@ -92,12 +131,14 @@ class Indicator(object):
         help.set_submenu(submenu)
         return help
 
+    def build_update_item(self):
+        return UpdateMenuItem(self)
+
     def show_readme(self, source):
         webbrowser.open('https://git.geotab.com/dawsonmyers/geo-cli', new=2)
 
     def disable(self):
         geo('indicator disable')
-
         self.quit(None)
 
     def build_db_submenu(self, item_running_db):
@@ -208,15 +249,18 @@ class DbMenuItem(Gtk.MenuItem):
 
 
 class RunningDbMenuItem(Gtk.MenuItem):
-    def __init__(self, indicator):
+    def __init__(self, app):
         super().__init__(label='Running DB: ')
-        self.indicator = indicator
+        self.app = app
         running_db = get_running_db_name()
         msg = 'Running DB: '
         if len(running_db) == 0:
+            self.is_db_running = False
             msg = msg + "None"
             self.set_db_label_markup(get_running_db_none_label_markup())
+            self.try_start_last_db()
         else:
+            self.is_db_running = True
             msg = msg + running_db
             self.running_db = running_db
             self.set_db_label_markup(get_running_db_label_markup(running_db))
@@ -226,12 +270,17 @@ class RunningDbMenuItem(Gtk.MenuItem):
         self.stop_menu = Gtk.Menu()
         item_stop_db = Gtk.MenuItem(label='Stop')
         item_stop_db.connect('activate', stop_db)
-        self.connect('activate', self.show_stop_menu)
+        self.activate_event_id = self.connect('activate', self.show_stop_menu)
         self.stop_menu.append(item_stop_db)
         # self.name = name
         # self.set_label(name)
 
         GLib.timeout_add(1000, self.start_monitoring_dbs)
+
+    def try_start_last_db(self):
+        last_db = get_geo_setting('LAST_DB_VERSION')
+        if last_db is not None:
+            start_db(last_db)
 
     def stop_db(self, source):
         # self.set_db_label_markup('Stopping DB')
@@ -259,31 +308,88 @@ class RunningDbMenuItem(Gtk.MenuItem):
 
     def show_stop_menu(self, source):
         # print('stop menu clicked')
+        if not self.is_db_running: return
         self.stop_menu.show_all()
 
     def start_monitoring_dbs(self):
-        # print('ran')
+        # if self.activate_event_id is not None:
+        #     self.disconnect(self.activate_event_id)
+
         # poll for running db name, if it doesn't equal self
         running_db = get_running_db_name()
         if len(running_db) == 0:
             self.set_submenu()
-            self.connect('activate', self.no_op)
-            self.indicator.set_icon(icon_red_path)
+            # self.connect('activate', self.no_op)
+            self.app.icon_manager.set_icon(ICON_RED)
             # self.set_label('Running DB: None')
             self.set_db_label_markup(get_running_db_none_label_markup())
         else:
             self.set_submenu(self.stop_menu)
-            self.connect('activate', self.show_stop_menu)
-            self.indicator.set_icon(icon_green_path)
-
-        # if self.running_db != running_db:
-        #     msg = 'Running DB: '
-        #     if len(running_db) == 0:
-        #         msg = msg + 'None'
-        #     else:
-        #         msg = msg + running_db
-        #     self.set_label(msg)
+            # self.activate_event_id = self.connect('activate', self.show_stop_menu)
+            self.app.icon_manager.set_icon(ICON_GREEN)
         return True
+
+
+class UpdateMenuItem(Gtk.ImageMenuItem):
+    def __init__(self, indicator):
+        super().__init__(label='Updates')
+        self.update_available = False
+        self.item_update_activate_event_id = None
+        self.indicator = indicator
+        self.img_update_available = Gtk.Image(stock=Gtk.STOCK_OK)
+        self.submenu = Gtk.Menu()
+        self.item_update = Gtk.ImageMenuItem(label="Checking for updates...")
+        self.submenu.append(self.item_update)
+        self.set_submenu(self.submenu)
+        self.connect('activate', self.show_submenu)
+        self.item_update.connect('activate', self.update_geo_cli)
+        # self.set_update_status()
+
+        GLib.timeout_add(5000, self.set_update_status)
+
+    def set_update_status(self, source=None):
+        update_available = is_update_available()
+        self.update_available = update_available
+        # if self.item_update_activate_event_id is not None:
+        #     self.disconnect(self.item_update_activate_event_id)
+        if update_available:
+            self.set_image(self.img_update_available)
+            self.item_update.set_label('Update Now')
+            self.indicator.icon_manager.set_update_available(True)
+            # self.item_update_activate_event_id = self.item_update.connect('activate', self.update_geo_cli)
+        else:
+            self.set_image(None)
+            self.item_update.set_label('No update available')
+            self.indicator.icon_manager.set_update_available(False)
+            # self.item_update_activate_event_id = self.item_update.connect('activate', None)
+        return True
+
+    def update_geo_cli(self, source=None):
+        update_cmd = GEO_CMD_BASE + 'update -f'
+        # cmd = 'bash -c \"bash %s; exec bash\"' % update_cmd
+        cmd = "gnome-terminal -- bash -c \"bash %s; exec bash\"" % update_cmd
+        print(cmd)
+        # cmd = "gnome-terminal -- 'bash %s; exec bash\"'" % update_cmd
+        # cmd = "gnome-terminal -e 'bash -c \"%s; exec bash\"'" % update_cmd
+        os.system(cmd)
+
+    def no_op(self, source):
+        pass
+
+    def show_submenu(self, source):
+        # print('stop menu clicked')
+        self.submenu.show_all()
+
+
+def get_geo_setting(key):
+    value = geo('get ' + key)
+    return value
+
+
+def is_update_available():
+    ret = geo('dev update-available')
+    return ret == 'true'
+    # return get_geo_setting('OUTDATED') == 'true'
 
 def get_running_db_label_text(db):
     return 'Running DB:\n' + db
@@ -395,11 +501,12 @@ def main():
 
 def geo(arg_str):
     geo_path = GEO_SRC_DIR + '/geo-cli.sh '
-    cmd = geo_path + arg_str
+    cmd = geo_path + ' --raw-output ' + arg_str
     process = subprocess.Popen("bash %s" % (cmd), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable='/bin/bash', text=True)
     process.wait()
     result = process.communicate()
     print(result)
+    return result[0]
 
 # def init_config():
 

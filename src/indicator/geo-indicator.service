@@ -1,0 +1,20 @@
+[Unit]
+Description=geo-cli Application Indicator
+
+[Service]
+#ExecStart=python3 $indicator_py_path
+#ExecStart=/usr/local/bin/geo-indicator
+ExecStart=bash $geo_indicator_path
+#ExecStart=$HOME/.geo-cli/bin/geo-indicator
+Restart=on-failure
+#SuccessExitStatus=3 4
+#RestartForceExitStatus=3 4
+#User=$USER
+
+# Hardening
+#SystemCallArchitectures=native
+#MemoryDenyWriteExecute=true
+#NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target
