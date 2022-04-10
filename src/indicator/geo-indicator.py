@@ -3,6 +3,7 @@ import os
 import signal
 import time
 import subprocess
+import webbrowser
 
 gi.require_version('Gtk', '3.0')
 gi.require_version('AppIndicator3', '0.1')
@@ -61,21 +62,43 @@ class Indicator(object):
         item_quit.connect('activate', self.quit)
         # item_disable.connect('activate', self.disable)
         # self.item_disable = item_disable
+
+        item_help = self.build_help_item()
+
         menu.append(item_running_db)
         menu.append(Gtk.SeparatorMenuItem())
         # menu.append(item_disable)
         menu.append(item_start_db)
         menu.append(Gtk.SeparatorMenuItem())
+
+        menu.append(item_help)
+        menu.append(Gtk.SeparatorMenuItem())
         menu.append(item_quit)
         menu.show_all()
 
-    def build_help_menu(self, menu):
+    def build_help_item(self):
+        help = Gtk.MenuItem(label="Help")
         submenu = Gtk.Menu()
+        help.connect('activate', lambda w: submenu.show_all())
+
         item_disable = Gtk.MenuItem(label='Disable')
-        item_disable.connect('activate', self.disable)
+        item_disable.connect('activate', self.show_disable_dialog)
+
+        item_readme = Gtk.MenuItem(label='View Readme')
+        item_readme.connect('activate', self.show_readme)
+
+        submenu.append(item_readme)
+        submenu.append(item_disable)
+        help.set_submenu(submenu)
+        return help
+
+    def show_readme(self, source):
+        webbrowser.open('https://git.geotab.com/dawsonmyers/geo-cli', new=2)
 
     def disable(self):
-        run_shell_cmd('echo disable')
+        geo('indicator disable')
+
+        self.quit(None)
 
     def build_db_submenu(self, item_running_db):
         menu = Gtk.Menu()
@@ -123,7 +146,7 @@ class Indicator(object):
 
     def show_disable_dialog(self, widget):
         dialog = Gtk.MessageDialog(
-            transient_for=self,
+            transient_for=None,
             flags=0,
             message_type=Gtk.MessageType.WARNING,
             buttons=Gtk.ButtonsType.OK_CANCEL,
@@ -135,6 +158,7 @@ class Indicator(object):
         response = dialog.run()
         if response == Gtk.ResponseType.OK:
             print("WARN dialog closed by clicking OK button")
+            self.disable()
         elif response == Gtk.ResponseType.CANCEL:
             print("WARN dialog closed by clicking CANCEL button")
 

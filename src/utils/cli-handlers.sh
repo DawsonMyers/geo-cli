@@ -2137,6 +2137,79 @@ geo_cd() {
 }
 
 ###########################################################
+COMMANDS+=('indicator')
+geo_indicator_doc() {
+    doc_cmd 'cd <enable | disable>'
+    doc_cmd_desc 'Enables or disables the app indicator.'
+    
+    doc_cmd_examples_title
+    doc_cmd_example 'geo indicator enable'
+    doc_cmd_example 'geo indicator disable'
+}
+geo_indicator() {
+    local indicator_bin_path=~/.geo-cli/bin/geo-indicator
+    # local indicator_bin_path=/usr/local/bin/geo-indicator
+    local indicator_service_path=~/.config/systemd/user/geo-indicator.service
+    case "$1" in
+        enable )
+            mkdir -p  ~/.config/systemd/user/
+            mkdir -p  ~/.geo-cli/.data
+            export src_dir=$(geo_get GEO_CLI_SRC_DIR)
+            # echo $src_dir > ~/.geo-cli/.data/geo-cli-src-dir.txt
+            local init_script_path="$src_dir/indicator/geo-indicator.sh"
+            local service_file_path="$src_dir/indicator/geo-indicator.service"
+            if [[ ! -f $init_script_path ]]; then
+                Error "App indicator script not found at '$init_script_path'"
+                return 1
+            fi
+            if [[ ! -f $service_file_path ]]; then
+                Error "App indicator service file not found at '$service_file_path'"
+                return 1
+            fi
+            # Replace the environment variables in the script file (with the ones loaded in this context)
+            # and then copy the contents to a file at the bin path
+            # tmp_file=/tmp/geo_ind_init_script.sh
+            
+            # envsubst < $init_script_path > $tmp_file
+            # chmod 777 $tmp_file
+            # debug "$tmp_file"
+            # echo "$init_script" > /tmp/init_script
+            # chmod 777 $tmp_file
+            # cp $tmp_file $indicator_bin_path
+            # sudo cp $tmp_file $indicator_bin_path
+            # envsubst < $init_script_path > $indicator_bin_path
+            export geo_indicator_path="$src_dir/indicator/geo-indicator.sh"
+            # export indicator_py_path="$src_dir/indicator/geo-indicator.py"
+            envsubst < $service_file_path > $indicator_service_path
+            # sudo chmod 777 $indicator_bin_path
+            
+            systemctl --user daemon-reload
+            systemctl --user enable --now geo-indicator.service
+            ;;
+        start )
+            systemctl --user start --now geo-indicator.service
+            ;;
+        stop )
+            systemctl --user stop --now geo-indicator.service
+            ;;
+        disable )
+            systemctl --user stop --now geo-indicator.service
+            systemctl --user disable --now geo-indicator.service
+            success 'geo-indicator disabled'
+            ;;
+        status )
+            systemctl --user status geo-indicator.service
+            ;;
+        restart )
+            systemctl --user restart geo-indicator.service
+            ;;
+        *)
+            Error "Unknown argument: '$1'"
+            ;;
+    esac
+}
+
+###########################################################
 COMMANDS+=('help')
 geo_help_doc() {
     doc_cmd 'help, -h, --help'
