@@ -1616,7 +1616,9 @@ geo_get() {
 
     value=$(cfg_read $GEO_CLI_CONF_FILE $key)
     [[ -z $value ]] && return
-    echo "$value"
+    local opts=
+    [[ $GEO_RAW_OUTPUT == true ]] && opts=-n
+    echo $opts "$value"
 }
 
 geo_haskey() {
@@ -2222,6 +2224,27 @@ geo_help() {
 }
 
 ###########################################################
+COMMANDS+=('dev')
+geo_dev_doc() {
+    doc_cmd 'dev'
+    doc_cmd_desc 'Commands used for internal geo-cli development.'
+}
+geo_dev() {
+    case "$1" in
+        update-available )
+            if geo_check_for_updates; then
+                status true
+                return
+            fi
+            status false
+            ;;
+        *)
+            Error "Unknown argument: '$1'"
+            ;;
+    esac
+}
+
+###########################################################
 # COMMANDS+=('command')
 # geo_command_doc() {
 #
@@ -2423,6 +2446,7 @@ _geo_show_notification() {
 # using a regex in the if (i.e., if [[ $outdated =~ true ]]) which was the only
 # way it would work.
 geo_show_msg_if_outdated() {
+    [[ $GEO_RAW_OUTPUT == true ]] && return
     # outdated=`geo_get OUTDATED`
     if geo_is_outdated; then
         # if [[ $outdated =~ true ]]; then
@@ -2663,6 +2687,8 @@ make_logger_function() {
                     ;;&
             esac
 
+            [[ \$GEO_RAW_OUTPUT == true ]] && echo -n \"\$msg\" && return
+
             echo \"-\${opts}\" \"\${format_tokens}\${!color_name}\${msg}\${Off}\"
         }
     "
@@ -2711,6 +2737,8 @@ make_logger_function_vte() {
                     opts+=n
                     ;;&
             esac
+
+            [[ \$GEO_RAW_OUTPUT == true ]] && echo -n \"\${msg}\" && return
 
             echo \"-\${opts}\" \"\${format_tokens}\${${color}}\${msg}\${Off}\"
         }

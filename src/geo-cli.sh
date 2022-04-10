@@ -48,6 +48,9 @@ function geo()
         detail 'Fix: Navigate to MyGeotab base repo (Development) directory, then run "geo init repo".'
     fi
 
+    # Disabled formatted output if the --raw-output option is present.
+    [[ $1 == --raw-output ]] && export GEO_RAW_OUTPUT=true && shift
+
     # Check if colour variables have been changed by the terminal (wraped in \[ ... \]). Reload everything if they have to fix.
     # This issue would cause coloured log output to start with '\[\] some log message'.
     if [[ $Green =~ ^'\['.*'\]' ]]; then
