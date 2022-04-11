@@ -86,9 +86,10 @@ class Indicator(object):
         # self.box.pack_start(label, True, True, 5)
         # item_disable.append(self.box)
         item_start_db = Gtk.MenuItem(label='Start DB')
-        db_submenu = self.build_db_submenu(item_running_db)
-        show_db_menu = lambda _: db_submenu.show_all()
-        item_start_db.connect('activate', show_db_menu)
+        db_submenu = DbMenu(item_running_db) #self.build_db_submenu(item_running_db)
+        self.db_submenu = db_submenu
+        item_start_db.connect('activate', lambda _: self.show_db_menu())
+        # item_start_db.connect('activate', lambda _: db_submenu.show_all())
         item_start_db.set_submenu(db_submenu)
 
         item_quit = Gtk.MenuItem(label='Quit')
@@ -114,6 +115,11 @@ class Indicator(object):
 
         menu.append(item_quit)
         menu.show_all()
+
+    def show_db_menu(self):
+        print('show_db_menu')
+        self.db_submenu.show_all()
+
 
     def build_help_item(self):
         help = Gtk.MenuItem(label="Help")
@@ -148,20 +154,6 @@ class Indicator(object):
             # print(n)
             db_item = DbMenuItem(n, item_running_db)
             menu.append(db_item)
-
-        # item_disable = Gtk.MenuItem(label='Disable')
-        # self.box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        # label = Gtk.Label()
-        # label.set_text('Box Label')
-        # self.box.pack_start(label, True, True, 5)
-        # item_disable.append(self.box)
-        # item_quit = Gtk.MenuItem(label='Quit')
-        # item_quit.connect('activate', self.quit)
-        # item_disable.connect('activate', self.disable)
-        # self.item_disable = item_disable
-        # menu.append(item_quit)
-        # menu.append(item_disable)
-        # menu.show_all()
         return menu
 
     def build_box(self):
@@ -205,6 +197,58 @@ class Indicator(object):
 
         dialog.destroy()
 
+class DbMenu(Gtk.Menu):
+    def __init__(self, item_running_db):
+        self.item_running_db = item_running_db
+        super().__init__()
+        self.db_names = set(get_geo_db_names())
+        self.item_lookup = dict()
+        self.build_db_items()
+        GLib.timeout_add(5*1000, self.db_monitor)
+
+    def build_db_items(self):
+        self.db_names = set(get_geo_db_names())
+        self.item_lookup = {}
+        for n in self.db_names:
+            # print(n)
+            db_item = DbMenuItem(n, self.item_running_db)
+            self.item_lookup[n] = db_item
+            self.append(db_item)
+        self.queue_draw()
+
+    def remove_items(self):
+        for item in self.get_children():
+            if item.name is None: continue
+            self.remove(item)
+            item.destroy()
+        self.queue_draw()
+
+    def db_monitor(self):
+        new_db_names = set(get_geo_db_names())
+        if new_db_names != self.db_names:
+            self.update_items(new_db_names)
+            # self.remove_items()
+            # self.build_db_items()
+        self.db_names = new_db_names
+        return True
+
+    def update_items(self, new_db_names):
+        removed = self.db_names - new_db_names
+        print('Removed: ' + str(removed))
+        added = new_db_names - self.db_names
+        print('Added: ' + str(added))
+        for db in removed:
+            if db not in self.item_lookup: continue
+            item = self.item_lookup.pop(db)
+            self.remove(item)
+        for db in added:
+            if db in self.item_lookup: continue
+            item = DbMenuItem(db, self.item_running_db)
+            self.item_lookup[db] = item
+            self.append(item)
+        self.queue_draw()
+
+
 
 class DialogExample(Gtk.Dialog):
     def __init__(self, parent):
@@ -221,14 +265,13 @@ class DialogExample(Gtk.Dialog):
         box.add(label)
         self.show_all()
 
+
 class DbMenuItem(Gtk.MenuItem):
     def __init__(self, name, item_running_db):
         self.item_running_db = item_running_db
-        # print('db-item: ' + name)
         super().__init__(label=name)
         self.name = name
         self.set_label(name)
-        # start = lambda _ : start_db(name)
         self.connect('activate', self.start_geo_db)
 
     def start_geo_db(self, obj):
@@ -343,8 +386,8 @@ class UpdateMenuItem(Gtk.ImageMenuItem):
         self.set_submenu(self.submenu)
         self.connect('activate', self.show_submenu)
         self.item_update.connect('activate', self.update_geo_cli)
-        # self.set_update_status()
 
+        self.set_update_status()
         GLib.timeout_add(5000, self.set_update_status)
 
     def set_update_status(self, source=None):
@@ -366,11 +409,8 @@ class UpdateMenuItem(Gtk.ImageMenuItem):
 
     def update_geo_cli(self, source=None):
         update_cmd = GEO_CMD_BASE + 'update -f'
-        # cmd = 'bash -c \"bash %s; exec bash\"' % update_cmd
         cmd = "gnome-terminal -- bash -c \"bash %s; exec bash\"" % update_cmd
-        print(cmd)
-        # cmd = "gnome-terminal -- 'bash %s; exec bash\"'" % update_cmd
-        # cmd = "gnome-terminal -e 'bash -c \"%s; exec bash\"'" % update_cmd
+        # print(cmd)
         os.system(cmd)
 
     def no_op(self, source):
@@ -389,28 +429,24 @@ def get_geo_setting(key):
 def is_update_available():
     ret = geo('dev update-available')
     return ret == 'true'
-    # return get_geo_setting('OUTDATED') == 'true'
 
 def get_running_db_label_text(db):
     return 'Running DB:\n' + db
 
 def get_running_db_label_markup(db):
-    return '<span size="smaller">Running DB:</span>\n' + '<span>    <b>%s</b></span>' % db
+    return 'Running DB [%s]' % db
+    # return '<span size="smaller">Running DB:</span>\n' + '<span>   [<b>%s</b>]</span>' % db
 
 def get_running_db_none_label_markup():
-    return '<span size="smaller">Running DB:</span>\n' + '<span foreground="grey"><b>    None</b></span>'
+    return 'Running DB [None]'
+    # return '<span size="smaller">Running DB:</span>\n' + '<span foreground="grey"><b>    [None]</b></span>'
 
 def get_geo_db_names():
     cmd = 'docker container ls --filter name="geo_cli_db_"  -a --format="{{ .Names }}"'
     full_names = subprocess.run(cmd, shell=True, text=True, capture_output=True).stdout[0:-1]
     names = full_names.replace('geo_cli_db_postgres_', '')
-    # print(full_names)
-    # print(names)
     full_names_a = full_names.split('\n')
     names_a = names.split('\n')
-
-    # for fn in range(len(full_names_a)):
-    # print(names_a)
     return names_a
 
 
@@ -428,76 +464,17 @@ def run_shell_cmd(cmd):
 
 def run_cmd_and_wait(cmd):
     process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable='/bin/bash', text=True)
-    # process = subprocess.Popen(["geo db start " + name], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable='/bin/bash', text=True)
-    # process = subprocess.Popen(["geo", "db", "start", name], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable='/bin/bash', text=True)
     process.wait()
     result = process.communicate()
     print(result)
 
 def start_db(name):
     geo('db start ' + name)
-    # process = subprocess.Popen("bash $GEO_CLI_SRC_DIR/geo-cli.sh db start " + name, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable='/bin/bash', text=True)
-    # # process = subprocess.Popen(["geo db start " + name], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable='/bin/bash', text=True)
-    # # process = subprocess.Popen(["geo", "db", "start", name], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable='/bin/bash', text=True)
-    # process.wait()
-    # result = process.communicate()
-    # print(result)
 
 
 def stop_db(arg=None):
     geo('db stop')
     # print('Stopping DB')
-    # process = subprocess.Popen("bash -c '$GEO_CLI_SRC_DIR/geo-cli.sh db stop'", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable='/bin/bash', text=True)
-    # # process = subprocess.Popen(["geo db start " + name], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable='/bin/bash', text=True)
-    # # process = subprocess.Popen(["geo", "db", "start", name], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable='/bin/bash', text=True)
-    # process.wait()
-    # result = process.communicate()
-    # print(result)
-    # # print(process.stdout.read())
-
-
-# start_db('81')
-# get_running_db_name()
-# get_geo_db_names()
-
-def main():
-    indicator = Indicator()
-    # indicator = appindicator.Indicator.new(APPINDICATOR_ID, icon_green_path, appindicator.IndicatorCategory.SYSTEM_SERVICES)
-    # indicator.set_status(appindicator.IndicatorStatus.ACTIVE)
-    # # indicator.set_icon(icon_green_path)
-    # indicator.set_icon(os.path.join(BASE_DIR, 'res', 'geo-icon-green.svg'))
-    # # indicator.set_icon_full(icon_green_path, '')
-
-    # indicator.set_menu(build_menu())
-    Gtk.main()
-
-
-# def build_menu():
-#     menu = Gtk.Menu()
-#     item_disable = Gtk.MenuItem(label='Disable')
-#     item_quit = Gtk.MenuItem(label='Quit')
-#     item_quit.connect('activate', quit)
-#     item_quit.connect('activate', disable)
-#     menu.append(item_quit)
-#     menu.append(item_disable)
-#     menu.show_all()
-#     return menu
-
-# def quit(source):
-#     Gtk.main_quit()
-
-# def disable(source):
-#     indicator.set_icon(os.path.join(BASE_DIR, 'res', 'geo-icon-red.svg'))
-
-# def test():
-#     print('test')
-#     process = subprocess.Popen("bash -c 'source ~/.bashrc; echo $GEO_CLI_SRC_DIR'", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable='/bin/bash', text=True)
-#     # process = subprocess.Popen(["geo db start " + name], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable='/bin/bash', text=True)
-#     # process = subprocess.Popen(["geo", "db", "start", name], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable='/bin/bash', text=True)
-#     process.wait()
-#     result = process.communicate()
-#     print(result)
-
 
 def geo(arg_str):
     geo_path = GEO_SRC_DIR + '/geo-cli.sh '
@@ -505,13 +482,18 @@ def geo(arg_str):
     process = subprocess.Popen("bash %s" % (cmd), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable='/bin/bash', text=True)
     process.wait()
     result = process.communicate()
-    print(result)
+    # print(result)
     return result[0]
 
 # def init_config():
 
 # test()
 # geo('-v')
+
+def main():
+    indicator = Indicator()
+    Gtk.main()
+
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     main()
