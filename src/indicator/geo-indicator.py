@@ -92,6 +92,8 @@ class Indicator(object):
         self.item_databases = item_databases
         item_create_db = self.get_create_db_item()
 
+        item_run_analyzers = self.get_analyzer_item()
+
         item_quit = Gtk.MenuItem(label='Quit')
         item_quit.connect('activate', self.quit)
 
@@ -103,6 +105,9 @@ class Indicator(object):
         menu.append(item_create_db)
         menu.append(Gtk.SeparatorMenuItem())
 
+        menu.append(item_run_analyzers)
+        menu.append(Gtk.SeparatorMenuItem())
+
         menu.append(item_help)
         menu.append(item_quit)
 
@@ -112,7 +117,7 @@ class Indicator(object):
 
     @staticmethod
     def get_create_db_item():
-        item = Gtk.MenuItem(label='Create DB')
+        item = Gtk.MenuItem(label='Create Database')
         item.connect('activate', lambda s: run_in_terminal(get_geo_cmd('db start -p')))
         return item
 
@@ -178,6 +183,11 @@ class Indicator(object):
         db_submenu = DbMenu(self)
         item_databases.set_submenu(db_submenu)
         return item_databases
+
+    def get_analyzer_item(self):
+        item = Gtk.MenuItem(label='Run Analyzers')
+        item.connect('activate', lambda _: run_in_terminal(get_geo_cmd('analyze -b')))
+        return item
 
 
 class MainMenu(Gtk.Menu):
@@ -467,8 +477,6 @@ def get_running_db_name():
     cmd = 'docker container ls --filter name="geo_cli_db_" --filter status=running  -a --format="{{ .Names }}"'
     full_name = subprocess.run(cmd, shell=True, text=True, capture_output=True).stdout[0:-1]
     name = full_name.replace('geo_cli_db_postgres_', '')
-    # print(full_name)
-    # print(name)
     return name
 
 
@@ -504,7 +512,6 @@ def geo(arg_str):
 def main():
     indicator = Indicator()
     # Gtk.main()
-
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal.SIG_DFL)

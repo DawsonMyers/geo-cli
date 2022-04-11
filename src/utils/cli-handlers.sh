@@ -1789,7 +1789,8 @@ geo_analyze() {
         printf '%-4d %-38s %-8s\n' $id "${analyzer[$name]}" "$project"
     done
     local dev_repo=$(geo_get DEV_REPO_DIR)
-
+    local prev_ids=$(geo_get ANALYZER_IDS)
+    
     status "Valid IDs from 0 to ${max_id}"
     local prompt_txt='Enter the analyzer IDs that you would like to run (separated by spaces): '
 
@@ -1822,6 +1823,7 @@ geo_analyze() {
                 run_individually=false
                 echo
                 status_bi 'Running analyzers in batches'
+                echo
                 ;;
             \? )
                 Error "Invalid option: $1"
@@ -1858,11 +1860,13 @@ geo_analyze() {
 
     # If the user didn't pass in a list of ids, then get the list of ids from the user, interactively. Asking repeatedly if invalid input is given.
     until [[ $valid_input == true ]]; do
-        prompt_for_info_n "$prompt_txt"
+        [[ -n $prev_ids ]] && status "Enter '-' to reuse previous ids: '$prev_ids'" && echo
+        prompt_for_info "$prompt_txt"
+        [[ $prompt_return == - ]] && prompt_return="$prev_ids"
         # Make sure the input consists of only numbers separated by spaces.
         while [[ ! $prompt_return =~ ^( *[0-9]+ *)+$ ]]; do
             error 'Invalid input. Only space-separated integer IDs are accepted'
-            prompt_for_info_n "$prompt_txt"
+            prompt_for_info "$prompt_txt"
         done
         # Make sure the numbers are valid ids between 0 and max_id.
         for id in $prompt_return; do
@@ -1938,7 +1942,7 @@ geo_analyze() {
                     ;;
                 esac
 
-                if [[ $core_analyzers_count > 0 && $run_core == 'true' ]]; then
+                if [[ $core_analyzers_count -gt 0 && $run_core == 'true' ]]; then
                     echo
                     status_bi "Running the following $core_analyzers_count analyzer(s) against MyGeotab.Core:"
                     print_analyzers "$core_analyzers"
