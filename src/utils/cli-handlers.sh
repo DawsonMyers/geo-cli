@@ -1155,7 +1155,7 @@ geo_check_for_dev_repo_dir() {
     }
 
     get_dev_repo_dir() {
-        prompt 'Enter the full path (e.g. ~/repos/Development or /home/username/repos/Development) to the Development repo directory. This directory must contain the Checkmate directory:'
+        prompt 'Enter the full path (e.g. ~/repos/Development or /home/username/repos/Development) to the Development repo directory. This directory must contain the Checkmate directory (Type "--" to skip for now):'
         read dev_repo
         # Expand home directory (i.e. ~/repo to /home/user/repo).
         dev_repo=${dev_repo/\~/$HOME}
@@ -1171,12 +1171,13 @@ geo_check_for_dev_repo_dir() {
     }
 
     # Ask repeatedly for the dev repo dir until a valid one is provided.
-    while ! is_valid_repo_dir "$dev_repo"; do
+    while ! is_valid_repo_dir "$dev_repo" && [[ "$dev_repo" != -- ]]; do
         get_dev_repo_dir
     done
 
+    [[ "$dev_repo" == -- ]] && return
+    
     success "Checkmate directory found"
-
     geo_set DEV_REPO_DIR "$dev_repo"
 }
 
@@ -2152,8 +2153,10 @@ geo_indicator() {
     local indicator_bin_path=~/.geo-cli/bin/geo-indicator
     # local indicator_bin_path=/usr/local/bin/geo-indicator
     local indicator_service_path=~/.config/systemd/user/geo-indicator.service
+    _geo_indicator_check_dependencies
     case "$1" in
         enable )
+            
             mkdir -p  ~/.config/systemd/user/
             mkdir -p  ~/.geo-cli/.data
             export src_dir=$(geo_get GEO_CLI_SRC_DIR)
@@ -2211,6 +2214,34 @@ geo_indicator() {
     esac
 }
 
+_geo_install_apt_package_if_missing() {
+    local pkg_name="$1"
+    ! type sudo && sudo='' || sudo=sudo
+    [[ -z $pkg_name ]] && warn 'No package name supplied' && return 1
+
+    if ! dpkg -l $pkg_name &> /dev/null; then
+        status "Installing missing package: $pkg_name"
+        $sudo apt install -y "$pkg_name"
+    fi
+}
+_geo_indicator_check_dependencies() {
+    ! type sudo && sudo='' || sudo=sudo
+    if ! type python3 &> /dev/null; then
+        if ! prompt_continue "python3 is required for geo indicator. Install now (Y|n)?"; then
+            return
+        fi
+        $sudo apt update
+        $sudo apt install software-properties-common
+        $sudo add-apt-repository ppa:deadsnakes/ppa
+        $sudo apt update
+        $sudo apt install python3.8
+        # $sudo apt install gir1.2-appindicator3-0.1 libappindicator3-1
+    fi
+
+    _geo_install_apt_package_if_missing 'gir1.2-appindicator3-0.1'
+    _geo_install_apt_package_if_missing 'libappindicator3-1'
+    _geo_install_apt_package_if_missing 'gir1.2-notify-0.7'
+}
 ###########################################################
 COMMANDS+=('help')
 geo_help_doc() {
@@ -2976,6 +3007,9 @@ doc_handle_subcommand() {
 init_completions() {
     local cmd=
     local completions=
+    
+    [[ ! -f $GEO_CLI_AUTOCOMPLETE_FILE ]] && touch "$GEO_CLI_AUTOCOMPLETE_FILE"
+
     while read line; do
         # Skip empty lines.
         (( ${#line} == 0 )) && continue

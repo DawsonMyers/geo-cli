@@ -7,18 +7,18 @@ import webbrowser
 
 gi.require_version('Gtk', '3.0')
 gi.require_version('AppIndicator3', '0.1')
-gi.require_version('Notify', '0.7')
+# gi.require_version('Notify', '0.7')
 
 from gi.repository import Gtk, GLib
 from gi.repository import AppIndicator3 as appindicator
-from gi.repository import Notify as notify
+# from gi.repository import Notify as notify
 
 APPINDICATOR_ID = 'geo-cli'
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
-print(BASE_DIR)
+# print(BASE_DIR)
 GEO_SRC_DIR = os.path.dirname(BASE_DIR)
-print(GEO_SRC_DIR)
+# print(GEO_SRC_DIR)
 GEO_CMD_BASE = GEO_SRC_DIR + '/geo-cli.sh '
 
 icon_green_path = os.path.join(BASE_DIR, 'res', 'geo-icon-green.svg')
@@ -28,7 +28,7 @@ icon_grey_update_path = os.path.join(BASE_DIR, 'res', 'geo-icon-grey-update.svg'
 icon_red_path = os.path.join(BASE_DIR, 'res', 'geo-icon-red.svg')
 icon_red_update_path = os.path.join(BASE_DIR, 'res', 'geo-icon-red-update.svg')
 icon_spinner_path = os.path.join(BASE_DIR, 'res', 'geo-spinner.svg')
-print(icon_green_path)
+# print(icon_green_path)
 
 indicator = None
 ICON_RED = 'red'
@@ -50,10 +50,10 @@ class IconManager:
         # return
         if self.cur_icon == ICON_RED:
             img_path = icon_red_update_path if self.update_available else icon_red_path
-            self.indicator.set_icon(img_path)
+            self.indicator.set_icon_full(img_path, "geo-cli: No DB running")
         elif self.cur_icon == ICON_GREEN:
             img_path = icon_green_update_path if self.update_available else icon_green_path
-            self.indicator.set_icon(img_path)
+            self.indicator.set_icon_full(img_path, 'geo-cli: DB running')
 
     def set_icon(self, icon_type):
         icon_changed = self.cur_icon is not icon_type
@@ -68,6 +68,7 @@ class Indicator(object):
         # self.indicator.set_status(appindicator.IndicatorStatus.ATTENTION)
         self.indicator.set_status(appindicator.IndicatorStatus.ACTIVE)
         self.indicator.set_title('geo-cli')
+        # self.indicator.set_tooltip_text('geo-cli')
         self.icon_manager = IconManager(self.indicator)
         # indicator.set_icon(icon_green_path)
         # self.ind.set_icon(icon_green_path)
