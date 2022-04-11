@@ -11,9 +11,12 @@ gi.require_version('AppIndicator3', '0.1')
 
 from gi.repository import Gtk, GLib
 from gi.repository import AppIndicator3 as appindicator
+
 # from gi.repository import Notify as notify
 
 APPINDICATOR_ID = 'geo-cli'
+
+UPDATE_INTERVAL = 5000
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 # print(BASE_DIR)
@@ -34,6 +37,7 @@ indicator = None
 ICON_RED = 'red'
 ICON_GREEN = 'green'
 
+
 class IconManager:
     def __init__(self, indicator):
         self.indicator = indicator
@@ -46,8 +50,6 @@ class IconManager:
         self.update_icon()
 
     def update_icon(self):
-        # self.indicator.set_icon(icon_spinner_path)
-        # return
         if self.cur_icon == ICON_RED:
             img_path = icon_red_update_path if self.update_available else icon_red_path
             self.indicator.set_icon_full(img_path, "geo-cli: No DB running")
@@ -65,86 +67,58 @@ class IconManager:
 class Indicator(object):
     def __init__(self):
         self.indicator = appindicator.Indicator.new(APPINDICATOR_ID, icon_green_path, appindicator.IndicatorCategory.SYSTEM_SERVICES)
-        # self.indicator.set_status(appindicator.IndicatorStatus.ATTENTION)
         self.indicator.set_status(appindicator.IndicatorStatus.ACTIVE)
         self.indicator.set_title('geo-cli')
-        # self.indicator.set_tooltip_text('geo-cli')
+        self.db_submenu = None
+        self.item_databases = None
+        self.item_running_db = None
         self.icon_manager = IconManager(self.indicator)
-        # indicator.set_icon(icon_green_path)
-        # self.ind.set_icon(icon_green_path)
-        # indicator.set_icon_full(icon_green_path, '')
         self.menu = MainMenu(self)
-        # self.menu = Gtk.Menu()
         self.build_menu(self.menu)
         self.indicator.set_menu(self.menu)
-        # self.ind.set_menu(self.build_menu())
         Gtk.main()
 
     def build_menu(self, menu):
-        # stat = Gtk.CheckMenuItem("View Statusbar")
-        # menu.append(stat)
         item_geo_header = Gtk.MenuItem(label='-------------------- geo-cli --------------------')
         item_geo_header.set_sensitive(False)
         menu.append(item_geo_header)
         sep = Gtk.SeparatorMenuItem()
-        # sep.set_hexpand(True)
         menu.append(sep)
 
         item_running_db = RunningDbMenuItem(self)
-        # item_running_db.connect('activate', item_running_db.show_stop_menu)
-        # item_running_db.set_submenu(item_running_db.stop_menu)
-        # item_separator = Gtk.SeparatorMenuItem()
+        self.item_running_db = item_running_db
 
-        # item_disable = Gtk.MenuItem(label='Disable')
-        # self.box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        # label = Gtk.Label()
-        # label.set_text('Box Label')
-        # self.box.pack_start(label, True, True, 5)
-        # item_disable.append(self.box)
-        item_start_db = Gtk.MenuItem(label='Start DB')
-        db_submenu = DbMenu(item_running_db) #self.build_db_submenu(item_running_db)
-        self.db_submenu = db_submenu
-        # item_start_db.connect('activate', lambda _: self.show_db_menu())
-        # item_start_db.connect('activate', lambda _: db_submenu.show_all())
-        item_start_db.set_submenu(db_submenu)
+        item_databases = self.get_database_item()
+        self.item_databases = item_databases
+        item_create_db = self.get_create_db_item()
 
         item_quit = Gtk.MenuItem(label='Quit')
         item_quit.connect('activate', self.quit)
-        # item_quit.connect('activate', lambda _: Gtk.main_quit())
-        # item_disable.connect('activate', self.disable)
-        # self.item_disable = item_disable
-
 
         item_help = self.build_help_item()
 
         menu.append(item_running_db)
-        # menu.append(Gtk.SeparatorMenuItem())
-        # menu.append(item_disable)
 
-        menu.append(item_start_db)
+        menu.append(item_databases)
+        menu.append(item_create_db)
         menu.append(Gtk.SeparatorMenuItem())
 
-        # menu.append(item_update)
-        # menu.append(Gtk.SeparatorMenuItem())
-
         menu.append(item_help)
-        # menu.append(Gtk.SeparatorMenuItem())
-
         menu.append(item_quit)
 
         item_update = self.build_update_item()
         menu.append(item_update)
         menu.show_all()
 
-    def show_db_menu(self):
-        print('show_db_menu')
-        self.db_submenu.show_all()
-
+    @staticmethod
+    def get_create_db_item():
+        item = Gtk.MenuItem(label='Create DB')
+        item.connect('activate', lambda s: run_in_terminal(get_geo_cmd('db start -p')))
+        return item
 
     def build_help_item(self):
         help = Gtk.MenuItem(label="Help")
         submenu = Gtk.Menu()
-        # help.connect('activate', lambda w: submenu.show_all())
 
         item_disable = Gtk.MenuItem(label='Disable')
         item_disable.connect('activate', self.show_disable_dialog)
@@ -167,15 +141,6 @@ class Indicator(object):
         geo('indicator disable')
         self.quit(None)
 
-    def build_db_submenu(self, item_running_db):
-        menu = Gtk.Menu()
-        db_names = get_geo_db_names()
-        for n in db_names:
-            # print(n)
-            db_item = DbMenuItem(n, item_running_db)
-            menu.append(db_item)
-        return menu
-
     def build_box(self):
         self.box_outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         self.label = Gtk.Label()
@@ -187,15 +152,6 @@ class Indicator(object):
 
     def quit(self, source=None):
         Gtk.main_quit()
-
-    # def disable(self, source):
-    #     self.ind.set_icon(icon_red_path)
-    #     cmd = 'docker ps --filter name="geo_cli_db_" --filter status=running -a --format="{{ .Names }}"'
-    #     output = subprocess.run(cmd, shell=True, text=True, capture_output=True)
-    #     # Trim off new line.
-    #     name = output.stdout[0:-1]
-    #     self.item_disable.set_label(name)
-    #     print(output.stdout)
 
     def show_disable_dialog(self, widget):
         dialog = Gtk.MessageDialog(
@@ -217,6 +173,11 @@ class Indicator(object):
 
         dialog.destroy()
 
+    def get_database_item(self):
+        item_databases = Gtk.MenuItem(label='Databases')
+        db_submenu = DbMenu(self)
+        item_databases.set_submenu(db_submenu)
+        return item_databases
 
 
 class MainMenu(Gtk.Menu):
@@ -234,22 +195,23 @@ class MainMenu(Gtk.Menu):
         self.items.remove(item)
         super().remove(item)
 
+
 class DbMenu(Gtk.Menu):
-    def __init__(self, item_running_db):
-        self.item_running_db = item_running_db
+    def __init__(self, app):
+        self.app = app
+        self.item_running_db = app.item_running_db
         super().__init__()
         self.db_names = set(get_geo_db_names())
-        self.item_lookup = dict()
+        self.items = dict()
         self.build_db_items()
-        GLib.timeout_add(5*1000, self.db_monitor)
+        GLib.timeout_add(2 * 1000, self.db_monitor)
 
     def build_db_items(self):
-        self.db_names = set(get_geo_db_names())
-        self.item_lookup = {}
-        for n in self.db_names:
-            # print(n)
-            db_item = DbMenuItem(n, self.item_running_db)
-            self.item_lookup[n] = db_item
+        dbs = get_geo_db_names()
+        self.db_names = set(dbs)
+        for db in dbs:
+            db_item = DbMenuItem(db, self.app)
+            self.items[db] = db_item
             self.append(db_item)
         self.queue_draw()
 
@@ -257,6 +219,7 @@ class DbMenu(Gtk.Menu):
         for item in self.get_children():
             if item.name is None: continue
             self.remove(item)
+            self.items.pop(item)
             item.destroy()
         self.queue_draw()
 
@@ -264,8 +227,6 @@ class DbMenu(Gtk.Menu):
         new_db_names = set(get_geo_db_names())
         if new_db_names != self.db_names:
             self.update_items(new_db_names)
-            # self.remove_items()
-            # self.build_db_items()
         self.db_names = new_db_names
         return True
 
@@ -275,16 +236,19 @@ class DbMenu(Gtk.Menu):
         added = new_db_names - self.db_names
         print('Added: ' + str(added))
         for db in removed:
-            if db not in self.item_lookup: continue
-            item = self.item_lookup.pop(db)
+            if db not in self.items: continue
+            item = self.items.pop(db)
+            item.hide()
+            item.set_sensitive(False)
             self.remove(item)
         for db in added:
-            if db in self.item_lookup: continue
-            item = DbMenuItem(db, self.item_running_db)
-            self.item_lookup[db] = item
+            if db in self.items: continue
+            item = DbMenuItem(db, self.app)
             self.append(item)
+            item.show()
+            # self.show_all()
+            self.items[db] = item
         self.queue_draw()
-
 
 
 class DialogExample(Gtk.Dialog):
@@ -293,27 +257,42 @@ class DialogExample(Gtk.Dialog):
         self.add_buttons(
             Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OK, Gtk.ResponseType.OK
         )
-
         self.set_default_size(150, 100)
-
         label = Gtk.Label(label="This is a dialog to display additional information")
-
         box = self.get_content_area()
         box.add(label)
         self.show_all()
 
 
 class DbMenuItem(Gtk.MenuItem):
-    def __init__(self, name, item_running_db):
-        self.item_running_db = item_running_db
+    def __init__(self, name, app):
+        self.app = app
+        self.item_running_db = app.item_running_db
         super().__init__(label=name)
         self.name = name
         self.set_label(name)
-        self.connect('activate', self.start_geo_db)
+        self.submenu = Gtk.Menu()
+        self.item_start = Gtk.MenuItem(label='Start')
+        self.item_remove = Gtk.MenuItem(label='Remove')
+        self.submenu.append(self.item_start)
+        self.submenu.append(self.item_remove)
+        self.item_remove.connect('activate', self.remove_geo_db)
+        self.item_start.connect('activate', self.start_geo_db)
+        self.set_submenu(self.submenu)
+
+    def remove_geo_db(self, src=None):
+        if '(removing)' in self.name: return
+        self.set_label(self.name + ' (removing)')
+
+        def run():
+            geo('db rm ' + self.name)
+            self.app.item_databases.get_submenu().remove(self)
+            self.set_sensitive(False)
+            return False
+        GLib.timeout_add(5, lambda: run())
 
     def start_geo_db(self, obj):
-        # self.item_running_db.set_label('Starting db...')
-        self.item_running_db.set_db_label_markup('<span foreground="green">Starting db...</span>')
+        self.item_running_db.set_label('Starting db...')
 
         def run_after_label_update():
             start_db(self.name)
@@ -321,7 +300,7 @@ class DbMenuItem(Gtk.MenuItem):
             if self.name != running_db:
                 self.item_running_db.set_label('Failed to start db')
             else:
-                # self.item_running_db.set_label('Running DB: ' + self.name)
+                self.item_start.set_sensitive(False)
                 self.item_running_db.set_db_label_markup(get_running_db_label_markup(self.name))
 
         # Add timeout to allow event loop to update label name while the db start command runs.
@@ -330,34 +309,17 @@ class DbMenuItem(Gtk.MenuItem):
 
 class RunningDbMenuItem(Gtk.MenuItem):
     def __init__(self, app):
-        super().__init__(label='Running DB: ')
+        super().__init__(label='Checking for DB')
         self.app = app
-        self.running_db = ''#get_running_db_name()
-        self.start_monitoring_dbs()
-        # msg = 'Running DB: '
-        # if len(self.running_db) == 0:
-        #     self.is_db_running = False
-        #     msg = msg + "None"
-        #     self.set_db_label_markup(get_running_db_none_label_markup())
-        #     self.try_start_last_db()
-        # else:
-        #     self.is_db_running = True
-        #     msg = msg + self.running_db
-        #     self.running_db = self.running_db
-        #     self.set_db_label_markup(get_running_db_label_markup(self.running_db))
-
-        # super().__init__(label=msg)
-
+        self.running_db = ''
+        self.db_monitor()
         self.stop_menu = Gtk.Menu()
         item_stop_db = Gtk.MenuItem(label='Stop')
         item_stop_db.connect('activate', stop_db)
-        # self.activate_event_id = self.connect('activate', self.show_stop_menu)
         self.stop_menu.append(item_stop_db)
         self.set_submenu(self.stop_menu)
-        # self.name = name
-        # self.set_label(name)
 
-        GLib.timeout_add(1000, self.start_monitoring_dbs)
+        GLib.timeout_add(1000, self.db_monitor)
 
     def try_start_last_db(self):
         last_db = get_geo_setting('LAST_DB_VERSION')
@@ -365,16 +327,13 @@ class RunningDbMenuItem(Gtk.MenuItem):
             start_db(last_db)
 
     def stop_db(self, source):
-        # self.set_db_label_markup('Stopping DB')
-        self.set_label('Stopping DB...')
+        self.set_db_label('Stopping DB...')
+
         def run():
             stop_db()
-            # self.set_label('Running DB: None')
-            self.set_db_label_markup(get_running_db_none_label_markup())
-        # stop_db()
-        # self.set_db_label_markup(get_running_db_none_label_markup())
-        # self.set_label('Running DB: None')
-        GLib.timeout_add(0, run)
+            self.set_db_label(get_running_db_none_label_text())
+
+        GLib.timeout_add(10, run)
 
     def set_db_label(self, text):
         self.set_label(text)
@@ -393,85 +352,77 @@ class RunningDbMenuItem(Gtk.MenuItem):
         if not self.is_db_running: return
         self.stop_menu.show_all()
 
-    def start_monitoring_dbs(self):
-        # if self.activate_event_id is not None:
-        #     self.disconnect(self.activate_event_id)
-
+    def db_monitor(self):
         # poll for running db name, if it doesn't equal self
         cur_running_db = get_running_db_name()
         if len(cur_running_db) == 0:
             self.set_sensitive(False)
-            # self.set_submenu()
-            # self.connect('activate', self.no_op)
             self.app.icon_manager.set_icon(ICON_RED)
-            # self.set_label('Running DB: None')
-            self.set_label('No DB running')
-            # self.set_db_label_markup(get_running_db_none_label_markup())
-            # self.set_db_label_markup(get_running_db_none_label_markup())
+            self.set_db_label('No DB running')
         elif self.running_db != cur_running_db:
             self.set_sensitive(True)
-            # self.set_submenu(self.stop_menu)
-            # self.activate_event_id = self.connect('activate', self.show_stop_menu)
-            self.set_db_label_markup(get_running_db_label_markup(cur_running_db))
+            self.set_db_label(get_running_db_label_markup(cur_running_db))
             self.app.icon_manager.set_icon(ICON_GREEN)
         self.running_db = cur_running_db
+        self.update_db_start_items()
         return True
+
+    def update_db_start_items(self):
+        if self.app.item_databases is None: return
+        for item in self.app.item_databases.get_submenu().items.values():
+            if item.name == self.running_db:
+                item.item_start.set_sensitive(False)
+            else:
+                item.item_start.set_sensitive(True)
 
 
 class UpdateMenuItem(Gtk.MenuItem):
     def __init__(self, app):
+        global UPDATE_INTERVAL
         super().__init__(label='Checking for updates...')
         self.update_available = False
-        # self.item_update_activate_event_id = None
         self.app = app
         self.separator = Gtk.SeparatorMenuItem()
-        # self.img_update_available = Gtk.Image(stock=Gtk.STOCK_OK)
-        # self.submenu = Gtk.Menu()
-        # self.item_update = Gtk.ImageMenuItem(label="Checking for updates...")
-        # self.submenu.append(self.item_update)
-        # self.set_submenu(self.submenu)
-        # self.connect('activate', self.show_submenu)
-        # self.item_update.connect('activate', self.update_geo_cli)
         self.connect('activate', self.update_geo_cli)
 
         self.set_update_status()
-        GLib.timeout_add(5000, self.set_update_status)
+        GLib.timeout_add(UPDATE_INTERVAL, self.set_update_status)
 
     def set_update_status(self, source=None):
         update_available = is_update_available()
         self.update_available = update_available
-        # if self.item_update_activate_event_id is not None:
-        #     self.disconnect(self.item_update_activate_event_id)
         if update_available:
-            # self.set_image(self.img_update_available)
             self.set_label('●   Update Now')
             self.app.menu.append(self.separator)
             self.app.menu.append(self)
-            # self.item_update.set_label('Update Now')
             self.app.icon_manager.set_update_available(True)
         else:
-            # self.set_image(None)
             self.set_label('No update available')
-            # self.item_update.set_label('No update available')
             self.app.icon_manager.set_update_available(False)
             self.app.menu.remove(self.separator)
             self.app.menu.remove(self)
-            # self.item_update_activate_event_id = self.item_update.connect('activate', None)
         return True
 
     def update_geo_cli(self, source=None):
-        # print('update_geo_cli'); return
-        update_cmd = GEO_CMD_BASE + 'update -f'
-        cmd = "gnome-terminal --title='geo-cli Update' --geometry=80x30 -- bash -c \"bash %s; exec bash\"" % update_cmd
-        # print(cmd)
-        os.system(cmd)
+        update_cmd = get_geo_cmd('update -f')
+        run_in_terminal(update_cmd, title='geo-cli Update')
 
     def no_op(self, source):
         pass
 
     def show_submenu(self, source):
-        # print('stop menu clicked')
         self.submenu.show_all()
+
+
+def get_geo_cmd(geo_cmd):
+    return GEO_CMD_BASE + geo_cmd
+
+
+def run_in_terminal(cmd_to_run, title=''):
+    if len(title) > 0:
+        title = "--title='%s'" % title
+    cmd = "gnome-terminal %s --geometry=80x30 -- bash -c \"bash %s; cd $HOME; exec bash\"" % (title, cmd_to_run)
+    os.system(cmd)
 
 
 def get_geo_setting(key):
@@ -483,16 +434,24 @@ def is_update_available():
     ret = geo('dev update-available')
     return ret == 'true'
 
+
 def get_running_db_label_text(db):
-    return 'Running DB:\n' + db
+    return 'Running DB [%s]' % db
+
+
+def get_running_db_none_label_text():
+    return 'Running DB [None]'
+
 
 def get_running_db_label_markup(db):
     return 'Running DB [%s]' % db
     # return '<span size="smaller">Running DB:</span>\n' + '<span>   [<b>%s</b>]</span>' % db
 
+
 def get_running_db_none_label_markup():
     return 'Running DB [None]'
     # return '<span size="smaller">Running DB:</span>\n' + '<span foreground="grey"><b>    [None]</b></span>'
+
 
 def get_geo_db_names():
     cmd = 'docker container ls --filter name="geo_cli_db_"  -a --format="{{ .Names }}"'
@@ -500,6 +459,7 @@ def get_geo_db_names():
     names = full_names.replace('geo_cli_db_postgres_', '')
     full_names_a = full_names.split('\n')
     names_a = names.split('\n')
+    names_a.sort(reverse=True)
     return names_a
 
 
@@ -515,11 +475,13 @@ def get_running_db_name():
 def run_shell_cmd(cmd):
     return subprocess.run(cmd, shell=True, text=True, capture_output=True).stdout[0:-1]
 
+
 def run_cmd_and_wait(cmd):
     process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable='/bin/bash', text=True)
     process.wait()
     result = process.communicate()
     print(result)
+
 
 def start_db(name):
     geo('db start ' + name)
@@ -528,6 +490,7 @@ def start_db(name):
 def stop_db(arg=None):
     geo('db stop')
     # print('Stopping DB')
+
 
 def geo(arg_str):
     geo_path = GEO_SRC_DIR + '/geo-cli.sh '
@@ -538,14 +501,10 @@ def geo(arg_str):
     # print(result)
     return result[0]
 
-# def init_config():
-
-# test()
-# geo('-v')
-
 def main():
     indicator = Indicator()
     # Gtk.main()
+
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal.SIG_DFL)

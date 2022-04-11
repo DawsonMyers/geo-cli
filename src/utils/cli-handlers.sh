@@ -405,20 +405,40 @@ geo_db_start() {
         acceptDefaults=true
         shift
     fi
-    local db_version="$1"
+    db_version="$1"
+    local prompt_db_name=
+
+    prompt_for_db_version() {
+        prompt_db_name=true
+        prompt_n "Enter an alphanumeric name for the new database version: "
+        read db_version
+        # debug $db_version
+    }
+
+    if [[ $1 == '-p' ]]; then
+        prompt_for_db_version
+    fi
+
     db_version=$(geo_make_alphanumeric "$db_version")
     # debug $db_version
     if [ -z "$db_version" ]; then
-        db_version=$(geo_get LAST_DB_VERSION)
-        if [[ -z $db_version ]]; then
-            Error "No database version provided."
-            return
+        if [[ -n $prompt_db_name ]]; then
+            prompt_for_db_name
+        else
+            db_version=$(geo_get LAST_DB_VERSION)
+            if [[ -z $db_version ]]; then
+                Error "No database version provided."
+                return
+            fi
         fi
     fi
 
     if ! geo_check_db_image; then
-        Error "Cannot start db without image. Run 'geo image create' to create a db image"
-        return 1
+        if ! prompt_continue "No database images exist. Would you like to create on (Y|n)?: "; then
+            Error "Cannot start db without image. Run 'geo image create' to create a db image"
+            return 1
+        fi
+        geo image create
     fi
 
     geo_set LAST_DB_VERSION "$db_version"
@@ -430,7 +450,7 @@ geo_db_start() {
 
     # Check to see if the db is already running.
     local running_db=$(docker ps --format "{{.Names}}" -f name=geo_cli_db_)
-    [[ $running_db == $container_name ]] && success "Db '$db_version' is already running" && return
+    [[ $running_db == $container_name ]] && success "DB '$db_version' is already running" && return
 
     local volume=$(docker volume ls | grep " $container_name")
     # local volume_created=false
@@ -505,8 +525,10 @@ geo_db_start() {
             fi
         fi
     else
-        db_version="$1"
-        db_version=$(geo_make_alphanumeric "$db_version")
+        # db_version was getting overwritten somehow, so get its value from the config file.
+        db_version=$(geo_get LAST_DB_VERSION)
+        # db_version="$1"
+        # db_version=$(geo_make_alphanumeric "$db_version")
 
         if [ ! $acceptDefaults ]; then
             prompt_continue "Db container $(txt_italic ${db_version}) doesn't exist. Would you like to create it? (Y|n): " || return
@@ -2441,14 +2463,15 @@ geo_is_outdated() {
 
 # Sends an urgent geo-cli notification. This notification must be clicked by the user to dismiss.
 _geo_show_update_notification() {
+    # debug _geo_show_update_notification
     local notification_shown=$(geo_get UPDATE_NOTIFICATION_SENT)
-    [[ $notification_shown != false ]] && return
+    geo_set UPDATE_NOTIFICATION_SENT true
+    [[ $notification_shown == true ]] && return
     local title="Update Available"
     local msg="Run 'geo update' in a terminal to update geo-cli."
     _geo_show_critical_notification "$msg" "$title"
 
     # TODO uncomment before release
-    geo_set UPDATE_NOTIFICATION_SENT true
 }
 
 _geo_show_critical_notification() {
@@ -2458,6 +2481,7 @@ _geo_show_critical_notification() {
 }
 
 _geo_show_notification() {
+    ! type notify-send &> /dev/null && return 1
     [[ -z $GEO_CLI_DIR ]] && return
     local show_notifications=$(geo_get SHOW_NOTIFICATIONS)
     [[ $show_notifications != true ]] && return
