@@ -292,6 +292,7 @@ class DbMenuItem(Gtk.MenuItem):
         self.set_submenu(self.submenu)
         self.show_all()
 
+
     def remove_geo_db(self, src=None):
         if '(removing)' in self.name: return
         self.set_label(self.name + ' (removing)')

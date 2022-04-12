@@ -2320,6 +2320,9 @@ geo_dev_doc() {
     doc_cmd_desc 'Commands used for internal geo-cli development.'
 }
 geo_dev() {
+    local geo_cli_dir="$(geo_get GEO_CLI_DIR)"
+    local force_update_after_checkout=false
+    [[ $1 == -u ]] && force_update_after_checkout=true && shift
     case "$1" in
         update-available )
             if geo_check_for_updates; then
@@ -2327,6 +2330,17 @@ geo_dev() {
                 return
             fi
             status false
+            ;;
+        co )
+            local branch=
+            local checkout_failed=false
+            (
+                cd $geo_cli_dir
+                [[ $2 == - ]] && branch=master || branch="$2"
+                git checkout "$branch" || Error 'Failed to checkout branch' && checkout_failed=true
+            )
+            [[ $checkout_failed == true ]] && return 1
+            [[ $force_update_after_checkout == true ]] && geo_update -f
             ;;
         *)
             Error "Unknown argument: '$1'"
