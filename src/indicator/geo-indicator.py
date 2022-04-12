@@ -16,7 +16,7 @@ from gi.repository import AppIndicator3 as appindicator
 
 APPINDICATOR_ID = 'geo-cli'
 
-UPDATE_INTERVAL = 5000
+UPDATE_INTERVAL = 10*60*1000
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 GEO_SRC_DIR = os.path.dirname(BASE_DIR)
@@ -199,11 +199,13 @@ class MainMenu(Gtk.Menu):
     def append(self, item):
         if item in self.items: return
         self.items.add(item)
+        item.show()
         super().append(item)
 
     def remove(self, item):
         if item not in self.items: return
         self.items.remove(item)
+        item.hide()
         super().remove(item)
 
 
@@ -390,8 +392,11 @@ class UpdateMenuItem(Gtk.MenuItem):
         self.app = app
         self.separator = Gtk.SeparatorMenuItem()
         self.connect('activate', self.update_geo_cli)
+        self.app.menu.append(self.separator)
+        self.app.menu.append(self)
 
-        self.set_update_status()
+        # Run once later so that 'Checking for updates' is initially displayed.
+        GLib.timeout_add(2000, lambda: not self.set_update_status())
         GLib.timeout_add(UPDATE_INTERVAL, self.set_update_status)
 
     def set_update_status(self, source=None):
@@ -401,12 +406,17 @@ class UpdateMenuItem(Gtk.MenuItem):
             self.set_label('●   Update Now')
             self.app.menu.append(self.separator)
             self.app.menu.append(self)
+            self.set_sensitive(True)
+            self.app.menu.show_all()
             self.app.icon_manager.set_update_available(True)
+            self.show()
         else:
-            self.set_label('No update available')
+            self.set_label('geo-cli is up-to-date')
             self.app.icon_manager.set_update_available(False)
+            self.set_sensitive(False)
             self.app.menu.remove(self.separator)
             self.app.menu.remove(self)
+            self.hide()
         return True
 
     def update_geo_cli(self, source=None):
