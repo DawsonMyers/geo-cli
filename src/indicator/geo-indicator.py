@@ -19,9 +19,7 @@ APPINDICATOR_ID = 'geo-cli'
 UPDATE_INTERVAL = 5000
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
-# print(BASE_DIR)
 GEO_SRC_DIR = os.path.dirname(BASE_DIR)
-# print(GEO_SRC_DIR)
 GEO_CMD_BASE = GEO_SRC_DIR + '/geo-cli.sh '
 
 icon_green_path = os.path.join(BASE_DIR, 'res', 'geo-icon-green.svg')
@@ -31,7 +29,6 @@ icon_grey_update_path = os.path.join(BASE_DIR, 'res', 'geo-icon-grey-update.svg'
 icon_red_path = os.path.join(BASE_DIR, 'res', 'geo-icon-red.svg')
 icon_red_update_path = os.path.join(BASE_DIR, 'res', 'geo-icon-red-update.svg')
 icon_spinner_path = os.path.join(BASE_DIR, 'res', 'geo-spinner.svg')
-# print(icon_green_path)
 
 indicator = None
 ICON_RED = 'red'
@@ -64,7 +61,7 @@ class IconManager:
             self.update_icon()
 
 
-class Indicator(object):
+class IndicatorApp(object):
     def __init__(self):
         self.indicator = appindicator.Indicator.new(APPINDICATOR_ID, icon_green_path, appindicator.IndicatorCategory.SYSTEM_SERVICES)
         self.indicator.set_status(appindicator.IndicatorStatus.ACTIVE)
@@ -76,7 +73,7 @@ class Indicator(object):
         self.menu = MainMenu(self)
         self.build_menu(self.menu)
         self.indicator.set_menu(self.menu)
-        Gtk.main()
+        # Gtk.main()
 
     def build_menu(self, menu):
         item_geo_header = Gtk.MenuItem(label='-------------------- geo-cli --------------------')
@@ -114,6 +111,8 @@ class Indicator(object):
         item_update = self.build_update_item()
         menu.append(item_update)
         menu.show_all()
+
+
 
     @staticmethod
     def get_create_db_item():
@@ -155,7 +154,8 @@ class Indicator(object):
         # self.box_outer.append(self.label)
         return self.box_outer
 
-    def quit(self, source=None):
+    @staticmethod
+    def quit(source=None):
         Gtk.main_quit()
 
     def show_disable_dialog(self, widget):
@@ -184,7 +184,8 @@ class Indicator(object):
         item_databases.set_submenu(db_submenu)
         return item_databases
 
-    def get_analyzer_item(self):
+    @staticmethod
+    def get_analyzer_item():
         item = Gtk.MenuItem(label='Run Analyzers')
         item.connect('activate', lambda _: run_in_terminal(get_geo_cmd('analyze -b')))
         return item
@@ -289,11 +290,11 @@ class DbMenuItem(Gtk.MenuItem):
         self.item_remove.connect('activate', self.remove_geo_db)
         self.item_start.connect('activate', self.start_geo_db)
         self.set_submenu(self.submenu)
+        self.show_all()
 
     def remove_geo_db(self, src=None):
         if '(removing)' in self.name: return
         self.set_label(self.name + ' (removing)')
-
         def run():
             geo('db rm ' + self.name)
             self.app.item_databases.get_submenu().remove(self)
@@ -303,7 +304,6 @@ class DbMenuItem(Gtk.MenuItem):
 
     def start_geo_db(self, obj):
         self.item_running_db.set_label('Starting db...')
-
         def run_after_label_update():
             start_db(self.name)
             running_db = get_running_db_name()
@@ -330,11 +330,6 @@ class RunningDbMenuItem(Gtk.MenuItem):
         self.set_submenu(self.stop_menu)
 
         GLib.timeout_add(1000, self.db_monitor)
-
-    def try_start_last_db(self):
-        last_db = get_geo_setting('LAST_DB_VERSION')
-        if last_db is not None:
-            start_db(last_db)
 
     def stop_db(self, source):
         self.set_db_label('Stopping DB...')
@@ -414,7 +409,7 @@ class UpdateMenuItem(Gtk.MenuItem):
         return True
 
     def update_geo_cli(self, source=None):
-        update_cmd = get_geo_cmd('update -f')
+        update_cmd = get_geo_cmd('update')
         run_in_terminal(update_cmd, title='geo-cli Update')
 
     def no_op(self, source):
@@ -423,6 +418,11 @@ class UpdateMenuItem(Gtk.MenuItem):
     def show_submenu(self, source):
         self.submenu.show_all()
 
+
+def try_start_last_db():
+    last_db = get_geo_setting('LAST_DB_VERSION')
+    if last_db is not None:
+        start_db(last_db)
 
 def get_geo_cmd(geo_cmd):
     return GEO_CMD_BASE + geo_cmd
@@ -510,8 +510,9 @@ def geo(arg_str):
     return result[0]
 
 def main():
-    indicator = Indicator()
-    # Gtk.main()
+    indicator = IndicatorApp()
+    try_start_last_db()
+    Gtk.main()
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal.SIG_DFL)

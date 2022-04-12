@@ -2168,27 +2168,43 @@ geo_cd() {
 ###########################################################
 COMMANDS+=('indicator')
 geo_indicator_doc() {
-    doc_cmd 'cd <enable | disable>'
+    doc_cmd 'indicator <command>'
     doc_cmd_desc 'Enables or disables the app indicator.'
     
+    doc_cmd_sub_cmds_title
+        doc_cmd_sub_cmd 'enable'
+            doc_cmd_sub_cmd_desc 'Enable the app indicator.'
+        doc_cmd_sub_cmd 'disable'
+            doc_cmd_sub_cmd_desc 'Disable the app indicator.'
+        doc_cmd_sub_cmd 'start'
+            doc_cmd_sub_cmd_desc 'Start the app indicator.'
+        doc_cmd_sub_cmd 'stop'
+            doc_cmd_sub_cmd_desc 'Stop the app indicator.'
+        doc_cmd_sub_cmd 'restart'
+            doc_cmd_sub_cmd_desc 'Restart the app indicator.'
+        doc_cmd_sub_cmd 'status'
+            doc_cmd_sub_cmd_desc 'Gets the systemctl service status for the app indicator.'
     doc_cmd_examples_title
     doc_cmd_example 'geo indicator enable'
     doc_cmd_example 'geo indicator disable'
 }
 geo_indicator() {
+    local geo_indicator_service_name=geo-indicator.service
     local indicator_bin_path=~/.geo-cli/bin/geo-indicator
     # local indicator_bin_path=/usr/local/bin/geo-indicator
-    local indicator_service_path=~/.config/systemd/user/geo-indicator.service
+    local indicator_service_path=~/.config/systemd/user/$geo_indicator_service_name
     _geo_indicator_check_dependencies
     case "$1" in
         enable )
-            
+            status -b "Enabling app indicator"
+            echo
+            # Directory where user service files are stored.
             mkdir -p  ~/.config/systemd/user/
             mkdir -p  ~/.geo-cli/.data
             export src_dir=$(geo_get GEO_CLI_SRC_DIR)
             # echo $src_dir > ~/.geo-cli/.data/geo-cli-src-dir.txt
             local init_script_path="$src_dir/indicator/geo-indicator.sh"
-            local service_file_path="$src_dir/indicator/geo-indicator.service"
+            local service_file_path="$src_dir/indicator/$geo_indicator_service_name"
             if [[ ! -f $init_script_path ]]; then
                 Error "App indicator script not found at '$init_script_path'"
                 return 1
@@ -2215,24 +2231,33 @@ geo_indicator() {
             # sudo chmod 777 $indicator_bin_path
             
             systemctl --user daemon-reload
-            systemctl --user enable --now geo-indicator.service
+            systemctl --user enable --now $geo_indicator_service_name
+            systemctl --user restart $geo_indicator_service_name
             ;;
         start )
-            systemctl --user start --now geo-indicator.service
+            systemctl --user start --now $geo_indicator_service_name
             ;;
         stop )
-            systemctl --user stop --now geo-indicator.service
+            systemctl --user stop --now $geo_indicator_service_name
             ;;
         disable )
-            systemctl --user stop --now geo-indicator.service
-            systemctl --user disable --now geo-indicator.service
+            systemctl --user stop --now $geo_indicator_service_name
+            systemctl --user disable --now $geo_indicator_service_name
+            geo_set 'APP_INDICATOR_ENABLED' 'false'
             success 'geo-indicator disabled'
             ;;
         status )
-            systemctl --user status geo-indicator.service
+            systemctl --user status $geo_indicator_service_name
             ;;
         restart )
-            systemctl --user restart geo-indicator.service
+            systemctl --user restart $geo_indicator_service_name
+            ;;
+        init )
+            indicator_enabled=$(geo_get 'APP_INDICATOR_ENABLED')
+
+            [[ -z $indicator_enabled ]] && indicator_enabled=true && geo_set 'APP_INDICATOR_ENABLED' 'true'
+            [[ $indicator_enabled == false ]] && return
+            geo_indicator enable
             ;;
         *)
             Error "Unknown argument: '$1'"
@@ -2240,9 +2265,17 @@ geo_indicator() {
     esac
 }
 
+_geo_service_exists() {
+    local n=$1
+    if [[ $(systemctl --user list-units --all -t service --full --no-legend "$n.service" | sed 's/^\s*//g' | cut -f1 -d' ') == $n.service ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
 _geo_install_apt_package_if_missing() {
     local pkg_name="$1"
-    ! type sudo && sudo='' || sudo=sudo
+    ! type sudo &> /dev/null && sudo='' || sudo=sudo
     [[ -z $pkg_name ]] && warn 'No package name supplied' && return 1
 
     if ! dpkg -l $pkg_name &> /dev/null; then
@@ -2251,7 +2284,7 @@ _geo_install_apt_package_if_missing() {
     fi
 }
 _geo_indicator_check_dependencies() {
-    ! type sudo && sudo='' || sudo=sudo
+    ! type sudo &> /dev/null && sudo='' || sudo=sudo
     if ! type python3 &> /dev/null; then
         if ! prompt_continue "python3 is required for geo indicator. Install now (Y|n)?"; then
             return

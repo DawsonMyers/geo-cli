@@ -62,13 +62,16 @@ fi
 
 # Enable notification if the SHOW_NOTIFICATIONS setting doesn't exist in the config file.
 show_notifications=$(geo_get SHOW_NOTIFICATIONS)
-[[ -z show_notifications ]] && geo_set SHOW_NOTIFICATIONS true
+[[ -z $show_notifications ]] && geo_set SHOW_NOTIFICATIONS true
 
 # Reset update notification.
 geo_set UPDATE_NOTIFICATION_SENT false
 
 # Generate geo autocompletions.
 geo_generate_autocompletions
+
+# Set up app indicator service.
+geo_indicator init
 
 geo_check_for_dev_repo_dir
 
