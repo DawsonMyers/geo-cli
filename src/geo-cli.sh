@@ -1,6 +1,6 @@
 #!/bin/bash
 # This file is sourced from ~/.bashrc to make geo cli available from any bash terminal.
-if [[ `whoami` = 'root' && -z GEO_ALLOW_ROOT ]]; then echo 'ERROR: Do not run geo as root (sudo)'; exit; fi
+if [[ `whoami` = 'root' && -z $GEO_ALLOW_ROOT ]]; then echo 'ERROR: Do not run geo as root (sudo)'; exit; fi
 
 # Init geo config directory if it doesn't exist.
 export GEO_CLI_CONFIG_DIR="$HOME/.geo-cli"
