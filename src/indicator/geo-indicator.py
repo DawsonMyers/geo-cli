@@ -366,7 +366,7 @@ class RunningDbMenuItem(Gtk.MenuItem):
     def db_monitor(self):
         # poll for running db name, if it doesn't equal self
         cur_running_db = get_running_db_name()
-        if len(cur_running_db) == 0:
+        if len(cur_running_db) == 0 and 'Failed' not in self.get_label():
             self.set_sensitive(False)
             self.app.icon_manager.set_icon(ICON_RED)
             self.set_db_label('No DB running')
