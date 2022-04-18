@@ -405,6 +405,13 @@ geo_db_start() {
         acceptDefaults=true
         shift
     fi
+
+    local no_prompt=
+    if [[ $1 == '-n' ]]; then
+        no_prompt=true
+        shift
+    fi
+    # Error "Port error" && return 1
     db_version="$1"
     local prompt_db_name=
 
@@ -471,6 +478,7 @@ geo_db_start() {
         # Get container name by triming off the port info from docker ps output.
         local container_name_using_postgres_port="${port_in_use%% *}"
         Error "Postgres port 5432 is currently bound to the following container: $container_name_using_postgres_port"
+        [[ $no_prompt == true ]] && Error "Port error" && return 1
         if prompt_continue "Do you want to stop this container so that a geo db one can be started? (Y|n): "; then
             if docker stop "$container_name_using_postgres_port" >-; then
                 status 'Container stopped'
@@ -510,6 +518,7 @@ geo_db_start() {
         try_to_start_db $container_id
 
         if [[ -n $output ]]; then
+            [[ $no_prompt == true ]] && Error "Port error" && return 1
             Error "Port 5432 is already in use."
             info "Fix: Stop postgresql"
             if prompt_continue "Do you want to try to stop the postgresql service? (Y|n): "; then

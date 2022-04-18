@@ -6,21 +6,18 @@
 <!--              d="M 2 2 C 21.210938 20.8125 19.082031 22.636719 16.003906 22.636719" />-->
 <!--    </g>-->
 
-    <style>
-        .small { font: bold 12px sans-serif; fill: #1ABC9C }
-        .heavy { font: bold 30px sans-serif; alignment-baseline: central; }
+<!--    <style>-->
+<!--        .small { font: bold 12px sans-serif; fill: #1ABC9C }-->
+<!--        .heavy { font: bold 30px sans-serif; alignment-baseline: central; }-->
 
-        /* Note that the color of the text is set with the    *
-        * fill property, the color property is for HTML only */
-        .Rrrrr { font: italic 40px serif; fill: red; }
-    </style>
-<!--        <text x="50%" y="20.5px" class="small" text-anchor="middle" alignment-baseline="middle">GEO</text>-->
+<!--        /* Note that the color of the text is set with the    *-->
+<!--        * fill property, the color property is for HTML only */-->
+<!--        .Rrrrr { font: italic 40px serif; fill: red; }-->
+<!--    </style>-->
+        <rect width="5" height="5" fill="red" stroke-width="1px" stroke="red" />
+        <text x="50%" y="20.5px" class="small" text-anchor="middle" alignment-baseline="middle">GEO</text>
 
-    <text x="50%" y="20.5px" class="small" text-anchor="middle" alignment-baseline="middle">GEO</text>
 
-
-    <rect width="20%" height="20%" fill="none" stroke-width="1px" stroke="red" />
-<!--        <rect width="90%" height="90%" fill="green" stroke-width="1px" stroke="red" />-->
 <!--    </rect>-->
 <!--    <g transform="translate(0,0)">-->
 <!--        <rect width="100%" height="100%" stroke="#aaa" stroke-width="2" fill="none"></rect>-->

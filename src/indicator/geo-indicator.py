@@ -66,6 +66,7 @@ class IndicatorApp(object):
         self.indicator = appindicator.Indicator.new(APPINDICATOR_ID, icon_green_path, appindicator.IndicatorCategory.SYSTEM_SERVICES)
         self.indicator.set_status(appindicator.IndicatorStatus.ACTIVE)
         self.indicator.set_title('geo-cli')
+        # self.indicator.set_label('geo-cli', 'geo-cli')
         self.db_submenu = None
         self.item_databases = None
         self.item_running_db = None
@@ -308,7 +309,9 @@ class DbMenuItem(Gtk.MenuItem):
     def start_geo_db(self, obj):
         self.item_running_db.set_label('Starting db...')
         def run_after_label_update():
-            start_db(self.name)
+            return_msg = start_db(self.name)
+            if "Port error" in return_msg:
+                run_in_terminal(get_geo_cmd('db start ' + self.name))
             running_db = get_running_db_name()
             if self.name != running_db:
                 self.item_running_db.set_label('Failed to start db')
@@ -503,7 +506,8 @@ def run_cmd_and_wait(cmd):
 
 
 def start_db(name):
-    geo('db start ' + name)
+    # '-n' option is the 'no prompt' option. It causes geo to exit instead of waiting for user input.
+    return geo('db start -n ' + name)
 
 
 def stop_db(arg=None):
