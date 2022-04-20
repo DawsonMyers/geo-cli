@@ -28,11 +28,14 @@ icon_grey_path = os.path.join(BASE_DIR, 'res', 'geo-icon-grey.svg')
 icon_grey_update_path = os.path.join(BASE_DIR, 'res', 'geo-icon-grey-update.svg')
 icon_red_path = os.path.join(BASE_DIR, 'res', 'geo-icon-red.svg')
 icon_red_update_path = os.path.join(BASE_DIR, 'res', 'geo-icon-red-update.svg')
+icon_orange_path = os.path.join(BASE_DIR, 'res', 'geo-icon-orange.svg')
+icon_orange_update_path = os.path.join(BASE_DIR, 'res', 'geo-icon-orange-update.svg')
 icon_spinner_path = os.path.join(BASE_DIR, 'res', 'geo-spinner.svg')
 
 indicator = None
 ICON_RED = 'red'
 ICON_GREEN = 'green'
+ICON_ORANGE = 'orange'
 
 
 class IconManager:
@@ -53,6 +56,9 @@ class IconManager:
         elif self.cur_icon == ICON_GREEN:
             img_path = icon_green_update_path if self.update_available else icon_green_path
             self.indicator.set_icon_full(img_path, 'geo-cli: DB running')
+        elif self.cur_icon == ICON_ORANGE:
+            img_path = icon_orange_update_path if self.update_available else icon_orange_path
+            self.indicator.set_icon_full(img_path, 'geo-cli: DB Error')
 
     def set_icon(self, icon_type):
         icon_changed = self.cur_icon is not icon_type
@@ -307,14 +313,14 @@ class DbMenuItem(Gtk.MenuItem):
         GLib.timeout_add(5, lambda: run())
 
     def start_geo_db(self, obj):
-        self.item_running_db.set_label('Starting db...')
+        self.item_running_db.set_label('Starting DB...')
         def run_after_label_update():
             return_msg = start_db(self.name)
             if "Port error" in return_msg:
                 run_in_terminal(get_geo_cmd('db start ' + self.name))
             running_db = get_running_db_name()
             if self.name != running_db:
-                self.item_running_db.set_label('Failed to start db')
+                self.item_running_db.set_label('Failed to start DB')
             else:
                 self.item_start.set_sensitive(False)
                 self.item_running_db.set_db_label_markup(get_running_db_label_markup(self.name))
@@ -331,15 +337,21 @@ class RunningDbMenuItem(Gtk.MenuItem):
         self.db_monitor()
         self.stop_menu = Gtk.Menu()
         item_stop_db = Gtk.MenuItem(label='Stop')
-        item_stop_db.connect('activate', stop_db)
+        item_ssh = Gtk.MenuItem(label='SSH')
+        item_psql = Gtk.MenuItem(label='PSQL')
+        item_stop_db.connect('activate', self.stop_db)
+        item_ssh.connect('activate', lambda _: run_in_terminal(get_geo_cmd('db ssh')))
+        item_psql.connect('activate', lambda _: run_in_terminal(get_geo_cmd('db psql')))
         self.stop_menu.append(item_stop_db)
+        self.stop_menu.append(item_ssh)
+        self.stop_menu.append(item_psql)
         self.set_submenu(self.stop_menu)
-
+        self.show_all()
         GLib.timeout_add(1000, self.db_monitor)
 
     def stop_db(self, source):
         self.set_db_label('Stopping DB...')
-
+        self.set_sensitive(False)
         def run():
             stop_db()
             self.set_db_label(get_running_db_none_label_text())
@@ -348,15 +360,13 @@ class RunningDbMenuItem(Gtk.MenuItem):
 
     def set_db_label(self, text):
         self.set_label(text)
+        self.show()
         self.queue_draw()
 
     def set_db_label_markup(self, text):
         label = self.get_children()[0]
         label.set_markup(text)
         self.queue_draw()
-
-    def no_op(self, source):
-        a = 1
 
     def show_stop_menu(self, source):
         # print('stop menu clicked')
@@ -366,10 +376,16 @@ class RunningDbMenuItem(Gtk.MenuItem):
     def db_monitor(self):
         # poll for running db name, if it doesn't equal self
         cur_running_db = get_running_db_name()
-        if len(cur_running_db) == 0 and 'Failed' not in self.get_label():
-            self.set_sensitive(False)
-            self.app.icon_manager.set_icon(ICON_RED)
-            self.set_db_label('No DB running')
+        if cur_running_db == self.running_db and 'Stopping' in self.get_label():
+            pass
+        elif len(cur_running_db) == 0:
+            if 'Failed' in self.get_label():
+                self.set_sensitive(False)
+                self.app.icon_manager.set_icon(ICON_ORANGE)
+            else:
+                self.set_sensitive(False)
+                self.app.icon_manager.set_icon(ICON_RED)
+                self.set_db_label('No DB running')
         elif self.running_db != cur_running_db:
             self.set_sensitive(True)
             self.set_db_label(get_running_db_label_markup(cur_running_db))
@@ -425,9 +441,6 @@ class UpdateMenuItem(Gtk.MenuItem):
     def update_geo_cli(self, source=None):
         update_cmd = get_geo_cmd('update')
         run_in_terminal(update_cmd, title='geo-cli Update')
-
-    def no_op(self, source):
-        pass
 
     def show_submenu(self, source):
         self.submenu.show_all()

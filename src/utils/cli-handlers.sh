@@ -248,7 +248,7 @@ geo_db() {
     script)
         geo_db_script "${@:2}"
         ;;
-    bash)
+    bash | ssh)
         local running_container_id=$(geo_get_running_container_id)
         if [[ -z $running_container_id ]]; then
             Error 'No geo-cli containers are running to connect to.'
