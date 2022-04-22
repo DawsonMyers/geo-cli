@@ -2205,7 +2205,7 @@ geo_indicator() {
     fi
 
     local geo_indicator_service_name=geo-indicator.service
-    local indicator_bin_path=~/.geo-cli/bin/geo-indicator
+    # local indicator_bin_path=~/.geo-cli/bin/geo-indicator
     # local indicator_bin_path=/usr/local/bin/geo-indicator
     local indicator_service_path=~/.config/systemd/user/$geo_indicator_service_name
     _geo_indicator_check_dependencies
@@ -2218,8 +2218,8 @@ geo_indicator() {
             mkdir -p  ~/.geo-cli/.data
             export src_dir=$(geo_get GEO_CLI_SRC_DIR)
             # echo $src_dir > ~/.geo-cli/.data/geo-cli-src-dir.txt
-            local init_script_path="$src_dir/indicator/geo-indicator.sh"
-            local service_file_path="$src_dir/indicator/$geo_indicator_service_name"
+            local init_script_path="$src_dir/py/indicator/geo-indicator.sh"
+            local service_file_path="$src_dir/py/indicator/$geo_indicator_service_name"
             if [[ ! -f $init_script_path ]]; then
                 Error "App indicator script not found at '$init_script_path'"
                 return 1
@@ -2240,7 +2240,7 @@ geo_indicator() {
             # cp $tmp_file $indicator_bin_path
             # sudo cp $tmp_file $indicator_bin_path
             # envsubst < $init_script_path > $indicator_bin_path
-            export geo_indicator_path="$src_dir/indicator/geo-indicator.sh"
+            export geo_indicator_path="$src_dir/py/indicator/geo-indicator.sh"
             # export indicator_py_path="$src_dir/indicator/geo-indicator.py"
             envsubst < $service_file_path > $indicator_service_path
             # sudo chmod 777 $indicator_bin_path
