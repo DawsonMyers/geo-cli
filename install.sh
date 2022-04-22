@@ -70,8 +70,12 @@ geo_set UPDATE_NOTIFICATION_SENT false
 # Generate geo autocompletions.
 geo_generate_autocompletions
 
-# Set up app indicator service.
-geo_indicator init
+# Set up app indicator service if not in headless Ubuntu (no UI).
+running_in_headless_ubuntu=$(dpkg -l ubuntu-desktop | grep 'no packages found')
+if [[ -z $running_in_headless_ubuntu ]]; then
+    geo_indicator init
+fi
+
 
 geo_check_for_dev_repo_dir
 

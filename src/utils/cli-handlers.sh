@@ -2198,6 +2198,12 @@ geo_indicator_doc() {
     doc_cmd_example 'geo indicator disable'
 }
 geo_indicator() {
+    local running_in_headless_ubuntu=$(dpkg -l ubuntu-desktop | grep 'no packages found')
+    if [[ -n $running_in_headless_ubuntu ]]; then
+        Error 'Cannot use geo-cli indicator with headless versions of Ubuntu.'
+        return 1
+    fi
+
     local geo_indicator_service_name=geo-indicator.service
     local indicator_bin_path=~/.geo-cli/bin/geo-indicator
     # local indicator_bin_path=/usr/local/bin/geo-indicator
