@@ -20,6 +20,7 @@ UPDATE_INTERVAL = 10*60*1000
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 GEO_SRC_DIR = os.path.dirname(BASE_DIR)
+GEO_SRC_DIR = os.path.dirname(GEO_SRC_DIR)
 GEO_CMD_BASE = GEO_SRC_DIR + '/geo-cli.sh '
 
 icon_green_path = os.path.join(BASE_DIR, 'res', 'geo-icon-green.svg')
@@ -76,6 +77,7 @@ class IndicatorApp(object):
         self.db_submenu = None
         self.item_databases = None
         self.item_running_db = None
+        self.item_auto_switch_db_toggle = None
         self.icon_manager = IconManager(self.indicator)
         self.menu = MainMenu(self)
         self.build_menu(self.menu)
@@ -95,6 +97,8 @@ class IndicatorApp(object):
         item_databases = self.get_database_item()
         self.item_databases = item_databases
         item_create_db = self.get_create_db_item()
+        item_auto_switch_db_toggle = AutoSwitchDbMenuItem(self)
+        self.item_auto_switch_db_toggle = item_auto_switch_db_toggle
 
         item_run_analyzers = self.get_analyzer_item()
 
@@ -107,6 +111,7 @@ class IndicatorApp(object):
 
         menu.append(item_databases)
         menu.append(item_create_db)
+        menu.append(item_auto_switch_db_toggle)
         menu.append(Gtk.SeparatorMenuItem())
 
         menu.append(item_run_analyzers)
@@ -196,7 +201,6 @@ class IndicatorApp(object):
         item = Gtk.MenuItem(label='Run Analyzers')
         item.connect('activate', lambda _: run_in_terminal(get_geo_cmd('analyze -b')))
         return item
-
 
 
 class MainMenu(Gtk.Menu):
@@ -329,12 +333,40 @@ class DbMenuItem(Gtk.MenuItem):
         # Add timeout to allow event loop to update label name while the db start command runs.
         GLib.timeout_add(10, run_after_label_update)
 
+class AutoSwitchDbMenuItem(Gtk.CheckMenuItem):
+    def __init__(self, app):
+        super().__init__(label='Auto-Switch DB')
+        self.app = app
+        self.enabled = get_geo_setting('AUTO_SWITCH_DB') != 'false'
+        if not self.enabled:
+            self.set_label("Disable DB Auto-Switch")
+        self.set_active(self.enabled)
+        self.connect('toggled', self.handle_toggle)
+        self.show_all()
+        GLib.timeout_add(1000, self.monitor)
+
+    def handle_toggle(self, src):
+        auto_switch_db_setting = get_geo_setting('AUTO_SWITCH_DB') != 'false'
+        new_state = not auto_switch_db_setting
+        new_state_str = 'true' if new_state else 'false'
+        set_geo_setting('AUTO_SWITCH_DB', new_state_str)
+        self.enabled = new_state
+        self.set_active(new_state)
+
+    def monitor(self):
+        auto_switch_db_setting = get_geo_setting('AUTO_SWITCH_DB') != 'false'
+        if self.enabled != auto_switch_db_setting:
+            self.enabled = auto_switch_db_setting
+            self.set_active(auto_switch_db_setting)
+
 
 class RunningDbMenuItem(Gtk.MenuItem):
     def __init__(self, app):
         super().__init__(label='Checking for DB')
         self.app = app
         self.running_db = ''
+        self.current_myg_release_db = try_get_db_name_for_current_myg_release()
+        self.auto_switch_db_based_on_myg_release = get_geo_setting('AUTO_SWITCH_DB') != 'false'
         self.db_monitor()
         self.stop_menu = Gtk.Menu()
         item_stop_db = Gtk.MenuItem(label='Stop')
@@ -393,7 +425,16 @@ class RunningDbMenuItem(Gtk.MenuItem):
             self.app.icon_manager.set_icon(ICON_GREEN)
         self.running_db = cur_running_db
         self.update_db_start_items()
+        self.change_db_if_myg_release_changed()
         return True
+
+    def change_db_if_myg_release_changed(self):
+        if self.app.item_auto_switch_db_toggle and not self.app.item_auto_switch_db_toggle.enabled:
+            return
+        cur_db_release = try_get_db_name_for_current_myg_release()
+        if cur_db_release != None and cur_db_release != self.current_myg_release_db:
+            start_db(cur_db_release)
+            self.current_myg_release_db = cur_db_release
 
     def update_db_start_items(self):
         if self.app.item_databases is None: return
@@ -447,6 +488,9 @@ class UpdateMenuItem(Gtk.MenuItem):
         self.submenu.show_all()
 
 
+def get_myg_release():
+    return geo('dev release')
+
 def try_start_last_db():
     last_db = get_geo_setting('LAST_DB_VERSION')
     if last_db is not None:
@@ -463,8 +507,28 @@ def run_in_terminal(cmd_to_run, title=''):
     os.system(cmd)
 
 
+def try_get_db_name_for_current_myg_release():
+    db_names = get_geo_db_names()
+    release = get_myg_release()
+    if release is None:
+        return
+    release = release.replace('.', '_')
+    tmp_matches = []
+
+    for db in db_names:
+        if release in db:
+            tmp_matches.append(db)
+    # Use the shortest name
+    shortest_name = sorted(tmp_matches, key=len)[0]
+    return shortest_name
+
+
 def get_geo_setting(key):
     value = geo('get ' + key)
+    return value
+
+def set_geo_setting(key, value):
+    geo('set %s "%s"' % (key, value))
     return value
 
 

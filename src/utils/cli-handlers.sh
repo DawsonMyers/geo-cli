@@ -2336,6 +2336,7 @@ geo_dev_doc() {
 }
 geo_dev() {
     local geo_cli_dir="$(geo_get GEO_CLI_DIR)"
+    local myg_dir="$(geo_get DEV_REPO_DIR)"
     local force_update_after_checkout=false
     [[ $1 == -u ]] && force_update_after_checkout=true && shift
     case "$1" in
@@ -2356,6 +2357,13 @@ geo_dev() {
             )
             [[ $checkout_failed == true ]] && return 1
             [[ $force_update_after_checkout == true ]] && geo_update -f
+            ;;
+        release )
+            (
+                cd $myg_dir
+                local current_myg_release=$(git describe --tags --abbrev=0 --match MYG*)
+                echo -n ${current_myg_release##*/}
+            )
             ;;
         *)
             Error "Unknown argument: '$1'"
