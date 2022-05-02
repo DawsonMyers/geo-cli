@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"-->
+<!--     width="24px" height="30px" viewBox="0 0 24 30" style="enable-background:new 0 0 50 50;" xml:space="preserve">-->
+<!--    <rect x="0" y="10" width="4" height="10" fill="#1ABC9C" opacity="0.8">-->
+<!--&lt;!&ndash;    <rect x="0" y="10" width="4" height="10" fill="#333" opacity="0.2">&ndash;&gt;-->
+<!--&lt;!&ndash;      <animate attributeName="opacity" attributeType="XML" values="0.2; 1; .2" begin="0s" dur="0.6s" repeatCount="indefinite" />&ndash;&gt;-->
+<!--        <animate attributeName="height" attributeType="XML" values="10; 20; 10" begin="0s" dur="0.6s" repeatCount="indefinite" />-->
+<!--        <animate attributeName="y" attributeType="XML" values="10; 5; 10" begin="0s" dur="0.6s" repeatCount="indefinite" />-->
+<!--    </rect>-->
+<!--    <rect x="8" y="10" width="4" height="10" fill="#1ABC9C"  opacity="0.8">-->
+<!--&lt;!&ndash;    <rect x="8" y="10" width="4" height="10" fill="#333"  opacity="0.2">&ndash;&gt;-->
+<!--&lt;!&ndash;      <animate attributeName="opacity" attributeType="XML" values="0.2; 1; .2" begin="0.15s" dur="0.6s" repeatCount="indefinite" />&ndash;&gt;-->
+<!--        <animate attributeName="height" attributeType="XML" values="10; 20; 10" begin="0.15s" dur="0.6s" repeatCount="indefinite" />-->
+<!--        <animate attributeName="y" attributeType="XML" values="10; 5; 10" begin="0.15s" dur="0.6s" repeatCount="indefinite" />-->
+<!--    </rect>-->
+<!--    <rect x="16" y="10" width="4" height="10" fill="#1ABC9C"  opacity="0.8">-->
+<!--&lt;!&ndash;    <rect x="16" y="10" width="4" height="10" fill="#333"  opacity="0.2">&ndash;&gt;-->
+<!--&lt;!&ndash;      <animate attributeName="opacity" attributeType="XML" values="0.2; 1; .2" begin="0.3s" dur="0.6s" repeatCount="indefinite" />&ndash;&gt;-->
+<!--        <animate attributeName="height" attributeType="XML" values="10; 20; 10" begin="0.3s" dur="0.6s" repeatCount="indefinite" />-->
+<!--        <animate attributeName="y" attributeType="XML" values="10; 5; 10" begin="0.3s" dur="0.6s" repeatCount="indefinite" />-->
+<!--    </rect>-->
+<!--  </svg>-->
+<svg version="1.1" id="svg-spinner" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     x="0px" y="0px" viewBox="0 0 80 80" xml:space="preserve">
+    <path id="spinner" fill="#D43B11" d="M40,72C22.4,72,8,57.6,8,40C8,22.4, 22.4,8,40,8c17.6,0, 32,14.4,32,32c0,1.1-0.9,2-2,2 s-2-0.9-2-2c0-15.4-12.6-28-28-28S12,24.6,12,40s12.6, 28,28,28c1.1,0,2,0.9,2,2S41.1,72,40, 72z">
+        <animateTransform attributeType="xml" attributeName="transform" type="rotate" from="0 40 40" to="360 40 40" dur="0.8s" repeatCount="indefinite"/>
+    </path>
+</svg>

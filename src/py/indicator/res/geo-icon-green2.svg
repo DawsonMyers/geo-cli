@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32" width="32px" height="32px">
+<!--    <g id="surface50425111">-->
+<!--&lt;!&ndash;        <path style=" stroke:none;fill-rule:nonzero;fill:rgb(10.196079%,73.725492%,61.176473%);fill-opacity:1;"&ndash;&gt;-->
+<!--        <path style="stroke:black;fill-rule:nonzero;fill:rgb(10.196079%,73.725492%,61.176473%);fill-opacity:1;"-->
+<!--              d="M 2 2 C 21.210938 20.8125 19.082031 22.636719 16.003906 22.636719" />-->
+<!--    </g>-->
+
+<!--    <style>-->
+<!--        .small { font: bold 12px sans-serif; fill: #1ABC9C }-->
+<!--        .heavy { font: bold 30px sans-serif; alignment-baseline: central; }-->
+
+<!--        /* Note that the color of the text is set with the    *-->
+<!--        * fill property, the color property is for HTML only */-->
+<!--        .Rrrrr { font: italic 40px serif; fill: red; }-->
+<!--    </style>-->
+        <rect width="5" height="5" fill="red" stroke-width="1px" stroke="red" />
+        <text x="50%" y="20.5px" class="small" text-anchor="middle" alignment-baseline="middle">GEO</text>
+
+
+<!--    </rect>-->
+<!--    <g transform="translate(0,0)">-->
+<!--        <rect width="100%" height="100%" stroke="#aaa" stroke-width="2" fill="none"></rect>-->
+<!--        <text x="50%" y="50%" alignment-baseline="middle" font-size="12px" stroke-width="0" stroke="#000" text-anchor="middle">HueLink</text>-->
+<!--    </g>-->
+<!--              d="M 2 2 L 16 6 c 10 10, 18 18, 2 19 " />-->
+</svg>
+<!--              d="M 16.003906 14.0625 L 16.003906 18.265625 L 21.992188 18.265625 C 21.210938 20.8125 19.082031 22.636719 16.003906 22.636719 C 12.339844 22.636719 9.367188 19.664062 9.367188 16 C 9.367188 12.335938 12.335938 9.363281 16.003906 9.363281 C 17.652344 9.363281 19.15625 9.96875 20.316406 10.964844 L 23.410156 7.867188 C 21.457031 6.085938 18.855469 5 16.003906 5 C 9.925781 5 5 9.925781 5 16 C 5 22.074219 9.925781 27 16.003906 27 C 25.238281 27 27.277344 18.363281 26.371094 14.078125 Z M 16.003906 14.0625 "/>-->
