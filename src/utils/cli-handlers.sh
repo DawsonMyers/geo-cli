@@ -2205,7 +2205,7 @@ geo_indicator() {
     fi
 
     local geo_indicator_service_name=geo-indicator.service
-    local geo_indicator_desktop_file_name=geo-indicator.desktop
+    local geo_indicator_desktop_file_name=geo.indicator.desktop
     # local indicator_bin_path=~/.geo-cli/bin/geo-indicator
     # local indicator_bin_path=/usr/local/bin/geo-indicator
     local indicator_service_path=~/.config/systemd/user/$geo_indicator_service_name

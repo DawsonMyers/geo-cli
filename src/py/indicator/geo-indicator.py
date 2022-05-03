@@ -8,13 +8,14 @@ import webbrowser
 gi.require_version('Gtk', '3.0')
 gi.require_version('AppIndicator3', '0.1')
 gi.require_version('Notify', '0.7')
+gi.require_version('Gio', '2.0')
 
 from gi.repository import Gtk, GLib, Gio, Notify, GdkPixbuf
 from gi.repository import AppIndicator3 as appindicator
 
 # from gi.repository import Notify as notify
 
-APPINDICATOR_ID = 'geo-indicator'
+APPINDICATOR_ID = 'geo.indicator'
 
 UPDATE_INTERVAL = 10*60*1000
 
@@ -70,11 +71,15 @@ class IconManager:
 
 
 class IndicatorApp(object):
+    notification = None
     def __init__(self):
-        self.indicator = appindicator.Indicator.new(APPINDICATOR_ID, icon_green_path, appindicator.IndicatorCategory.SYSTEM_SERVICES)
+        Notify.init(APPINDICATOR_ID)
+        self.indicator = appindicator.Indicator.new(APPINDICATOR_ID + '_ind', icon_green_path, appindicator.IndicatorCategory.SYSTEM_SERVICES)
         self.indicator.set_status(appindicator.IndicatorStatus.ACTIVE)
         self.indicator.set_title('geo-cli')
-        self.gtk_app = Gtk.Application(application_id=APPINDICATOR_ID, flags=Gio.ApplicationFlags.IS_SERVICE)
+        self.gtk_app = Gio.Application.new(APPINDICATOR_ID, Gio.ApplicationFlags.FLAGS_NONE)
+        # self.gtk_app = Gio.Application.new(application_id=APPINDICATOR_ID, flags=Gio.ApplicationFlags.FLAGS_NONE)
+        # self.gtk_app.register()
         # self.indicator.set_label('geo-cli', 'geo-cli')
         self.db_submenu = None
         self.item_databases = None
@@ -84,22 +89,33 @@ class IndicatorApp(object):
         self.menu = MainMenu(self)
         self.build_menu(self.menu)
         self.indicator.set_menu(self.menu)
-        # Gtk.main()
-        self.show_notification()
+
+        # self.notification = self.show_notification()
+        self.show_quick_notification('test', 'body')
 
     def show_notification(self):
-        notification = Gio.Notification()
-        notification.set_title("Lunch is ready")
-        notification.set_body("Today we have pancakes and salad, and fruit and cake for dessert")
+        if not notifications_are_allowed():
+            return
+        if self.notification:
+            self.notification.close()
+        n=Notify.Notification.new("New mail", "You have  unread mails", icon_geo_cli)
+        n.add_action('action', 'Show Action', self.notification_handler)
+        n.set_urgency(Notify.Urgency.CRITICAL)
+        n.show()
+        # Notification ref has to be held for the action to work.
+        return n
 
-        file = Gio.File.new_for_path(icon_geo_cli)
-        icon = Gio.FileIcon(file=file)
+    def show_quick_notification(self, body, title='geo-cli'):
+        if not notifications_are_allowed():
+            return
+        n = Notify.Notification.new(title, body, icon_geo_cli)
+        n.set_urgency(Notify.Urgency.LOW)
+        n.set_timeout(300)
+        n.show()
+        GLib.timeout_add(1500, n.close)
 
-        notification.set_icon(icon)
-        self.gtk_app.send_notification("lunch-is-ready", notification)
-        # Notify.init(APPINDICATOR_ID)
-        # Hello=Notify.Notification.new ("New mail","You have  unread mails", icon_geo_cli)
-        # Hello.show()
+    def notification_handler(self, notification=None, action=None, data=None):
+        print('notification_handler pressed')
 
     def build_menu(self, menu):
         item_geo_header = Gtk.MenuItem(label='-------------------- geo-cli --------------------')
@@ -140,8 +156,6 @@ class IndicatorApp(object):
         item_update = self.build_update_item()
         menu.append(item_update)
         menu.show_all()
-
-
 
     @staticmethod
     def get_create_db_item():
@@ -440,6 +454,7 @@ class RunningDbMenuItem(Gtk.MenuItem):
             self.set_sensitive(True)
             self.set_db_label(get_running_db_label_markup(cur_running_db))
             self.app.icon_manager.set_icon(ICON_GREEN)
+            self.app.show_quick_notification('DB Started: ' + cur_running_db)
         self.running_db = cur_running_db
         self.update_db_start_items()
         self.change_db_if_myg_release_changed()
@@ -550,6 +565,8 @@ def set_geo_setting(key, value):
     geo('set %s "%s"' % (key, value))
     return value
 
+def notifications_are_allowed():
+    return get_geo_setting('SHOW_NOTIFICATIONS') != 'false'
 
 def is_update_available():
     ret = geo('dev update-available')
