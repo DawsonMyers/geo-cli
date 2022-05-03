@@ -2205,9 +2205,11 @@ geo_indicator() {
     fi
 
     local geo_indicator_service_name=geo-indicator.service
+    local geo_indicator_desktop_file_name=geo-indicator.desktop
     # local indicator_bin_path=~/.geo-cli/bin/geo-indicator
     # local indicator_bin_path=/usr/local/bin/geo-indicator
     local indicator_service_path=~/.config/systemd/user/$geo_indicator_service_name
+    local app_desktop_entry_dir="$HOME/.local/share/applications"
     _geo_indicator_check_dependencies
     case "$1" in
         enable )
@@ -2218,8 +2220,11 @@ geo_indicator() {
             mkdir -p  ~/.geo-cli/.data
             export src_dir=$(geo_get GEO_CLI_SRC_DIR)
             # echo $src_dir > ~/.geo-cli/.data/geo-cli-src-dir.txt
-            local init_script_path="$src_dir/py/indicator/geo-indicator.sh"
-            local service_file_path="$src_dir/py/indicator/$geo_indicator_service_name"
+            export geo_indicator_app_dir="$src_dir/py/indicator"
+            local init_script_path="$geo_indicator_app_dir/geo-indicator.sh"
+            local service_file_path="$geo_indicator_app_dir/$geo_indicator_service_name"
+            local desktop_file_path="$geo_indicator_app_dir/$geo_indicator_desktop_file_name"
+
             if [[ ! -f $init_script_path ]]; then
                 Error "App indicator script not found at '$init_script_path'"
                 return 1
@@ -2227,6 +2232,9 @@ geo_indicator() {
             if [[ ! -f $service_file_path ]]; then
                 Error "App indicator service file not found at '$service_file_path'"
                 return 1
+            fi
+            if [[ ! -d $app_desktop_entry_dir ]]; then
+                mkdir -p $app_desktop_entry_dir
             fi
             # Replace the environment variables in the script file (with the ones loaded in this context)
             # and then copy the contents to a file at the bin path
@@ -2240,9 +2248,14 @@ geo_indicator() {
             # cp $tmp_file $indicator_bin_path
             # sudo cp $tmp_file $indicator_bin_path
             # envsubst < $init_script_path > $indicator_bin_path
-            export geo_indicator_path="$src_dir/py/indicator/geo-indicator.sh"
+            export geo_indicator_path="$init_script_path"
             # export indicator_py_path="$src_dir/indicator/geo-indicator.py"
             envsubst < $service_file_path > $indicator_service_path
+            envsubst < $desktop_file_path > /tmp/$geo_indicator_desktop_file_name
+
+            desktop-file-install --dir=$app_desktop_entry_dir /tmp/$geo_indicator_desktop_file_name
+            # envsubst < $desktop_file_path > $app_desktop_entry_dir/$geo_indicator_desktop_file_name
+            update-desktop-database $app_desktop_entry_dir
             # sudo chmod 777 $indicator_bin_path
             
             systemctl --user daemon-reload
@@ -2362,7 +2375,11 @@ geo_dev() {
             (
                 cd $myg_dir
                 local current_myg_release=$(git describe --tags --abbrev=0 --match MYG*)
-                echo -n ${current_myg_release##*/}
+                # Remove MYG/ prefix (present from 6.0 onwards).
+                current_myg_release=${current_myg_release##*/}
+                # Remove 5.7. prefix (present from 2104 and earlier).
+                current_myg_release=${current_myg_release##*.}
+                echo -n $current_myg_release
             )
             ;;
         *)

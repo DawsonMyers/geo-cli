@@ -2,7 +2,7 @@
 Description=geo-cli Application Indicator
 
 [Service]
-ExecStart=bash $geo_indicator_path
+ExecStart=bash "$geo_indicator_path"
 Restart=on-failure
 
 [Install]

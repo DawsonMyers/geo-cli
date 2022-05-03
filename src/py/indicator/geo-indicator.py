@@ -7,14 +7,14 @@ import webbrowser
 
 gi.require_version('Gtk', '3.0')
 gi.require_version('AppIndicator3', '0.1')
-# gi.require_version('Notify', '0.7')
+gi.require_version('Notify', '0.7')
 
-from gi.repository import Gtk, GLib
+from gi.repository import Gtk, GLib, Gio, Notify, GdkPixbuf
 from gi.repository import AppIndicator3 as appindicator
 
 # from gi.repository import Notify as notify
 
-APPINDICATOR_ID = 'geo-cli'
+APPINDICATOR_ID = 'geo-indicator'
 
 UPDATE_INTERVAL = 10*60*1000
 
@@ -23,6 +23,7 @@ GEO_SRC_DIR = os.path.dirname(BASE_DIR)
 GEO_SRC_DIR = os.path.dirname(GEO_SRC_DIR)
 GEO_CMD_BASE = GEO_SRC_DIR + '/geo-cli.sh '
 
+icon_geo_cli = os.path.join(BASE_DIR, 'res', 'geo-cli-logo.png')
 icon_green_path = os.path.join(BASE_DIR, 'res', 'geo-icon-green.svg')
 icon_green_update_path = os.path.join(BASE_DIR, 'res', 'geo-icon-green-update.svg')
 icon_grey_path = os.path.join(BASE_DIR, 'res', 'geo-icon-grey.svg')
@@ -73,6 +74,7 @@ class IndicatorApp(object):
         self.indicator = appindicator.Indicator.new(APPINDICATOR_ID, icon_green_path, appindicator.IndicatorCategory.SYSTEM_SERVICES)
         self.indicator.set_status(appindicator.IndicatorStatus.ACTIVE)
         self.indicator.set_title('geo-cli')
+        self.gtk_app = Gtk.Application(application_id=APPINDICATOR_ID, flags=Gio.ApplicationFlags.IS_SERVICE)
         # self.indicator.set_label('geo-cli', 'geo-cli')
         self.db_submenu = None
         self.item_databases = None
@@ -83,6 +85,21 @@ class IndicatorApp(object):
         self.build_menu(self.menu)
         self.indicator.set_menu(self.menu)
         # Gtk.main()
+        self.show_notification()
+
+    def show_notification(self):
+        notification = Gio.Notification()
+        notification.set_title("Lunch is ready")
+        notification.set_body("Today we have pancakes and salad, and fruit and cake for dessert")
+
+        file = Gio.File.new_for_path(icon_geo_cli)
+        icon = Gio.FileIcon(file=file)
+
+        notification.set_icon(icon)
+        self.gtk_app.send_notification("lunch-is-ready", notification)
+        # Notify.init(APPINDICATOR_ID)
+        # Hello=Notify.Notification.new ("New mail","You have  unread mails", icon_geo_cli)
+        # Hello.show()
 
     def build_menu(self, menu):
         item_geo_header = Gtk.MenuItem(label='-------------------- geo-cli --------------------')
@@ -518,7 +535,9 @@ def try_get_db_name_for_current_myg_release():
     for db in db_names:
         if release in db:
             tmp_matches.append(db)
-    # Use the shortest name
+    if len(tmp_matches) == 0:
+        return ''
+    # Use the shortest name.
     shortest_name = sorted(tmp_matches, key=len)[0]
     return shortest_name
 
