@@ -2223,7 +2223,7 @@ geo_indicator() {
             export geo_indicator_app_dir="$src_dir/py/indicator"
             local init_script_path="$geo_indicator_app_dir/geo-indicator.sh"
             local service_file_path="$geo_indicator_app_dir/$geo_indicator_service_name"
-            local desktop_file_path="$geo_indicator_app_dir/$geo_indicator_desktop_file_name"
+            # local desktop_file_path="$geo_indicator_app_dir/$geo_indicator_desktop_file_name"
 
             if [[ ! -f $init_script_path ]]; then
                 Error "App indicator script not found at '$init_script_path'"
@@ -2253,9 +2253,9 @@ geo_indicator() {
             envsubst < $service_file_path > $indicator_service_path
             envsubst < $desktop_file_path > /tmp/$geo_indicator_desktop_file_name
 
-            desktop-file-install --dir=$app_desktop_entry_dir /tmp/$geo_indicator_desktop_file_name
+            # desktop-file-install --dir=$app_desktop_entry_dir /tmp/$geo_indicator_desktop_file_name
             # envsubst < $desktop_file_path > $app_desktop_entry_dir/$geo_indicator_desktop_file_name
-            update-desktop-database $app_desktop_entry_dir
+            # update-desktop-database $app_desktop_entry_dir
             # sudo chmod 777 $indicator_bin_path
             
             systemctl --user daemon-reload
@@ -2376,9 +2376,9 @@ geo_dev() {
                 cd $myg_dir
                 local current_myg_release=$(git describe --tags --abbrev=0 --match MYG*)
                 # Remove MYG/ prefix (present from 6.0 onwards).
-                current_myg_release=${current_myg_release##*/}
+                [[ $current_myg_release =~ ^MYG/ ]] && current_myg_release=${current_myg_release##*/}
                 # Remove 5.7. prefix (present from 2104 and earlier).
-                current_myg_release=${current_myg_release##*.}
+                [[ $current_myg_release =~ ^5.7. ]] && current_myg_release=${current_myg_release##*.}
                 echo -n $current_myg_release
             )
             ;;

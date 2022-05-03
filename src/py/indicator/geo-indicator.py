@@ -90,9 +90,6 @@ class IndicatorApp(object):
         self.build_menu(self.menu)
         self.indicator.set_menu(self.menu)
 
-        # self.notification = self.show_notification()
-        self.show_quick_notification('test', 'body')
-
     def show_notification(self):
         if not notifications_are_allowed():
             return
@@ -359,7 +356,7 @@ class DbMenuItem(Gtk.MenuItem):
                 self.item_running_db.set_label('Failed to start DB')
             else:
                 self.item_start.set_sensitive(False)
-                self.item_running_db.set_db_label_markup(get_running_db_label_markup(self.name))
+                self.item_running_db.set_db_label(get_running_db_label_text(self.name))
 
         # Add timeout to allow event loop to update label name while the db start command runs.
         GLib.timeout_add(10, run_after_label_update)
@@ -425,17 +422,6 @@ class RunningDbMenuItem(Gtk.MenuItem):
     def set_db_label(self, text):
         self.set_label(text)
         self.show()
-        self.queue_draw()
-
-    def set_db_label_markup(self, text):
-        label = self.get_children()[0]
-        label.set_markup(text)
-        self.queue_draw()
-
-    def show_stop_menu(self, source):
-        # print('stop menu clicked')
-        if not self.is_db_running: return
-        self.stop_menu.show_all()
 
     def db_monitor(self):
         # poll for running db name, if it doesn't equal self
@@ -452,7 +438,9 @@ class RunningDbMenuItem(Gtk.MenuItem):
                 self.set_db_label('No DB running')
         elif self.running_db != cur_running_db:
             self.set_sensitive(True)
-            self.set_db_label(get_running_db_label_markup(cur_running_db))
+            label = get_running_db_label_text(cur_running_db)
+            self.set_db_label(label)
+            # self.set_db_label(get_running_db_label_markup(cur_running_db))
             self.app.icon_manager.set_icon(ICON_GREEN)
             self.app.show_quick_notification('DB Started: ' + cur_running_db)
         self.running_db = cur_running_db
@@ -464,8 +452,9 @@ class RunningDbMenuItem(Gtk.MenuItem):
         if self.app.item_auto_switch_db_toggle and not self.app.item_auto_switch_db_toggle.enabled:
             return
         cur_db_release = try_get_db_name_for_current_myg_release()
-        if cur_db_release != None and cur_db_release != self.current_myg_release_db:
-            start_db(cur_db_release)
+        if cur_db_release is not None and cur_db_release != self.current_myg_release_db:
+            if self.current_myg_release_db is not None:
+                start_db(cur_db_release)
             self.current_myg_release_db = cur_db_release
 
     def update_db_start_items(self):
@@ -579,16 +568,6 @@ def get_running_db_label_text(db):
 
 def get_running_db_none_label_text():
     return 'Running DB [None]'
-
-
-def get_running_db_label_markup(db):
-    return 'Running DB [%s]' % db
-    # return '<span size="smaller">Running DB:</span>\n' + '<span>   [<b>%s</b>]</span>' % db
-
-
-def get_running_db_none_label_markup():
-    return 'Running DB [None]'
-    # return '<span size="smaller">Running DB:</span>\n' + '<span foreground="grey"><b>    [None]</b></span>'
 
 
 def get_geo_db_names():
