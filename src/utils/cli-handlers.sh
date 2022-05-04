@@ -2007,7 +2007,9 @@ COMMANDS+=('id')
 geo_id_doc() {
     doc_cmd 'id'
         doc_cmd_desc "Both encodes and decodes long and guid ids to simplify working with the MyGeotab API. The result is copied to your clipboard. Guid encoded ids must be prefixed with 'a' and long encoded ids must be prefixed with 'b'"
-
+    doc_cmd_options_title
+    doc_cmd_option '-o'
+    doc_cmd_option_desc 'Do not format output.'
     doc_cmd_examples_title
         doc_cmd_example 'geo id 1234 => b4d2'
         doc_cmd_example 'geo id b4d2 => 1234'
@@ -2015,6 +2017,8 @@ geo_id_doc() {
         doc_cmd_example 'geo id aAOdO4ZfnTyifXirSIkUfbQ => 00e74ee1-97e7-4f28-9f5e-2ad222451f6d'
 }
 geo_id() {
+    local format_output=true
+    [[ $1 == -o ]] && format_output=false && shift
     local arg="$1"
     local first_char=${arg:0:1}
     local id=
@@ -2028,6 +2032,8 @@ geo_id() {
         id=$arg
         # Remove all occurrences of '-'.
         id=${id//-/}
+        # Reorder bytes to match the C# Guid.TryWriteBytes() ordering.
+        id=${id:6:2}${id:4:2}${id:2:2}${id:0:2}${id:10:2}${id:8:2}${id:14:2}${id:12:2}${id:16:4}${id:20:12}
         id=$(echo $id | xxd -r -p | base64)
         # Remove trailing'=='.
         id=${id:0:-2}
@@ -2047,6 +2053,8 @@ geo_id() {
         # Replace '_' with '/'.
         id=${id//_/\/}
         id=$(echo $id | base64 -d | xxd -p)
+        # Reorder bytes to match the C# Guid.TryWriteBytes() ordering.
+        id=${id:6:2}${id:4:2}${id:2:2}${id:0:2}${id:10:2}${id:8:2}${id:14:2}${id:12:2}${id:16:4}${id:20:12}
         # Format the decoded guid with hyphens so that it takes the same form as this example: 9567aac6-b5a9-4561-8b82-ca009760b1b3.
         id=${id:0:8}-${id:8:4}-${id:12:4}-${id:16:4}-${id:20}
         # To upper case.
@@ -2072,14 +2080,14 @@ geo_id() {
         return 1
     fi
 
-    status "$msg: "
-    status -b $id
+    [[ $format_output == true ]] && status "$msg: "
+    [[ $format_output == true ]] && status -b $id || echo -n $id
     if ! type xclip > /dev/null; then
         warn 'Install xclip (sudo apt-get instal xclip) in order to have the id copied to your clipboard.'
         return
     fi
     echo -n $id | xclip -selection c
-    info "copied to clipboard"
+    [[ $format_output == true ]] && info "copied to clipboard"
 }
 
 ###########################################################
@@ -2299,7 +2307,7 @@ geo_check_for_updates() {
     # ver converts semver to int (e.g. 1.2.3 => 001002003) so that it can easliy be compared
     if [ $(ver $v_current) -lt $(ver $v_remote) ]; then
         geo_set OUTDATED true
-        _geo_show_update_notification
+        # _geo_show_update_notification
         return
     else
         geo_set OUTDATED false
