@@ -1621,6 +1621,8 @@ geo_set() {
     # Set value of env var
     # $1 - name of env var in conf file
     # $2 - value
+    local initial_line_count=$(wc -l $GEO_CLI_CONF_FILE | awk '{print $1}')
+    local conf_backup=$(cat $GEO_CLI_CONF_FILE)
     local show_status=false
     local shifted=false
     [[ $1 == -s ]] && show_status=true && shift
@@ -1634,6 +1636,17 @@ geo_set() {
     local old=$(cfg_read $GEO_CLI_CONF_FILE "$geo_key")
 
     cfg_write $GEO_CLI_CONF_FILE "$geo_key" "$value"
+
+    local final_line_count=$(wc -l $GEO_CLI_CONF_FILE | awk '{print $1}')
+
+    # debug "$initial_line_count, $final_line_count"
+    # debug "$conf_backup"
+    # Restore original configuration file and try to write to it again. The conf file can be corrupted
+    # if two processes try to write to it at the same time.
+    if (( final_line_count < initial_line_count )); then
+        echo "$conf_backup" > $GEO_CLI_CONF_FILE
+        cfg_write $GEO_CLI_CONF_FILE "$geo_key" "$value"
+    fi
 
     if [[ $show_status == true ]]; then
         info_bi "$key"
