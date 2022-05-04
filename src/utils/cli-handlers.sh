@@ -1418,6 +1418,18 @@ geo_init() {
         status "MyGeotab base repo (Development) path set to:"
         detail "    $repo_dir"
         ;;
+    npm )
+        (
+            local current_repo_dir=$(geo_get DEV_REPO_DIR)
+            [[ -z $current_repo_dir ]] && Error "MyGeotab repo directory not set." && return 1
+            cd $current_repo_dir/Checkmate/CheckmateServer/src/wwwroot
+            status -b 'Installing npm packages for CheckmateServer/src/wwwroot'
+            npm i
+            status -b 'Installing npm packages for CheckmateServer/src/wwwroot/drive'
+            cd drive
+            npm i
+        )
+        ;;
     esac
 }
 
