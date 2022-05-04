@@ -1613,8 +1613,8 @@ geo_set() {
     local shifted=false
     [[ $1 == -s ]] && show_status=true && shift
 
-    local key="$1"
-    local geo_key="$1"
+    local key="${1^^}"
+    local geo_key="$key"
     shift
     [[ ! $key =~ ^GEO_CLI_ ]] && geo_key="GEO_CLI_${key}"
 
@@ -1643,7 +1643,7 @@ geo_get_doc() {
 }
 geo_get() {
     # Get value of env var.
-    local key="$1"
+    local key="${1^^}"
     [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
 
     value=$(cfg_read $GEO_CLI_CONF_FILE $key)
@@ -1654,7 +1654,7 @@ geo_get() {
 }
 
 geo_haskey() {
-    local key="$1"
+    local key="${1^^}"
     [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
     cfg_haskey $GEO_CLI_CONF_FILE "$key"
 }
@@ -1713,7 +1713,7 @@ geo_update() {
         fi
         new_commit=$(git rev-parse HEAD)
     )
-    debug "$prev_commit $new_commit"
+    # debug "$prev_commit $new_commit"
     bash $geo_cli_dir/install.sh $prev_commit $new_commit
     # Re-source .bashrc to reload geo in this terminal
     . ~/.bashrc
@@ -1734,6 +1734,9 @@ geo_uninstall() {
     if ! prompt_continue "Are you sure that you want to remove geo-cli? (Y|n)"; then
         return
     fi
+
+    geo_indicator disable
+    geo_set disabled true
 
     # Remove lines from .bashrc that load geo-cli into terminals.
     sed -i '/#geo-cli-start/,/#geo-cli-end/d' ~/.bashrc
@@ -2251,7 +2254,7 @@ geo_indicator() {
             export geo_indicator_path="$init_script_path"
             # export indicator_py_path="$src_dir/indicator/geo-indicator.py"
             envsubst < $service_file_path > $indicator_service_path
-            envsubst < $desktop_file_path > /tmp/$geo_indicator_desktop_file_name
+            # envsubst < $desktop_file_path > /tmp/$geo_indicator_desktop_file_name
 
             # desktop-file-install --dir=$app_desktop_entry_dir /tmp/$geo_indicator_desktop_file_name
             # envsubst < $desktop_file_path > $app_desktop_entry_dir/$geo_indicator_desktop_file_name
@@ -2505,29 +2508,42 @@ _geo_print_messages_between_commits_after_update() {
 
 # Check for updates. Return true (0 return value) if updates are available.
 geo_check_for_updates() {
-    # local auto_update=`geo_get AUTO_UPDATE`
-    # [[ -z $auto_update ]] && geo_set AUTO_UPDATE true
-    # [[ $auto_update = false ]] && return
+    local geo_cli_dir="$(geo_get GEO_CLI_DIR)"
+    local cur_branch=$(cd $geo_cli_dir && git rev-parse --abbrev-ref HEAD)
+    local v_remote=
 
-    # local tmp=/tmp/geo-cli
+    if [[ $cur_branch != master ]]; then
+        geo_set FEATURE true
+        # debug "cur_branch = $cur_branch"
+        v_remote=$(git archive --remote=git@git.geotab.com:dawsonmyers/geo-cli.git $cur_branch feature-version.txt | tar -xO)
+        # debug "v_remote = $v_remote"
+        if [[ -n $v_remote && -f $geo_cli_dir/feature-version.txt ]]; then
+            local feature_version=$(cat $geo_cli_dir/feature-version.txt)
+            geo_set FEATURE_VER_LOCAL "${cur_branch}_V$feature_version"
+            # debug "current feature version = $feature_version, remote = $v_remote"
+            if (( v_remote > feature_version )); then
+                # debug setting outdated true
+                geo_set FEATURE_VER_REMOTE "${cur_branch}_V$v_remote"
+                geo_set OUTDATED true
+                return
+            fi
+        fi
+        geo_set OUTDATED false
+        return 1
+    fi
+    geo_rm FEATURE
+    geo_rm FEATURE_VER_LOCAL
+    geo_rm FEATURE_VER_REMOTE
 
-    # [[ ! -d $tmp ]] && mkdir $tmp
+    # Gets contents of version.txt from remote.
+    v_remote=$(git archive --remote=git@git.geotab.com:dawsonmyers/geo-cli.git HEAD version.txt | tar -xO)
 
-    # pushd $tmp
-    # ! git pull > /dev/null && Error 'Unable to pull changes from remote'
-    local v_remote=$(git archive --remote=git@git.geotab.com:dawsonmyers/geo-cli.git HEAD version.txt | tar -xO)
-
-    #  Outputs contents of version.txt to stdout
-    #  git archive --remote=git@git.geotab.com:dawsonmyers/geo-cli.git HEAD version.txt | tar -xO
-
-    # if ! v_repo=`git archive --remote=git@git.geotab.com:dawsonmyers/geo-cli.git HEAD version.txt | tar -xO`; then
     if [[ -z $v_remote ]]; then
         Error 'Unable to pull geo-cli remote version'
         v_remote='0.0.0'
     else
         geo_set REMOTE_VERSION "$v_remote"
     fi
-    # popd
 
     # The sed cmds filter out any colour codes that might be in the text
     local v_current=$(geo_get VERSION) #  | sed -r "s/[[:cntrl:]]\[[0-9]{1,3}m//g"`

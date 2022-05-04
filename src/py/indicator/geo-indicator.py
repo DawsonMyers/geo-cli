@@ -74,10 +74,10 @@ class IndicatorApp(object):
     notification = None
     def __init__(self):
         Notify.init(APPINDICATOR_ID)
-        self.indicator = appindicator.Indicator.new(APPINDICATOR_ID + '_ind', icon_green_path, appindicator.IndicatorCategory.SYSTEM_SERVICES)
+        self.indicator = appindicator.Indicator.new(APPINDICATOR_ID, icon_green_path, appindicator.IndicatorCategory.SYSTEM_SERVICES)
         self.indicator.set_status(appindicator.IndicatorStatus.ACTIVE)
         self.indicator.set_title('geo-cli')
-        self.gtk_app = Gio.Application.new(APPINDICATOR_ID, Gio.ApplicationFlags.FLAGS_NONE)
+        # self.gtk_app = Gio.Application.new(APPINDICATOR_ID, Gio.ApplicationFlags.FLAGS_NONE)
         # self.gtk_app = Gio.Application.new(application_id=APPINDICATOR_ID, flags=Gio.ApplicationFlags.FLAGS_NONE)
         # self.gtk_app.register()
         # self.indicator.set_label('geo-cli', 'geo-cli')
@@ -420,8 +420,12 @@ class RunningDbMenuItem(Gtk.MenuItem):
         GLib.timeout_add(10, run)
 
     def set_db_label(self, text):
+        print('Running db text: ' + text)
         self.set_label(text)
+        print('Set label: ' + self.get_label())
+        self.set_use_underline(True)
         self.show()
+        self.queue_draw()
 
     def db_monitor(self):
         # poll for running db name, if it doesn't equal self
@@ -478,7 +482,8 @@ class UpdateMenuItem(Gtk.MenuItem):
         self.app.menu.append(self)
 
         # Run once later so that 'Checking for updates' is initially displayed.
-        GLib.timeout_add(2000, lambda: not self.set_update_status())
+        # GLib.timeout_add(2000, lambda: not self.set_update_status())
+        self.set_update_status()
         GLib.timeout_add(UPDATE_INTERVAL, self.set_update_status)
 
     def set_update_status(self, source=None):

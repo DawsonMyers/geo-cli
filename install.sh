@@ -23,6 +23,11 @@ geo_set GEO_CLI_CONF_FILE $GEO_CLI_CONF_FILE
 geo_set GEO_CLI_VERSION "$GEO_CLI_VERSION"
 geo_set OUTDATED false
 
+if [[ $(geo_get FEATURE) == true ]]; then
+    GEO_CLI_VERSION=$(geo_get FEATURE_VER_REMOTE)
+    previously_installed_version=$(geo_get FEATURE_VER_LOCAL)
+fi
+
 # Remove previous aliases/config from .bashrc/.zshrc for geo command.
 # Remove content starting at "#geo-cli-start" and ending at "#geo-cli-end" comments.
 sed -i '/#geo-cli-start/,/#geo-cli-end/d' ~/.bashrc
