@@ -152,6 +152,8 @@ class IndicatorApp(object):
 
         item_update = self.build_update_item()
         menu.append(item_update)
+        # item_label = Gtk.MenuItem(label="Test_label_1[a_a_b]")
+        # menu.append(item_label)
         menu.show_all()
 
     @staticmethod
@@ -420,9 +422,10 @@ class RunningDbMenuItem(Gtk.MenuItem):
         GLib.timeout_add(10, run)
 
     def set_db_label(self, text):
-        print('Running db text: ' + text)
+        # print('Running db text: ' + text)
         self.set_label(text)
-        print('Set label: ' + self.get_label())
+        # print('Set label: ' + self.get_label())
+
         self.set_use_underline(True)
         self.show()
         self.queue_draw()

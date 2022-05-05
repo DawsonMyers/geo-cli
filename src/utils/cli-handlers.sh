@@ -1635,7 +1635,11 @@ geo_set() {
     local value="$@"
     local old=$(cfg_read $GEO_CLI_CONF_FILE "$geo_key")
 
-    cfg_write $GEO_CLI_CONF_FILE "$geo_key" "$value"
+    local value_changed=true
+    [[ $value == $old ]] && value_changed=false
+
+    # Only write to file if the value has changed.
+    [[ $value_changed == true ]] && cfg_write $GEO_CLI_CONF_FILE "$geo_key" "$value"
 
     local final_line_count=$(wc -l $GEO_CLI_CONF_FILE | awk '{print $1}')
 
@@ -1645,7 +1649,7 @@ geo_set() {
     # if two processes try to write to it at the same time.
     if (( final_line_count < initial_line_count )); then
         echo "$conf_backup" > $GEO_CLI_CONF_FILE
-        cfg_write $GEO_CLI_CONF_FILE "$geo_key" "$value"
+        [[ $value_changed == true ]] && cfg_write $GEO_CLI_CONF_FILE "$geo_key" "$value"
     fi
 
     if [[ $show_status == true ]]; then
