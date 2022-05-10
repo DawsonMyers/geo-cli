@@ -2,3 +2,4 @@ scratch
 tmp/*
 dist
 node_modules
+*.pyc
