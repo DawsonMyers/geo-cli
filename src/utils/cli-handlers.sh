@@ -2449,27 +2449,32 @@ fmt_text() {
     local indent_len=0
     local indent_str=' '
     local keep_spaces=false
-
     local txt="$1"
+
     # Check if args 2 and 3 were provided.
-    [ "$2" ] && indent=$2
-    [[ $3 = '--keep-spaces-and-breaks' ]] && keep_spaces=true || indent_str=$3
-    
-    [[ $indent = 0 ]] && indent_str=''
+    [[ -n $2 ]] && indent="$2"
+
+    if [[ $3 = '--keep-spaces-and-breaks' ]]; then
+        keep_spaces=true
+    elif [[ -n $3 ]]; then
+        indent_str=$3
+    fi
+
+    [[ $indent -eq 0 ]] && indent_str=''
 
     # Replace 2 or more spaces with a single space and \n with a single space.
     [[ $keep_spaces = false ]] && txt=$(echo "$txt" | tr '\n' ' ' | sed -E 's/ {2,}/ /g')
 
-
     # Determin the total length of the repeated indent string.
     indent_len=$((${#indent_str} * indent))
+
     # Get the width of the console.
     local width=$(tput cols)
     # Get max width of text after the indent widht is subtracted.
     width=$((width - indent_len))
 
     local sed_pattern="s/^/"
-    # Repeate the indent string $indent number of times. seq is used to create
+    # Repeat the indent string $indent number of times. seq is used to create
     # a seq from 1 ... $indent (e.g. 1 2 3 4, for $indent=4). So for
     # $indent_str='=+' and $indent=3, this line, when evaluated, would print
     # '=+=+=+'. Note that printf "%.0s" "some-str" will print 0 chars of
