@@ -2758,7 +2758,7 @@ fmt_text() {
     # echo $1 | fmt -w $width | sed "s/^/$(printf '$%.0s' `seq 1 $indent`)/g"
 }
 
-# Takes a long string and wraps it according to the terminal width (linke left justifying text in Word or Goggle Doc),
+# Takes a long string and wraps it according to the terminal width (like left justifying text in Word or Goggle Doc),
 # but it allows wrapped lines to be indented more than the first line. The all lines created can also have a base indent.
 # Parameters:
 #   1 (long_text):  The long line of text

@@ -39,6 +39,9 @@ export GEO_CLI_SRC_DIR="${GEO_CLI_DIR}/src"
 
 function geo()
 {
+    # Log call.
+    [[ $(geo_get LOG_HISTORY) == true ]] && echo "[$(date +"%Y-%m-%d_%H:%M:%S")] geo $@" >> ~/.geo-cli/history.txt
+
     # Check for updates in background process
     ( geo_check_for_updates >& /dev/null & )
 
