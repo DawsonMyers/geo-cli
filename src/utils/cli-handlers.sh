@@ -248,7 +248,7 @@ geo_db() {
     script)
         geo_db_script "${@:2}"
         ;;
-    bash)
+    bash | ssh)
         local running_container_id=$(geo_get_running_container_id)
         if [[ -z $running_container_id ]]; then
             Error 'No geo-cli containers are running to connect to.'
@@ -405,20 +405,49 @@ geo_db_start() {
         acceptDefaults=true
         shift
     fi
-    local db_version="$1"
+
+    local no_prompt=
+    if [[ $1 == '-n' ]]; then
+        no_prompt=true
+        shift
+    fi
+    # Error "Port error" && return 1
+    db_version="$1"
+    local prompt_db_name=
+
+    prompt_for_db_version() {
+        prompt_db_name=true
+        prompt_n "Enter an alphanumeric name for the new database version: "
+        read db_version
+        # debug $db_version
+    }
+
+    if [[ $1 == '-p' ]]; then
+        prompt_for_db_version
+    fi
+
     db_version=$(geo_make_alphanumeric "$db_version")
     # debug $db_version
     if [ -z "$db_version" ]; then
-        db_version=$(geo_get LAST_DB_VERSION)
-        if [[ -z $db_version ]]; then
-            Error "No database version provided."
-            return
+        if [[ -n $prompt_db_name ]]; then
+            while [[ -z $db_version ]]; do
+                prompt_for_db_version
+            done
+        else
+            db_version=$(geo_get LAST_DB_VERSION)
+            if [[ -z $db_version ]]; then
+                Error "No database version provided."
+                return
+            fi
         fi
     fi
 
     if ! geo_check_db_image; then
-        Error "Cannot start db without image. Run 'geo image create' to create a db image"
-        return 1
+        if ! prompt_continue "No database images exist. Would you like to create on (Y|n)?: "; then
+            Error "Cannot start db without image. Run 'geo image create' to create a db image"
+            return 1
+        fi
+        geo image create
     fi
 
     geo_set LAST_DB_VERSION "$db_version"
@@ -430,7 +459,7 @@ geo_db_start() {
 
     # Check to see if the db is already running.
     local running_db=$(docker ps --format "{{.Names}}" -f name=geo_cli_db_)
-    [[ $running_db == $container_name ]] && success "Db '$db_version' is already running" && return
+    [[ $running_db == $container_name ]] && success "DB '$db_version' is already running" && return
 
     local volume=$(docker volume ls | grep " $container_name")
     # local volume_created=false
@@ -451,6 +480,7 @@ geo_db_start() {
         # Get container name by triming off the port info from docker ps output.
         local container_name_using_postgres_port="${port_in_use%% *}"
         Error "Postgres port 5432 is currently bound to the following container: $container_name_using_postgres_port"
+        [[ $no_prompt == true ]] && Error "Port error" && return 1
         if prompt_continue "Do you want to stop this container so that a geo db one can be started? (Y|n): "; then
             if docker stop "$container_name_using_postgres_port" >-; then
                 status 'Container stopped'
@@ -490,6 +520,7 @@ geo_db_start() {
         try_to_start_db $container_id
 
         if [[ -n $output ]]; then
+            [[ $no_prompt == true ]] && Error "Port error" && return 1
             Error "Port 5432 is already in use."
             info "Fix: Stop postgresql"
             if prompt_continue "Do you want to try to stop the postgresql service? (Y|n): "; then
@@ -505,8 +536,10 @@ geo_db_start() {
             fi
         fi
     else
-        db_version="$1"
-        db_version=$(geo_make_alphanumeric "$db_version")
+        # db_version was getting overwritten somehow, so get its value from the config file.
+        db_version=$(geo_get LAST_DB_VERSION)
+        # db_version="$1"
+        # db_version=$(geo_make_alphanumeric "$db_version")
 
         if [ ! $acceptDefaults ]; then
             prompt_continue "Db container $(txt_italic ${db_version}) doesn't exist. Would you like to create it? (Y|n): " || return
@@ -1155,7 +1188,7 @@ geo_check_for_dev_repo_dir() {
     }
 
     get_dev_repo_dir() {
-        prompt 'Enter the full path (e.g. ~/repos/Development or /home/username/repos/Development) to the Development repo directory. This directory must contain the Checkmate directory:'
+        prompt 'Enter the full path (e.g. ~/repos/Development or /home/username/repos/Development) to the Development repo directory. This directory must contain the Checkmate directory (Type "--" to skip for now):'
         read dev_repo
         # Expand home directory (i.e. ~/repo to /home/user/repo).
         dev_repo=${dev_repo/\~/$HOME}
@@ -1171,12 +1204,13 @@ geo_check_for_dev_repo_dir() {
     }
 
     # Ask repeatedly for the dev repo dir until a valid one is provided.
-    while ! is_valid_repo_dir "$dev_repo"; do
+    while ! is_valid_repo_dir "$dev_repo" && [[ "$dev_repo" != -- ]]; do
         get_dev_repo_dir
     done
 
+    [[ "$dev_repo" == -- ]] && return
+    
     success "Checkmate directory found"
-
     geo_set DEV_REPO_DIR "$dev_repo"
 }
 
@@ -1589,19 +1623,36 @@ geo_set() {
     # Set value of env var
     # $1 - name of env var in conf file
     # $2 - value
+    local initial_line_count=$(wc -l $GEO_CLI_CONF_FILE | awk '{print $1}')
+    local conf_backup=$(cat $GEO_CLI_CONF_FILE)
     local show_status=false
     local shifted=false
     [[ $1 == -s ]] && show_status=true && shift
 
-    local key="$1"
-    local geo_key="$1"
+    local key="${1^^}"
+    local geo_key="$key"
     shift
     [[ ! $key =~ ^GEO_CLI_ ]] && geo_key="GEO_CLI_${key}"
 
     local value="$@"
     local old=$(cfg_read $GEO_CLI_CONF_FILE "$geo_key")
 
-    cfg_write $GEO_CLI_CONF_FILE "$geo_key" "$value"
+    local value_changed=true
+    [[ $value == $old ]] && value_changed=false
+
+    # Only write to file if the value has changed.
+    [[ $value_changed == true ]] && cfg_write $GEO_CLI_CONF_FILE "$geo_key" "$value"
+
+    local final_line_count=$(wc -l $GEO_CLI_CONF_FILE | awk '{print $1}')
+
+    # debug "$initial_line_count, $final_line_count"
+    # debug "$conf_backup"
+    # Restore original configuration file and try to write to it again. The conf file can be corrupted
+    # if two processes try to write to it at the same time.
+    if (( final_line_count < initial_line_count )); then
+        echo "$conf_backup" > $GEO_CLI_CONF_FILE
+        [[ $value_changed == true ]] && cfg_write $GEO_CLI_CONF_FILE "$geo_key" "$value"
+    fi
 
     if [[ $show_status == true ]]; then
         info_bi "$key"
@@ -1623,16 +1674,18 @@ geo_get_doc() {
 }
 geo_get() {
     # Get value of env var.
-    local key="$1"
+    local key="${1^^}"
     [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
 
     value=$(cfg_read $GEO_CLI_CONF_FILE $key)
     [[ -z $value ]] && return
-    echo "$value"
+    local opts=
+    [[ $GEO_RAW_OUTPUT == true ]] && opts=-n
+    echo $opts "$value"
 }
 
 geo_haskey() {
-    local key="$1"
+    local key="${1^^}"
     [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
     cfg_haskey $GEO_CLI_CONF_FILE "$key"
 }
@@ -1691,7 +1744,7 @@ geo_update() {
         fi
         new_commit=$(git rev-parse HEAD)
     )
-    debug "$prev_commit $new_commit"
+    # debug "$prev_commit $new_commit"
     bash $geo_cli_dir/install.sh $prev_commit $new_commit
     # Re-source .bashrc to reload geo in this terminal
     . ~/.bashrc
@@ -1776,7 +1829,8 @@ geo_analyze() {
         printf '%-4d %-38s %-8s\n' $id "${analyzer[$name]}" "$project"
     done
     local dev_repo=$(geo_get DEV_REPO_DIR)
-
+    local prev_ids=$(geo_get ANALYZER_IDS)
+    
     status "Valid IDs from 0 to ${max_id}"
     local prompt_txt='Enter the analyzer IDs that you would like to run (separated by spaces): '
 
@@ -1809,6 +1863,7 @@ geo_analyze() {
                 run_individually=false
                 echo
                 status_bi 'Running analyzers in batches'
+                echo
                 ;;
             \? )
                 Error "Invalid option: $1"
@@ -1845,11 +1900,13 @@ geo_analyze() {
 
     # If the user didn't pass in a list of ids, then get the list of ids from the user, interactively. Asking repeatedly if invalid input is given.
     until [[ $valid_input == true ]]; do
-        prompt_for_info_n "$prompt_txt"
+        [[ -n $prev_ids ]] && status "Enter '-' to reuse previous ids: '$prev_ids'" && echo
+        prompt_for_info "$prompt_txt"
+        [[ $prompt_return == - ]] && prompt_return="$prev_ids"
         # Make sure the input consists of only numbers separated by spaces.
         while [[ ! $prompt_return =~ ^( *[0-9]+ *)+$ ]]; do
             error 'Invalid input. Only space-separated integer IDs are accepted'
-            prompt_for_info_n "$prompt_txt"
+            prompt_for_info "$prompt_txt"
         done
         # Make sure the numbers are valid ids between 0 and max_id.
         for id in $prompt_return; do
@@ -1925,7 +1982,7 @@ geo_analyze() {
                     ;;
                 esac
 
-                if [[ $core_analyzers_count > 0 && $run_core == 'true' ]]; then
+                if [[ $core_analyzers_count -gt 0 && $run_core == 'true' ]]; then
                     echo
                     status_bi "Running the following $core_analyzers_count analyzer(s) against MyGeotab.Core:"
                     print_analyzers "$core_analyzers"
@@ -2169,6 +2226,56 @@ geo_help() {
 }
 
 ###########################################################
+COMMANDS+=('dev')
+geo_dev_doc() {
+    doc_cmd 'dev'
+    doc_cmd_desc 'Commands used for internal geo-cli development.'
+}
+geo_dev() {
+    local geo_cli_dir="$(geo_get GEO_CLI_DIR)"
+    local myg_dir="$(geo_get DEV_REPO_DIR)"
+    local force_update_after_checkout=false
+    [[ $1 == -u ]] && force_update_after_checkout=true && shift
+    case "$1" in
+        update-available )
+            if geo_check_for_updates; then
+                status true
+                return
+            fi
+            status false
+            ;;
+        co )
+            local branch=
+            local checkout_failed=false
+            (
+                cd $geo_cli_dir
+                [[ $2 == - ]] && branch=master || branch="$2"
+                git checkout "$branch" || Error 'Failed to checkout branch' && checkout_failed=true
+            )
+            [[ $checkout_failed == true ]] && return 1
+            [[ $force_update_after_checkout == true ]] && geo_update -f
+            ;;
+        release )
+            (
+                cd $myg_dir
+                local current_myg_release=$(git describe --tags --abbrev=0 --match MYG*)
+                # Remove MYG/ prefix (present from 6.0 onwards).
+                [[ $current_myg_release =~ ^MYG/ ]] && current_myg_release=${current_myg_release##*/}
+                # Remove 5.7. prefix (present from 2104 and earlier).
+                [[ $current_myg_release =~ ^5.7. ]] && current_myg_release=${current_myg_release##*.}
+                echo -n $current_myg_release
+            )
+            ;;
+        db|dbs|databases )
+            echo $(docker container ls --filter name="geo_cli_db_"  -a --format="{{ .Names }}") | sed -e "s/geo_cli_db_postgres_//g"
+            ;;
+        *)
+            Error "Unknown argument: '$1'"
+            ;;
+    esac
+}
+
+###########################################################
 # COMMANDS+=('command')
 # geo_command_doc() {
 #
@@ -2285,29 +2392,42 @@ _geo_print_messages_between_commits_after_update() {
 
 # Check for updates. Return true (0 return value) if updates are available.
 geo_check_for_updates() {
-    # local auto_update=`geo_get AUTO_UPDATE`
-    # [[ -z $auto_update ]] && geo_set AUTO_UPDATE true
-    # [[ $auto_update = false ]] && return
+    local geo_cli_dir="$(geo_get GEO_CLI_DIR)"
+    local cur_branch=$(cd $geo_cli_dir && git rev-parse --abbrev-ref HEAD)
+    local v_remote=
 
-    # local tmp=/tmp/geo-cli
+    if [[ $cur_branch != master ]]; then
+        geo_set FEATURE true
+        # debug "cur_branch = $cur_branch"
+        v_remote=$(git archive --remote=git@git.geotab.com:dawsonmyers/geo-cli.git $cur_branch feature-version.txt | tar -xO)
+        # debug "v_remote = $v_remote"
+        if [[ -n $v_remote && -f $geo_cli_dir/feature-version.txt ]]; then
+            local feature_version=$(cat $geo_cli_dir/feature-version.txt)
+            geo_set FEATURE_VER_LOCAL "${cur_branch}_V$feature_version"
+            # debug "current feature version = $feature_version, remote = $v_remote"
+            if (( v_remote > feature_version )); then
+                # debug setting outdated true
+                geo_set FEATURE_VER_REMOTE "${cur_branch}_V$v_remote"
+                geo_set OUTDATED true
+                return
+            fi
+        fi
+        geo_set OUTDATED false
+        return 1
+    fi
+    geo_rm FEATURE
+    geo_rm FEATURE_VER_LOCAL
+    geo_rm FEATURE_VER_REMOTE
 
-    # [[ ! -d $tmp ]] && mkdir $tmp
+    # Gets contents of version.txt from remote.
+    v_remote=$(git archive --remote=git@git.geotab.com:dawsonmyers/geo-cli.git HEAD version.txt | tar -xO)
 
-    # pushd $tmp
-    # ! git pull > /dev/null && Error 'Unable to pull changes from remote'
-    local v_remote=$(git archive --remote=git@git.geotab.com:dawsonmyers/geo-cli.git HEAD version.txt | tar -xO)
-
-    #  Outputs contents of version.txt to stdout
-    #  git archive --remote=git@git.geotab.com:dawsonmyers/geo-cli.git HEAD version.txt | tar -xO
-
-    # if ! v_repo=`git archive --remote=git@git.geotab.com:dawsonmyers/geo-cli.git HEAD version.txt | tar -xO`; then
     if [[ -z $v_remote ]]; then
         Error 'Unable to pull geo-cli remote version'
         v_remote='0.0.0'
     else
         geo_set REMOTE_VERSION "$v_remote"
     fi
-    # popd
 
     # The sed cmds filter out any colour codes that might be in the text
     local v_current=$(geo_get VERSION) #  | sed -r "s/[[:cntrl:]]\[[0-9]{1,3}m//g"`
@@ -2334,14 +2454,13 @@ geo_is_outdated() {
 
 # Sends an urgent geo-cli notification. This notification must be clicked by the user to dismiss.
 _geo_show_update_notification() {
+    # debug _geo_show_update_notification
     local notification_shown=$(geo_get UPDATE_NOTIFICATION_SENT)
-    [[ $notification_shown != false ]] && return
+    geo_set UPDATE_NOTIFICATION_SENT true
+    [[ $notification_shown == true ]] && return
     local title="Update Available"
     local msg="Run 'geo update' in a terminal to update geo-cli."
     _geo_show_critical_notification "$msg" "$title"
-
-    # TODO uncomment before release
-    geo_set UPDATE_NOTIFICATION_SENT true
 }
 
 _geo_show_critical_notification() {
@@ -2351,6 +2470,7 @@ _geo_show_critical_notification() {
 }
 
 _geo_show_notification() {
+    ! type notify-send &> /dev/null && return 1
     [[ -z $GEO_CLI_DIR ]] && return
     local show_notifications=$(geo_get SHOW_NOTIFICATIONS)
     [[ $show_notifications != true ]] && return
@@ -2370,6 +2490,7 @@ _geo_show_notification() {
 # using a regex in the if (i.e., if [[ $outdated =~ true ]]) which was the only
 # way it would work.
 geo_show_msg_if_outdated() {
+    [[ $GEO_RAW_OUTPUT == true ]] && return
     # outdated=`geo_get OUTDATED`
     if geo_is_outdated; then
         # if [[ $outdated =~ true ]]; then
@@ -2487,7 +2608,7 @@ fmt_text() {
     # echo $1 | fmt -w $width | sed "s/^/$(printf '$%.0s' `seq 1 $indent`)/g"
 }
 
-# Takes a long string and wraps it according to the terminal width (linke left justifying text in Word or Goggle Doc),
+# Takes a long string and wraps it according to the terminal width (like left justifying text in Word or Goggle Doc),
 # but it allows wrapped lines to be indented more than the first line. The all lines created can also have a base indent.
 # Parameters:
 #   1 (long_text):  The long line of text
@@ -2615,6 +2736,8 @@ make_logger_function() {
                     ;;&
             esac
 
+            [[ \$GEO_RAW_OUTPUT == true ]] && echo -n \"\$msg\" && return
+
             echo \"-\${opts}\" \"\${format_tokens}\${!color_name}\${msg}\${Off}\"
         }
     "
@@ -2663,6 +2786,8 @@ make_logger_function_vte() {
                     opts+=n
                     ;;&
             esac
+
+            [[ \$GEO_RAW_OUTPUT == true ]] && echo -n \"\${msg}\" && return
 
             echo \"-\${opts}\" \"\${format_tokens}\${${color}}\${msg}\${Off}\"
         }
@@ -2900,7 +3025,9 @@ doc_handle_subcommand() {
 init_completions() {
     local cmd=
     local completions=
-    [[ ! -d "$GEO_CLI_AUTOCOMPLETE_FILE" ]] && touch "$GEO_CLI_AUTOCOMPLETE_FILE"
+    
+    [[ ! -f $GEO_CLI_AUTOCOMPLETE_FILE ]] && touch "$GEO_CLI_AUTOCOMPLETE_FILE"
+
     while read line; do
         # Skip empty lines.
         (( ${#line} == 0 )) && continue
@@ -2952,6 +3079,7 @@ _geo_complete()
     cur=${COMP_WORDS[COMP_CWORD]} 
     # echo "cur: ${COMP_WORDS[COMP_CWORD]}"  >> bcompletions.txt
     prev=${COMP_WORDS[$COMP_CWORD-1]}
+    prevprev=${COMP_WORDS[$COMP_CWORD-2]}
     # echo "prev: $prev"  >> bcompletions.txt
     case ${COMP_CWORD} in
         1)
@@ -2975,6 +3103,12 @@ _geo_complete()
             #         COMPREPLY=($(compgen -W "some other args" -- ${cur}))
             #         ;;
             # esac
+            ;;
+        3)
+            # geo db start
+            if [[ $prevprev == db && $prev =~ start|rm ]]; then
+                COMPREPLY=($(compgen -W "$(geo_dev databases)" -- ${cur}))
+            fi
             ;;
         *)
             COMPREPLY=()
