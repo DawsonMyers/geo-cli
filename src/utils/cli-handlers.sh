@@ -2422,6 +2422,9 @@ geo_dev() {
                 echo -n $current_myg_release
             )
             ;;
+        db|dbs|databases )
+            echo $(docker container ls --filter name="geo_cli_db_"  -a --format="{{ .Names }}") | sed -e "s/geo_cli_db_postgres_//g"
+            ;;
         *)
             Error "Unknown argument: '$1'"
             ;;
@@ -3234,6 +3237,7 @@ _geo_complete()
     cur=${COMP_WORDS[COMP_CWORD]} 
     # echo "cur: ${COMP_WORDS[COMP_CWORD]}"  >> bcompletions.txt
     prev=${COMP_WORDS[$COMP_CWORD-1]}
+    prevprev=${COMP_WORDS[$COMP_CWORD-2]}
     # echo "prev: $prev"  >> bcompletions.txt
     case ${COMP_CWORD} in
         1)
@@ -3257,6 +3261,12 @@ _geo_complete()
             #         COMPREPLY=($(compgen -W "some other args" -- ${cur}))
             #         ;;
             # esac
+            ;;
+        3)
+            # geo db start
+            if [[ $prevprev == db && $prev =~ start|rm ]]; then
+                COMPREPLY=($(compgen -W "$(geo_dev databases)" -- ${cur}))
+            fi
             ;;
         *)
             COMPREPLY=()
