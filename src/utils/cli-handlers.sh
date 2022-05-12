@@ -1220,6 +1220,8 @@ geo_ar_doc() {
     doc_cmd 'ar'
     doc_cmd_desc 'Helpers for working with access requests.'
     doc_cmd_sub_cmds_title
+        doc_cmd_sub_cmd 'create'
+            doc_cmd_sub_cmd_desc 'Opens up the My Access Request page on the MyAdmin website in Chrome.'
         doc_cmd_sub_cmd 'tunnel [gcloud start-iap-tunnel cmd]'
             doc_cmd_sub_cmd_desc "Starts the IAP tunnel (using the gcloud start-iap-tunnel command copied from MyAdmin after opening 
                             an access request) and then connects to the server over SSH. The port is saved and used when you SSH to the server using $(green 'geo ar ssh'). 
@@ -1244,6 +1246,9 @@ geo_ar_doc() {
 }
 geo_ar() {
     case "$1" in
+        create )
+            google-chrome https://myadmin.geotab.com/accessrequest/requests
+            ;;
         tunnel)
             # Catch EXIT so that it doesn't close the terminal (since geo runs as a function, not in it's own subshell)
             trap '' EXIT
