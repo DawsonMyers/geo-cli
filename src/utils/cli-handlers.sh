@@ -1427,11 +1427,14 @@ geo_init_doc() {
     doc_cmd_desc 'Initialize repo directory.'
 
     doc_cmd_sub_cmds_title
-    doc_cmd_sub_cmd 'repo'
-    doc_cmd_sub_cmd_desc 'Init Development repo directory using the current directory.'
+        doc_cmd_sub_cmd 'repo'
+            doc_cmd_sub_cmd_desc 'Init Development repo directory using the current directory.'
+        doc_cmd_sub_cmd 'npm'
+            doc_cmd_sub_cmd_desc "Runs 'npm install' in both the wwwroot and drive CheckmateServer directories. This is quick way to fix the npm dependencies after Switching to a different MYG release branch."
 
     doc_cmd_examples_title
-    doc_cmd_example 'geo init repo'
+        doc_cmd_example 'geo init repo'
+        doc_cmd_example 'geo init npm'
 }
 geo_init() {
     if [[ "$1" == '--' ]]; then shift; fi
@@ -1788,7 +1791,7 @@ geo_uninstall() {
 COMMANDS+=('analyze')
 geo_analyze_doc() {
     doc_cmd 'analyze [option or analyzerIds]'
-    doc_cmd_desc 'Allows you to select and run various pre-build analyzers. You can optionaly include the list of analyzers if already known.'
+    doc_cmd_desc 'Allows you to select and run various pre-build analyzers. You can optionally include the list of analyzers if already known.'
 
     doc_cmd_options_title
         doc_cmd_option -a

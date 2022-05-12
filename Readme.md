@@ -163,6 +163,7 @@ The following options can be used with `geo analyze`:
 ### Connecting to Servers Using IAP Tunnels
 `geo-cli` can be used to simplify connecting to servers over IAP tunnels. First, make an access request for a server using MyAdmin. Then copy *gcloud compute start-iap-tunnel* command by pressing the copy button:
 
+> `geo ar create` can be used to open up the My Access Request page on the MyAdmin website in Chrome. This page can be used to create a new access request.
 
 ![mya access request](res/geo-ar-myadmin.png)
 
@@ -294,7 +295,7 @@ geo help
 Available commands:
     image
       Commands for working with db images.
-        Options:
+        Commands:
             create
                 Creates the base Postgres image configured to be used with geotabdemo.
             remove
@@ -305,7 +306,7 @@ Available commands:
             geo image create
     db
       Database commands.
-        Options:
+        Commands:
             create [option] <name>
                 Creates a versioned db container and volume.
                   Options:
@@ -314,7 +315,8 @@ Available commands:
                     
                       Create blank Postgres 12 container.
             start [option] [name]
-                Starts (creating if necessary) a versioned db container and volume. If no name is provided, the most recent db container name is started.
+                Starts (creating if necessary) a versioned db container and volume. If no name is provided, the most recent db
+                container name is started.
                   Options:
                     -y
                       Accept all prompts.
@@ -338,15 +340,18 @@ Available commands:
                     -y
                       Accept all prompts.
             psql [options]
-                Open an interactive psql session to geotabdemo (or a different db, if a db name was provided with the -d option) in the running geo-cli db container. You can also use the -q option to execute a query on the database instead of starting an interactive session. The default
-                username and password used to connect is geotabuser and vircom43, respectively.
+                Open an interactive psql session to geotabdemo (or a different db, if a db name was provided with the -d option)
+                in the running geo-cli db container. You can also use the -q option to execute a query on the database instead
+                of starting an interactive session. The default username and password used to connect is geotabuser and vircom43,
+                respectively.
                   Options:
                     -d
                       The name of the postgres database you want to connect to. The default value used is "geotabdemo"
                     -p
                       The admin sql password. The default value used is "vircom43"
                     -q
-                      A query to run with psql in the running container. This option will cause the result of the query to be returned instead of starting an interactive psql terminal.
+                      A query to run with psql in the running container. This option will cause the result of the query to be
+                      returned instead of starting an interactive psql terminal.
                     -u
                       The admin sql user. The default value used is "geotabuser"
             bash
@@ -363,19 +368,29 @@ Available commands:
             geo db psql -q "SELECT * FROM deviceshare LIMIT 10"
     ar
       Helpers for working with access requests.
-        Options:
+        Commands:
+            create
+                Opens up the My Access Request page on the MyAdmin website in Chrome.
             tunnel [gcloud start-iap-tunnel cmd]
-                Starts the IAP tunnel using the gcloud start-iap-tunnel command copied from MyAdmin after opening an access request. The port is saved and used when you ssh to the server using geo ar ssh. This command will be saved and re-used next time you call the command
-                without any arguments (i.e. geo ar tunnel)
+                Starts the IAP tunnel (using the gcloud start-iap-tunnel command copied from MyAdmin after opening an access
+                request) and then connects to the server over SSH. The port is saved and used when you SSH to the server using
+                geo ar ssh. This command will be saved and re-used next time you call the command without any arguments
+                (i.e. geo ar tunnel)
+                  Options:
+                    -s
+                      Only start the IAP tunnel without SSHing into it.
             ssh
                 SSH into a server through the IAP tunnel started with geo ar ssh.
                   Options:
                     -p <port>
-                      The port to use when connecting to the server. This value is option since the port that the IAP tunnel was opened on using geo ar ssh is used as the default value
+                      The port to use when connecting to the server. This value is optional since the port that the IAP tunnel
+                      was opened on using geo ar ssh is used as the default value
                     -u <user>
-                      The user to use when connecting to the server. This value is option since the username stored in $USER is used as the default value. The value supplied here will be stored and reused next time you call the command
+                      The user to use when connecting to the server. This value is optional since the username stored in $USER is
+                      used as the default value. The value supplied here will be stored and reused next time you call the command
         Example:
-            geo ar tunnel gcloud compute start-iap-tunnel gceseropst4-20220109062647 22 --project=geotab-serverops --zone=projects/709472407379/zones/northamerica-northeast1-b
+            geo ar tunnel -s gcloud compute start-iap-tunnel gceseropst4-20220109062647 22 --project=geotab-serverops
+            --zone=projects/709472407379/zones/northamerica-northeast1-b
             geo ar ssh
             geo ar ssh -p 12345
             geo ar ssh -u dawsonmyers
@@ -386,20 +401,27 @@ Available commands:
             geo stop
     init
       Initialize repo directory.
-        Options:
+        Commands:
             repo
                 Init Development repo directory using the current directory.
+            npm
+                Runs 'npm install' in both the wwwroot and drive CheckmateServer directories. This is quick way to fix the npm
+                dependencies after Switching to a different MYG release branch.
+        Example:
+            geo init repo
+            geo init npm
+            
         Example:
             geo init repo
     env <cmd> [arg1] [arg2]
       Get, set, or list geo environment variable.
-        Options:
+        Commands:
             get <env_var>
                 Gets the value for the env var.
             set <env_var> <value>
                 Sets the value for the env var.
-    rm <env_var>
-      Remove geo environment variable.
+            rm <env_var>
+                Remove geo environment variable.
             ls
                 Lists all env vars.
         Example:
@@ -413,11 +435,14 @@ Available commands:
                 Shows the old and new value of the environment variable.
         Example:
             geo set DEV_REPO_DIR /home/username/repos/Development
+    get <env_var>
+      Get geo environment variable.
+        Example:
+            geo get DEV_REPO_DIR
     rm <env_var>
       Remove geo environment variable.
         Example:
             geo rm DEV_REPO_DIR
-geo_rm_doc: command not found
     update
       Update geo to latest version.
         Options:
@@ -427,11 +452,12 @@ geo_rm_doc: command not found
             geo update
             geo update --force
     uninstall
-      Remove geo-cli installation. This prevents geo-cli from being loaded into new bash terminals, but does not remove the geo-cli repo directory. Navigate to the geo-cli repo directory and run 'bash install.sh' to reinstall.
+      Remove geo-cli installation. This prevents geo-cli from being loaded into new bash terminals, but does not remove the
+      geo-cli repo directory. Navigate to the geo-cli repo directory and run 'bash install.sh' to reinstall.
         Example:
             geo uninstall
     analyze [option or analyzerIds]
-      Allows you to select and run various pre-build analyzers. You can optionaly include the list of analyzers if already known.
+      Allows you to select and run various pre-build analyzers. You can optionally include the list of analyzers if already known.
         Options:
             -a
                 Run all analyzers
@@ -444,8 +470,11 @@ geo_rm_doc: command not found
             geo analyze -a
             geo analyze 0 3 6
     id
-      Both encodes and decodes long and guid ids to simplify working with the MyGeotab API. The result is copied to your clipboard. Guid
-      encoded ids must be prefixed with 'a' and long encoded ids must be prefixed with 'b'
+      Both encodes and decodes long and guid ids to simplify working with the MyGeotab API. The result is copied to your
+      clipboard. Guid encoded ids must be prefixed with 'a' and long encoded ids must be prefixed with 'b'
+        Options:
+            -o
+                Do not format output.
         Example:
             geo id 1234 => b4d2
             geo id b4d2 => 1234
@@ -457,7 +486,7 @@ geo_rm_doc: command not found
             geo version
     cd <dir>
       Change to directory
-        Options:
+        Commands:
             dev, myg
                 Change to the Development repo directory.
             geo, cli
@@ -465,8 +494,29 @@ geo_rm_doc: command not found
         Example:
             geo cd dev
             geo cd cli
+    indicator <command>
+      Enables or disables the app indicator.
+        Commands:
+            enable
+                Enable the app indicator.
+            disable
+                Disable the app indicator.
+            start
+                Start the app indicator.
+            stop
+                Stop the app indicator.
+            restart
+                Restart the app indicator.
+            status
+                Gets the systemctl service status for the app indicator.
+        Example:
+            geo indicator enable
+            geo indicator disable
     help, -h, --help
       Prints out help for all commands.
+    dev
+      Commands used for internal geo-cli development.
+
 ```
 
 # Troubleshooting
