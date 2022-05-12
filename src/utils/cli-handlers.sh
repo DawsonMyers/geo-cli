@@ -2237,7 +2237,14 @@ geo_help() {
 COMMANDS+=('dev')
 geo_dev_doc() {
     doc_cmd 'dev'
-    doc_cmd_desc 'Commands used for internal geo-cli development.'
+        doc_cmd_desc 'Commands used for internal geo-cli development.'
+    doc_cmd_sub_cmds_title
+        doc_cmd_sub_cmd 'update-available'
+            doc_cmd_sub_cmd_desc 'Checks if there is an update available for geo.'
+        doc_cmd_sub_cmd 'co [branch]'
+            doc_cmd_sub_cmd_desc 'Changes the geo-cli branch.'
+        doc_cmd_sub_cmd 'release'
+            doc_cmd_sub_cmd_desc 'Prints the currently checked out MYG release version of the Development repo.'
 }
 geo_dev() {
     local geo_cli_dir="$(geo_get GEO_CLI_DIR)"
