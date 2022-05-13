@@ -14,6 +14,6 @@ gi.require_version('Gio', '2.0')
 from gi.repository import Gtk, GLib, Gio, Notify, GdkPixbuf
 from gi.repository import AppIndicator3 as appindicator
 
-from src.py.common import geo
-from src.py.common import util
-from src.py.common import config
+from common import geo
+from common import util
+from common import config

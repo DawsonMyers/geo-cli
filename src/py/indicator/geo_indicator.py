@@ -5,6 +5,10 @@ import time
 import subprocess
 
 import sys
+sys.path.insert(0, os.path.join(sys.path[0], '..'))
+# sys.path.append(os.path.abspath(__file__))
+# sys.path.insert(0, sys.path[0])
+# sys.path.insert(0, os.path.join(sys.path[0], '..'))
 # import gi
 # gi.require_version('Gtk', '3.0')
 # gi.require_version('AppIndicator3', '0.1')
@@ -139,6 +143,7 @@ class IndicatorApp(object):
 
         menu.append(item_run_analyzers)
         menu.append(item_npm)
+        menu.append(menus.AccessRequestMenuItem(self))
         menu.append(Gtk.SeparatorMenuItem())
 
         menu.append(item_help)

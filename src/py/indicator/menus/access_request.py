@@ -1,4 +1,4 @@
-from src.py.indicator import *
+from indicator import *
 
 
 class AccessRequestMenuItem(Gtk.MenuItem):
@@ -9,19 +9,25 @@ class AccessRequestMenuItem(Gtk.MenuItem):
         submenu = Gtk.Menu()
 
         item_create = Gtk.MenuItem(label='Create')
-        # item_create.connect('activate', lambda _: )
-        item_iap = Gtk.MenuItem(label='Open IAP Tunnel')
-        item_ssh = Gtk.MenuItem(label='SSH Over IAP')
-        # Gtk.CheckMenuItem(label='Show Notifications')
+        item_create.connect('activate', lambda _: geo.run('ar create'))
 
-        item_disable = Gtk.MenuItem(label='Disable')
-        item_disable.connect('activate', self.show_disable_dialog)
+        item_iap = Gtk.MenuItem(label='IAP Tunnel')
+        iap_menu = Gtk.Menu()
+        item_iap_start_new = Gtk.MenuItem(label='Start New')
+        item_iap_start_new.connect('activate', lambda _: geo.run_in_terminal('ar tunnel --prompt'))
+        item_iap_start_prev = Gtk.MenuItem(label='Start Previous')
+        item_iap_start_prev.connect('activate', lambda _: geo.run_in_terminal('ar tunnel'))
 
-        item_readme = Gtk.MenuItem(label='View Readme')
-        item_readme.connect('activate', self.show_readme)
+        iap_menu.append(item_iap_start_new)
+        iap_menu.append(item_iap_start_prev)
+        iap_menu.show_all()
+        item_iap.set_submenu(iap_menu)
 
-        submenu.append(item_show_notifications)
-        submenu.append(Gtk.SeparatorMenuItem())
-        submenu.append(item_readme)
-        submenu.append(item_disable)
+        item_ssh = Gtk.MenuItem(label='SSH Over Open IAP')
+        item_ssh.connect('activate', lambda _: geo.run_in_terminal('ar ssh'))
+
+        submenu.append(item_create)
+        submenu.append(item_iap)
+        submenu.append(item_ssh)
         self.set_submenu(submenu)
+        submenu.show_all()

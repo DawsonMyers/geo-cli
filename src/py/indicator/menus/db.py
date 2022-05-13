@@ -5,8 +5,8 @@ gi.require_version('Notify', '0.7')
 gi.require_version('Gio', '2.0')
 from gi.repository import Gtk, GLib, Gio, Notify, GdkPixbuf
 
-from src.py.common import geo
-from src.py.indicator import icons
+from common import geo
+from indicator import icons
 
 def get_running_db_label_text(db):
     return 'Running DB [%s]' % db

@@ -1253,13 +1253,32 @@ geo_ar() {
             ( # Run in subshell to catch EXIT signals
                 shift
                 local start_ssh='true'
-                # Option for starting ssh after starting tunnel
-                [[ $1 == -s ]] && start_ssh= && shift
-
+                local prompt_for_cmd='false'
+                while [[ $1 =~ ^- ]]; do
+                    case "$1" in
+                        -s ) start_ssh= ;;
+                        --prompt ) prompt_for_cmd='true' ;;
+                        * ) Error "Unknown option '$1'" && return 1 ;;
+                    esac    
+                    shift
+                done
                 local gcloud_cmd="$*"
+
+                local prompt_txt='Enter the gcloud IAP command that was copied from your MyAdmin access request:'
+                if [[ $prompt_for_cmd == true ]]; then
+                    prompt_for_info "$prompt_txt"
+                    local expected_cmd_start='gcloud compute start-iap-tunnel'
+                    while [[ ! $prompt_return =~ ^$expected_cmd_start ]]; do
+                        warn -b "The command must start with 'gcloud compute start-iap-tunnel'"
+                        prompt_for_info "$prompt_txt"
+                    done
+                    gcloud_cmd="$prompt_return"
+                fi
+
+
                 # debug $gcloud_cmd
                 [[ -z $gcloud_cmd ]] && gcloud_cmd="$(geo_get AR_IAP_CMD)"
-                [[ -z $gcloud_cmd ]] && Error 'The gcloud compute start-iap-tunnel command (copied from MyAdmin for you access request) is required.' && return 1
+                [[ -z $gcloud_cmd ]] && Error 'The gcloud compute start-iap-tunnel command (copied from MyAdmin for your access request) is required.' && return 1
                 geo_set AR_IAP_CMD "$gcloud_cmd"
 
                 local open_port=$(python -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')
@@ -1463,9 +1482,10 @@ geo_init() {
             local current_repo_dir=$(geo_get DEV_REPO_DIR)
             [[ -z $current_repo_dir ]] && Error "MyGeotab repo directory not set." && return 1
             cd $current_repo_dir/Checkmate/CheckmateServer/src/wwwroot
-            status -b 'Installing npm packages for CheckmateServer/src/wwwroot'
+            # echo
+            status -b '\nInstalling npm packages for CheckmateServer/src/wwwroot\n'
             npm i
-            status -b 'Installing npm packages for CheckmateServer/src/wwwroot/drive'
+            status -b '\nInstalling npm packages for CheckmateServer/src/wwwroot/drive\n'
             cd drive
             npm i
         )

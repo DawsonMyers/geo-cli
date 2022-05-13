@@ -1,6 +1,6 @@
 import gi
 
-from src.py.common import geo
+from common import geo
 
 gi.require_version('Gtk', '3.0')
 gi.require_version('AppIndicator3', '0.1')

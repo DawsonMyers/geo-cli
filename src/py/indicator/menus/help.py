@@ -7,7 +7,7 @@ gi.require_version('Notify', '0.7')
 gi.require_version('Gio', '2.0')
 from gi.repository import Gtk, GLib
 
-from src.py.common import geo
+from common import geo
 
 
 class HelpMenuItem(Gtk.MenuItem):
