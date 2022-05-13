@@ -1,5 +1,5 @@
 import os
-from ..config import INDICATOR_DIR
+from src.py.common.config import INDICATOR_DIR
 
 GEO_CLI = os.path.join(INDICATOR_DIR, 'res', 'geo-cli-logo.png')
 GREEN_PATH = os.path.join(INDICATOR_DIR, 'res', 'geo-icon-green.svg')

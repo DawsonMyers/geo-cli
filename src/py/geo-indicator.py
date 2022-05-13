@@ -1,26 +1,38 @@
-import gi
+
 import os
 import signal
 import time
 import subprocess
-import webbrowser
 
-import menus
-from menus.db import RunningDbMenuItem, DbMenu, DbMenuItem
-from menus.update import UpdateMenuItem
-from menus.help import HelpMenuItem
+import sys
+# import gi
+# gi.require_version('Gtk', '3.0')
+# gi.require_version('AppIndicator3', '0.1')
+# gi.require_version('Notify', '0.7')
+# gi.require_version('Gio', '2.0')
+#
+# from gi.repository import Gtk, GLib, Gio, Notify, GdkPixbuf
+# from gi.repository import AppIndicator3 as appindicator
+
+# # sys.path.insert(1, os.path.join(sys.path[0], '..'))
+#
+# BASE_DIR = os.path.dirname(os.path.realpath(__file__))
+# GEO_SRC_PY_DIR = os.path.dirname(BASE_DIR)
+# # sys.path.insert(0, GEO_SRC_PY_DIR)
+# # sys.path.append(GEO_SRC_PY_DIR)
+# GEO_SRC_DIR = os.path.dirname(GEO_SRC_PY_DIR)
+# GEO_CMD_BASE = GEO_SRC_DIR + '/geo-cli.sh '
+
+# from menus.db import RunningDbMenuItem, DbMenu, DbMenuItem
+# from menus.update import UpdateMenuItem
+# from menus.help import HelpMenuItem
 # from .menus.db import RunningDbMenuItem,
-from src.py.indicator import icons
-from src.py import geo
+from indicator import *
+from indicator import icons, menus
+from common import geo
 
 
-gi.require_version('Gtk', '3.0')
-gi.require_version('AppIndicator3', '0.1')
-gi.require_version('Notify', '0.7')
-gi.require_version('Gio', '2.0')
 
-from gi.repository import Gtk, GLib, Gio, Notify, GdkPixbuf
-from gi.repository import AppIndicator3 as appindicator
 
 # from gi.repository import Notify as notify
 
@@ -28,10 +40,7 @@ APPINDICATOR_ID = 'geo.indicator'
 
 UPDATE_INTERVAL = 10*60*1000
 
-BASE_DIR = os.path.dirname(os.path.realpath(__file__))
-GEO_SRC_DIR = os.path.dirname(BASE_DIR)
-GEO_SRC_DIR = os.path.dirname(GEO_SRC_DIR)
-GEO_CMD_BASE = GEO_SRC_DIR + '/geo-cli.sh '
+
 
 # icon_geo_cli = os.path.join(BASE_DIR, 'res', 'geo-cli-logo.png')
 # icon_green_path = os.path.join(BASE_DIR, 'res', 'geo-icon-green.svg')
@@ -112,11 +121,14 @@ class IndicatorApp(object):
 
         item_run_analyzers = self.get_analyzer_item()
 
+        item_npm = Gtk.MenuItem(label='npm install')
+        item_npm.connect('activate', lambda _: geo.run_in_terminal('init npm'))
+
         item_quit = Gtk.MenuItem(label='Quit')
         item_quit.connect('activate', self.quit)
 
-        # item_help = menus.HelpMenuItem()
-        item_help = self.build_help_item()
+        item_help = menus.HelpMenuItem(self)
+        # item_help = self.build_help_item()
 
         menu.append(item_running_db)
 
@@ -126,6 +138,7 @@ class IndicatorApp(object):
         menu.append(Gtk.SeparatorMenuItem())
 
         menu.append(item_run_analyzers)
+        menu.append(item_npm)
         menu.append(Gtk.SeparatorMenuItem())
 
         menu.append(item_help)
@@ -137,20 +150,20 @@ class IndicatorApp(object):
         # menu.append(item_label)
         menu.show_all()
 
-    def build_help_item(self):
-        help = Gtk.MenuItem(label="Help")
-        submenu = Gtk.Menu()
-
-        item_disable = Gtk.MenuItem(label='Disable')
-        item_disable.connect('activate', self.show_disable_dialog)
-
-        item_readme = Gtk.MenuItem(label='View Readme')
-        item_readme.connect('activate', self.show_readme)
-
-        submenu.append(item_readme)
-        submenu.append(item_disable)
-        help.set_submenu(submenu)
-        return help
+    # def build_help_item(self):
+    #     help = Gtk.MenuItem(label="Help")
+    #     submenu = Gtk.Menu()
+    #
+    #     item_disable = Gtk.MenuItem(label='Disable')
+    #     item_disable.connect('activate', self.show_disable_dialog)
+    #
+    #     item_readme = Gtk.MenuItem(label='View Readme')
+    #     item_readme.connect('activate', self.show_readme)
+    #
+    #     submenu.append(item_readme)
+    #     submenu.append(item_disable)
+    #     help.set_submenu(submenu)
+    #     return help
 
     @staticmethod
     def get_create_db_item():
@@ -158,30 +171,15 @@ class IndicatorApp(object):
         item.connect('activate', lambda s: geo.run_in_terminal('db start -p'))
         return item
 
-    def build_help_item(self):
-        help = Gtk.MenuItem(label="Help")
-        submenu = Gtk.Menu()
-
-        item_disable = Gtk.MenuItem(label='Disable')
-        item_disable.connect('activate', self.show_disable_dialog)
-
-        item_readme = Gtk.MenuItem(label='View Readme')
-        item_readme.connect('activate', self.show_readme)
-
-        submenu.append(item_readme)
-        submenu.append(item_disable)
-        help.set_submenu(submenu)
-        return help
-
     def build_update_item(self):
         return menus.UpdateMenuItem(self, UPDATE_INTERVAL)
 
-    def show_readme(self, source):
-        webbrowser.open('https://git.geotab.com/dawsonmyers/geo-cli', new=2)
+    # def show_readme(self, source):
+    #     webbrowser.open('https://git.geotab.com/dawsonmyers/geo-cli', new=2)
 
-    def disable(self):
-        geo('indicator disable')
-        self.quit(None)
+    # def disable(self):
+    #     geo('indicator disable')
+    #     self.quit(None)
 
     def build_box(self):
         self.box_outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
@@ -196,25 +194,25 @@ class IndicatorApp(object):
     def quit(source=None):
         Gtk.main_quit()
 
-    def show_disable_dialog(self, widget):
-        dialog = Gtk.MessageDialog(
-            transient_for=None,
-            flags=0,
-            message_type=Gtk.MessageType.WARNING,
-            buttons=Gtk.ButtonsType.OK_CANCEL,
-            text="Disable geo-cli app indicator?",
-        )
-        dialog.format_secondary_text(
-            "The indicator can be re-enabled by running 'geo indicator enable' in a terminal."
-        )
-        response = dialog.run()
-        if response == Gtk.ResponseType.OK:
-            print("WARN dialog closed by clicking OK button")
-            self.disable()
-        elif response == Gtk.ResponseType.CANCEL:
-            print("WARN dialog closed by clicking CANCEL button")
-
-        dialog.destroy()
+    # def show_disable_dialog(self, widget):
+    #     dialog = Gtk.MessageDialog(
+    #         transient_for=None,
+    #         flags=0,
+    #         message_type=Gtk.MessageType.WARNING,
+    #         buttons=Gtk.ButtonsType.OK_CANCEL,
+    #         text="Disable geo-cli app indicator?",
+    #     )
+    #     dialog.format_secondary_text(
+    #         "The indicator can be re-enabled by running 'geo indicator enable' in a terminal."
+    #     )
+    #     response = dialog.run()
+    #     if response == Gtk.ResponseType.OK:
+    #         print("WARN dialog closed by clicking OK button")
+    #         self.disable()
+    #     elif response == Gtk.ResponseType.CANCEL:
+    #         print("WARN dialog closed by clicking CANCEL button")
+    #
+    #     dialog.destroy()
 
     def get_database_item(self):
         item_databases = Gtk.MenuItem(label='Databases')
