@@ -27,7 +27,7 @@ class HelpMenuItem(Gtk.MenuItem):
         item_readme.connect('activate', self.show_readme)
 
         submenu.append(item_show_notifications)
-        submenu.append(Gtk.SeparatorMenuItem())
+        # submenu.append(Gtk.SeparatorMenuItem())
         submenu.append(item_readme)
         submenu.append(item_disable)
         self.set_submenu(submenu)
@@ -62,7 +62,7 @@ class HelpMenuItem(Gtk.MenuItem):
 
 class ShowNotificationsMenuItem(Gtk.CheckMenuItem):
     def __init__(self, app):
-        super().__init__(label='Show Notification')
+        super().__init__(label='Show Notifications')
         self.app = app
         self.enabled = geo.get_config('SHOW_NOTIFICATIONS') != 'false'
         # if not self.enabled:

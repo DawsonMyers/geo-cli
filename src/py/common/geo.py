@@ -1,9 +1,7 @@
 import os
 import subprocess
-# from .util import
 from . import util
 from . import config
-# import .util
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 GEO_SRC_DIR = os.path.dirname(BASE_DIR)

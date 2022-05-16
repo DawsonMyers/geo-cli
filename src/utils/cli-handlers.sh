@@ -2282,10 +2282,12 @@ geo_indicator() {
     case "$1" in
         enable )
             status -b "Enabling app indicator"
-            echo
+            geo_set 'APP_INDICATOR_ENABLED' 'true'
+
             # Directory where user service files are stored.
             mkdir -p  ~/.config/systemd/user/
             mkdir -p  ~/.geo-cli/.data
+            mkdir -p  ~/.geo-cli/.indicator
             export src_dir=$(geo_get GEO_CLI_SRC_DIR)
             # echo $src_dir > ~/.geo-cli/.data/geo-cli-src-dir.txt
             export geo_indicator_app_dir="$src_dir/py/indicator"
@@ -2308,14 +2310,7 @@ geo_indicator() {
             # and then copy the contents to a file at the bin path
             # tmp_file=/tmp/geo_ind_init_script.sh
             
-            # envsubst < $init_script_path > $tmp_file
-            # chmod 777 $tmp_file
-            # debug "$tmp_file"
-            # echo "$init_script" > /tmp/init_script
-            # chmod 777 $tmp_file
-            # cp $tmp_file $indicator_bin_path
-            # sudo cp $tmp_file $indicator_bin_path
-            # envsubst < $init_script_path > $indicator_bin_path
+            
             export geo_indicator_path="$init_script_path"
             # export indicator_py_path="$src_dir/indicator/geo-indicator.py"
             envsubst < $service_file_path > $indicator_service_path
@@ -2340,7 +2335,7 @@ geo_indicator() {
             systemctl --user stop --now $geo_indicator_service_name
             systemctl --user disable --now $geo_indicator_service_name
             geo_set 'APP_INDICATOR_ENABLED' 'false'
-            success 'geo-indicator disabled'
+            success 'Indicator disabled'
             ;;
         status )
             systemctl --user status $geo_indicator_service_name
@@ -2352,7 +2347,7 @@ geo_indicator() {
             indicator_enabled=$(geo_get 'APP_INDICATOR_ENABLED')
 
             [[ -z $indicator_enabled ]] && indicator_enabled=true && geo_set 'APP_INDICATOR_ENABLED' 'true'
-            [[ $indicator_enabled == false ]] && return
+            [[ $indicator_enabled == false ]] && detail "Indicator is disabled. Run $(txt_underline geo indicator enable) to enable it.\n" && return
             geo_indicator enable
             ;;
         *)

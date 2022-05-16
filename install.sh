@@ -26,6 +26,7 @@ geo_set OUTDATED false
 if [[ $(geo_get FEATURE) == true ]]; then
     GEO_CLI_VERSION=$(geo_get FEATURE_VER_REMOTE)
     previously_installed_version=$(geo_get FEATURE_VER_LOCAL)
+    [[ -z $GEO_CLI_VERSION ]] && GEO_CLI_VERSION=$previously_installed_version
 fi
 
 # Remove previous aliases/config from .bashrc/.zshrc for geo command.
@@ -79,6 +80,7 @@ geo_generate_autocompletions
 running_in_headless_ubuntu=$(dpkg -l ubuntu-desktop | grep 'no packages found')
 if [[ -z $running_in_headless_ubuntu ]]; then
     geo_indicator init
+    echo
 fi
 
 
