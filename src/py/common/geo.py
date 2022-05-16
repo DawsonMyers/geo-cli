@@ -7,6 +7,7 @@ BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 GEO_SRC_DIR = os.path.dirname(BASE_DIR)
 GEO_CMD_BASE = GEO_SRC_DIR + '/geo-cli.sh '
 
+
 def start_db(name):
     # '-n' option is the 'no prompt' option. It causes geo to exit instead of waiting for user input.
     return geo('db start -n ' + name)

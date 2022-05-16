@@ -5,63 +5,16 @@ import time
 import subprocess
 
 import sys
+# Add local packages to python search path.
 sys.path.insert(0, os.path.join(sys.path[0], '..'))
-# sys.path.append(os.path.abspath(__file__))
-# sys.path.insert(0, sys.path[0])
-# sys.path.insert(0, os.path.join(sys.path[0], '..'))
-# import gi
-# gi.require_version('Gtk', '3.0')
-# gi.require_version('AppIndicator3', '0.1')
-# gi.require_version('Notify', '0.7')
-# gi.require_version('Gio', '2.0')
-#
-# from gi.repository import Gtk, GLib, Gio, Notify, GdkPixbuf
-# from gi.repository import AppIndicator3 as appindicator
 
-# # sys.path.insert(1, os.path.join(sys.path[0], '..'))
-#
-# BASE_DIR = os.path.dirname(os.path.realpath(__file__))
-# GEO_SRC_PY_DIR = os.path.dirname(BASE_DIR)
-# # sys.path.insert(0, GEO_SRC_PY_DIR)
-# # sys.path.append(GEO_SRC_PY_DIR)
-# GEO_SRC_DIR = os.path.dirname(GEO_SRC_PY_DIR)
-# GEO_CMD_BASE = GEO_SRC_DIR + '/geo-cli.sh '
-
-# from menus.db import RunningDbMenuItem, DbMenu, DbMenuItem
-# from menus.update import UpdateMenuItem
-# from menus.help import HelpMenuItem
-# from .menus.db import RunningDbMenuItem,
 from indicator import *
 from indicator import icons, menus
 from common import geo
 
-
-
-
-# from gi.repository import Notify as notify
-
 APPINDICATOR_ID = 'geo.indicator'
 
 UPDATE_INTERVAL = 10*60*1000
-
-
-
-# icon_geo_cli = os.path.join(BASE_DIR, 'res', 'geo-cli-logo.png')
-# icon_green_path = os.path.join(BASE_DIR, 'res', 'geo-icon-green.svg')
-# icon_green_update_path = os.path.join(BASE_DIR, 'res', 'geo-icon-green-update.svg')
-# icon_grey_path = os.path.join(BASE_DIR, 'res', 'geo-icon-grey.svg')
-# icon_grey_update_path = os.path.join(BASE_DIR, 'res', 'geo-icon-grey-update.svg')
-# icon_red_path = os.path.join(BASE_DIR, 'res', 'geo-icon-red.svg')
-# icon_red_update_path = os.path.join(BASE_DIR, 'res', 'geo-icon-red-update.svg')
-# icon_orange_path = os.path.join(BASE_DIR, 'res', 'geo-icon-orange.svg')
-# icon_orange_update_path = os.path.join(BASE_DIR, 'res', 'geo-icon-orange-update.svg')
-# icon_spinner_path = os.path.join(BASE_DIR, 'res', 'geo-spinner.svg')
-#
-# indicator = None
-# ICON_RED = 'red'
-# ICON_GREEN = 'green'
-# ICON_ORANGE = 'orange'
-
 
 class IndicatorApp(object):
     notification = None
@@ -75,9 +28,6 @@ class IndicatorApp(object):
         self.indicator = appindicator.Indicator.new(APPINDICATOR_ID, icons.GREEN_PATH, appindicator.IndicatorCategory.SYSTEM_SERVICES)
         self.indicator.set_status(appindicator.IndicatorStatus.ACTIVE)
         self.indicator.set_title('geo-cli')
-        # self.gtk_app = Gio.Application.new(APPINDICATOR_ID, Gio.ApplicationFlags.FLAGS_NONE)
-        # self.gtk_app = Gio.Application.new(application_id=APPINDICATOR_ID, flags=Gio.ApplicationFlags.FLAGS_NONE)
-        # self.gtk_app.register()
         # self.indicator.set_label('geo-cli', 'geo-cli')
         self.db_submenu = None
         self.item_databases = None
