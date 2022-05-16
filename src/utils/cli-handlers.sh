@@ -1623,6 +1623,10 @@ geo_env() {
         geo_rm "$2"
         ;;
     'ls')
+        if [[ $2 == keys ]]; then
+            awk -F= '{ gsub("GEO_CLI_","",$1); printf "%s ",$1 } ' $GEO_CLI_CONF_FILE | sort
+            return
+        fi
         local header=$(printf "%-26s %-26s\n" 'Variable' 'Value')
         local env_vars=$(awk -F= '{ gsub("GEO_CLI_","",$1); printf "%-26s %-26s\n",$1,$2 } ' $GEO_CLI_CONF_FILE | sort)
         info_bi "$header"
@@ -3273,9 +3277,14 @@ _geo_complete()
             if [[ -v SUBCOMMAND_COMPLETIONS[$prev] ]]; then
                 # echo "SUBCOMMANDS[$cur]: ${SUBCOMMANDS[$prev]}" >> bcompletions.txt
                 COMPREPLY=($(compgen -W "${SUBCOMMAND_COMPLETIONS[$prev]}" -- ${cur}))
+                case $prev in
+                    get|set|rm ) COMPREPLY=($(compgen -W "$(geo_env ls keys)" -- ${cur})) ;;
+                esac
             else
-                COMPREPLY=(ss aa)
+                COMPREPLY=()
+                
             fi
+            
             # case ${prev} in
             #     configure)
             #         COMPREPLY=($(compgen -W "CM DSP NPU" -- ${cur}))
@@ -3286,10 +3295,15 @@ _geo_complete()
             # esac
             ;;
         3)
+            case $prevprev in
+                db ) [[ $prev =~ start|rm ]] && COMPREPLY=($(compgen -W "$(geo_dev databases)" -- ${cur})) ;;
+                env ) [[ $prev =~ ls|get|set|rm ]] && COMPREPLY=($(compgen -W "$(geo_env ls keys)" -- ${cur})) ;;
+                # get|set|rm ) COMPREPLY=($(compgen -W "$(geo_env ls keys)" -- ${cur})) ;;
+            esac
             # geo db start
-            if [[ $prevprev == db && $prev =~ start|rm ]]; then
-                COMPREPLY=($(compgen -W "$(geo_dev databases)" -- ${cur}))
-            fi
+            # if [[ $prevprev == db && $prev =~ start|rm ]]; then
+            #     COMPREPLY=($(compgen -W "$(geo_dev databases)" -- ${cur}))
+            # fi
             ;;
         *)
             COMPREPLY=()
