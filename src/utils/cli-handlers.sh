@@ -1763,11 +1763,11 @@ geo_update() {
     fi
 
     local geo_cli_dir="$(geo_get GEO_CLI_DIR)"
-    local prev_commit=
+    local prev_commit="$(geo_get GIT_PREVIOUS_COMMIT)"
     local new_commit=
     (
         cd $geo_cli_dir
-        prev_commit=$(git rev-parse HEAD)
+        [[ -z $prev_commit ]] && prev_commit=$(git rev-parse HEAD)
         if ! git pull >/dev/null; then
             Error 'Unable to pull changes from remote'
             return 1
@@ -1776,6 +1776,7 @@ geo_update() {
     )
     # debug "$prev_commit $new_commit"
     bash $geo_cli_dir/install.sh $prev_commit $new_commit
+    geo_set GIT_PREVIOUS_COMMIT "$new_commit"
     # Re-source .bashrc to reload geo in this terminal
     . ~/.bashrc
 }
@@ -2119,7 +2120,9 @@ geo_id_doc() {
         doc_cmd_example 'geo id aAOdO4ZfnTyifXirSIkUfbQ => 00e74ee1-97e7-4f28-9f5e-2ad222451f6d'
 }
 geo_id() {
+    local interactive=false
     local format_output=true
+    [[ $1 == -i ]] && interactive=true && shift
     [[ $1 == -o ]] && format_output=false && shift
     local arg="$1"
     local first_char=${arg:0:1}
@@ -2128,60 +2131,102 @@ geo_id() {
     local guid_re='^[[:alnum:]]+-[[:alnum:]]+-[[:alnum:]]+-[[:alnum:]]+-[[:alnum:]]+$'
     local msg=
     number_re='^[0-9]+$'
+  
+    convert_id() {
+        arg=${1:-$arg}
+        # Guid endcode.
+        if [[ $arg =~ $guid_re ]]; then
+            if [[ ${#arg} -ne 36 ]]; then
+                Error "Invalid input format."
+                warn "Guid ids must be 36 characters long. The input string length was ${#arg}"
+                return 1
+            fi
+            id=$arg
+            # Remove all occurrences of '-'.
+            id=${id//-/}
+            # Reorder bytes to match the C# Guid.TryWriteBytes() ordering.
+            id=${id:6:2}${id:4:2}${id:2:2}${id:0:2}${id:10:2}${id:8:2}${id:14:2}${id:12:2}${id:16:4}${id:20:12}
+            # Convert to bytes and then encode to base64.
+            id=$(echo $id | xxd -r -p | base64)
+            # Remove trailing'=='.
+            id=${id:0:-2}
+            # Replace '+' with '-'.
+            id=${id//+/-}
+            # Replace '/' with '_'.
+            id=${id//\//_}
+            id='a'$id
+            msg='Encoded guid id'
+        # Guid decode.
+        elif [[ $first_char =~ a ]]; then
+            if [[ ${#arg} -ne 23 ]]; then
+                Error "Invalid input format."
+                warn "Guid encoded ids must be prefixed with 'a' and be 23 characters long. The input string length was ${#arg}"
+                return 1
+            fi
+            id=${arg:1}
+            # Add trailing'=='.
+            id+="=="
+            # Replace '-' with '+'.
+            id=${id//-/+}
+            # Replace '_' with '/'.
+            id=${id//_/\/}
+            # Decode base64 to bytes and then to a hex string.
+            id=$(echo $id | base64 -d | xxd -p)
+            # Reorder bytes to match the C# Guid.TryWriteBytes() ordering.
+            id=${id:6:2}${id:4:2}${id:2:2}${id:0:2}${id:10:2}${id:8:2}${id:14:2}${id:12:2}${id:16:4}${id:20:12}
+            # Format the decoded guid with hyphens so that it takes the same form as this example: 9567aac6-b5a9-4561-8b82-ca009760b1b3.
+            id=${id:0:8}-${id:8:4}-${id:12:4}-${id:16:4}-${id:20}
+            # To upper case.
+            id=${id^^}
+            msg='Decoded guid id'
+        # Long encode.
+        elif [[ $arg =~ $number_re ]]; then
+            id=$(printf '%x' $arg)
+            # To upper case.
+            id=b${id^^}
+            msg='Encoded long id'
+        # Long decode
+        elif [[ $first_char == b ]]; then
+            # Trim 'b' suffix.
+            id=${arg:1}
+            # Convert from hex to long.
+            id=$(printf '%d' 0x$id)
+            msg='Decoded long id'
+        else
+            Error "Invalid input format."
+            warn "Guid ids must be 36 characters long."
+            warn "Encoded guid ids must be prefixed with 'a' and be 23 characters long."
+            warn "Encoded long ids must be prefixed with 'b'."
+            warn "Use 'geo id help' for usage info."
+            return 1
+        fi
+    }
     
-    # Guid endcode.
-    if [[ $arg =~ $guid_re ]]; then
-        id=$arg
-        # Remove all occurrences of '-'.
-        id=${id//-/}
-        # Reorder bytes to match the C# Guid.TryWriteBytes() ordering.
-        id=${id:6:2}${id:4:2}${id:2:2}${id:0:2}${id:10:2}${id:8:2}${id:14:2}${id:12:2}${id:16:4}${id:20:12}
-        id=$(echo $id | xxd -r -p | base64)
-        # Remove trailing'=='.
-        id=${id:0:-2}
-        # Replace '+' with '-'.
-        id=${id//+/-}
-        # Replace '/' with '_'.
-        id=${id//\//_}
-        id='a'$id
-        msg='Encoded guid id'
-    # Guid decode.
-    elif [[ $first_char =~ a ]]; then
-        id=${arg:1}
-        # Add trailing'=='.
-        id+="=="
-        # Replace '-' with '+'.
-        id=${id//-/+}
-        # Replace '_' with '/'.
-        id=${id//_/\/}
-        id=$(echo $id | base64 -d | xxd -p)
-        # Reorder bytes to match the C# Guid.TryWriteBytes() ordering.
-        id=${id:6:2}${id:4:2}${id:2:2}${id:0:2}${id:10:2}${id:8:2}${id:14:2}${id:12:2}${id:16:4}${id:20:12}
-        # Format the decoded guid with hyphens so that it takes the same form as this example: 9567aac6-b5a9-4561-8b82-ca009760b1b3.
-        id=${id:0:8}-${id:8:4}-${id:12:4}-${id:16:4}-${id:20}
-        # To upper case.
-        id=${id^^}
-        msg='Decoded guid id'
-    # Long encode.
-    elif [[ $arg =~ $number_re ]]; then
-        id=$(printf '%x' $arg)
-        # To upper case.
-        id=b${id^^}
-        msg='Encoded long id'
-    # Long decode
-    elif [[ $first_char == b ]]; then
-        # Trim 'b' suffix.
-        id=${arg:1}
-        # Convert from hex to long.
-        id=$(printf '%d' 0x$id)
-        msg='Decoded long id'
-    else
-        Error "Invalid input format."
-        warn "Guid encoded ids must be prefixed with 'a' and long encoded ids must be prefixed with 'b'."
-        warn "Use 'geo id help' for usage info."
-        return 1
+    if [[ $interactive == true ]]; then
+        clipboard=$(xclip -o)
+        # debug "Clip $clipboard"
+        # First try to convert the contents of the clipboard as an id.
+        if [[ -n $clipboard && ${#clipboard} -le 36 ]]; then
+            # geo_id $clipboard
+            output=$(convert_id $clipboard)
+            # debug $output
+            if [[ $output =~ Error ]]; then
+                detail 'No valid ID in clipboard'
+            else
+                detail "Converting the following id from clipboard: $clipboard"
+                geo_id $clipboard
+            fi
+        fi
+        # Prompt repetitively to convert ids.
+        while true; do
+            prompt_for_info_n "Enter ID to encode/decode: "
+            geo_id $prompt_return
+        done
+        return
     fi
 
+    # Convert the id.
+    convert_id $arg
     [[ $format_output == true ]] && status "$msg: "
     [[ $format_output == true ]] && status -b $id || echo -n $id
     if ! type xclip > /dev/null; then
@@ -2395,6 +2440,7 @@ _geo_indicator_check_dependencies() {
     _geo_install_apt_package_if_missing 'gir1.2-appindicator3-0.1'
     _geo_install_apt_package_if_missing 'libappindicator3-1'
     _geo_install_apt_package_if_missing 'gir1.2-notify-0.7'
+    _geo_install_apt_package_if_missing 'xclip'
 }
 ###########################################################
 COMMANDS+=('help')
@@ -2587,10 +2633,10 @@ geo_check_for_updates() {
         if [[ -n $v_remote && -f $geo_cli_dir/feature-version.txt ]]; then
             local feature_version=$(cat $geo_cli_dir/feature-version.txt)
             geo_set FEATURE_VER_LOCAL "${cur_branch}_V$feature_version"
+            geo_set FEATURE_VER_REMOTE "${cur_branch}_V$v_remote"
             # debug "current feature version = $feature_version, remote = $v_remote"
             if (( v_remote > feature_version )); then
                 # debug setting outdated true
-                geo_set FEATURE_VER_REMOTE "${cur_branch}_V$v_remote"
                 geo_set OUTDATED true
                 return
             fi

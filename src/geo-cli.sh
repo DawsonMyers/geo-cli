@@ -96,9 +96,9 @@ function geo()
     [[ $cmd == -f ]] && return
         
     # Quit if the command isn't valid
-    if [ -z `cmd_exists $cmd` ]; then
+    if [[ -z `cmd_exists $cmd` ]]; then
         [[ ${#cmd} == 0 ]] && echo && warn "geo was run without any command"
-        [ ${#cmd} -gt 0 ] && echo && warn "Unknown command: '$cmd'"
+        [[ ${#cmd} -gt 0 ]] && echo && warn "Unknown command: '$cmd'"
         
         # geotab_logo
         # geo_logo
