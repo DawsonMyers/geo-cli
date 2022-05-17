@@ -82,7 +82,7 @@ class IndicatorApp(object):
 
         item_npm = Gtk.MenuItem(label='npm install')
         item_npm.connect('activate', lambda _: geo.run_in_terminal('init npm'))
-        item_id = Gtk.MenuItem(label='Encode/Decode Long/Guid Ids')
+        item_id = Gtk.MenuItem(label='Convert Long/Guid Ids')
         # Run 'geo id -i' in terminal. This causes geo id to interactively, first trying to convert the contents of the clipboard.
         item_id.connect('activate', lambda _: geo.run_in_terminal('id -i'))
 
