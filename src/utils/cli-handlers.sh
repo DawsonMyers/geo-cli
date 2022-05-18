@@ -1671,18 +1671,30 @@ geo_set() {
     [[ $value == $old ]] && value_changed=false
 
     # Only write to file if the value has changed.
-    [[ $value_changed == true ]] && cfg_write $GEO_CLI_CONF_FILE "$geo_key" "$value"
+    if [[ $value_changed == true ]]; then
+        (
+            # Get an exclusive lock on file descriptor 200, waiting only 5 second before timing out.
+            flock -w 5 -e 200
+            # Check if the lock was successfully acquired.
+            (( $? != 0 )) && Error "'geo set' failed to lock config file after timeout. Key: $geo_key, value: $value." && return 1
+            # Write to the file atomically.
+            cfg_write $GEO_CLI_CONF_FILE "$geo_key" "$value"
+        # Open up the lock file for writing on file descriptor 200. The lock is release as soon as the subshell exits.
+        ) 200> /tmp/.geo.conf.lock
+        [[ $? != 0 ]] && return 1
+    fi
+        
 
-    local final_line_count=$(wc -l $GEO_CLI_CONF_FILE | awk '{print $1}')
+    # local final_line_count=$(wc -l $GEO_CLI_CONF_FILE | awk '{print $1}')
 
     # debug "$initial_line_count, $final_line_count"
     # debug "$conf_backup"
     # Restore original configuration file and try to write to it again. The conf file can be corrupted
     # if two processes try to write to it at the same time.
-    if (( final_line_count < initial_line_count )); then
-        echo "$conf_backup" > $GEO_CLI_CONF_FILE
-        [[ $value_changed == true ]] && cfg_write $GEO_CLI_CONF_FILE "$geo_key" "$value"
-    fi
+    # if (( final_line_count < initial_line_count )); then
+    #     echo "$conf_backup" > $GEO_CLI_CONF_FILE
+    #     [[ $value_changed == true ]] && cfg_write $GEO_CLI_CONF_FILE "$geo_key" "$value"
+    # fi
 
     if [[ $show_status == true ]]; then
         info_bi "$key"
@@ -1731,14 +1743,23 @@ geo_rm_doc() {
 }
 geo_rm() {
     # Get value of env var.
-    local key="$1"
+    local key="${1^^}"
     [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
 
-    cfg_delete $GEO_CLI_CONF_FILE "$key"
+    (
+        # Get an exclusive lock on file descriptor 200, waiting only 5 second before timing out.
+        flock -w 5 -e 200
+        # Check if the lock was successfully acquired.
+        (( $? != 0 )) && Error "'geo rm' failed to lock config file after timeout. Key: $key" && return 1
+        # Write to the file atomically.
+        cfg_delete $GEO_CLI_CONF_FILE "$key"
+    # Open up the lock file for writing on file descriptor 200. The lock is release as soon as the subshell exits.
+    ) 200> /tmp/.geo.conf.lock
+    [[ $? != 0 ]] && return 1
 }
 
 geo_haskey() {
-    local key="$1"
+    local key="${1^^}"
     [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
     cfg_haskey $GEO_CLI_CONF_FILE "$key"
 }
@@ -3324,7 +3345,7 @@ _geo_complete()
                 # echo "SUBCOMMANDS[$cur]: ${SUBCOMMANDS[$prev]}" >> bcompletions.txt
                 COMPREPLY=($(compgen -W "${SUBCOMMAND_COMPLETIONS[$prev]}" -- ${cur}))
                 case $prev in
-                    get|set|rm ) COMPREPLY=($(compgen -W "$(geo_env ls keys)" -- ${cur})) ;;
+                    get|set|rm ) COMPREPLY=($(compgen -W "$(geo_env ls keys)" -- ${cur^^})) ;;
                 esac
             else
                 COMPREPLY=()
@@ -3343,7 +3364,7 @@ _geo_complete()
         3)
             case $prevprev in
                 db ) [[ $prev =~ start|rm ]] && COMPREPLY=($(compgen -W "$(geo_dev databases)" -- ${cur})) ;;
-                env ) [[ $prev =~ ls|get|set|rm ]] && COMPREPLY=($(compgen -W "$(geo_env ls keys)" -- ${cur})) ;;
+                env ) [[ $prev =~ ls|get|set|rm ]] && COMPREPLY=($(compgen -W "$(geo_env ls keys)" -- ${cur^^})) ;;
                 # get|set|rm ) COMPREPLY=($(compgen -W "$(geo_env ls keys)" -- ${cur})) ;;
             esac
             # geo db start
