@@ -34,6 +34,7 @@ class IndicatorApp(object):
         self.item_running_db = None
         self.item_auto_switch_db_toggle = None
         self.icon_manager = icons.IconManager(self.indicator)
+        self.show_quick_notification('Starting up...')
         self.menu = MainMenu(self)
         self.build_menu(self.menu)
         self.indicator.set_menu(self.menu)

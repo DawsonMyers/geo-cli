@@ -28,6 +28,17 @@ export CURRENT_COMMAND=''
 export CURRENT_SUBCOMMAND=''
 export CURRENT_SUBCOMMANDS=()
 
+
+# set -eE -o functrace
+# set -x
+# failure() {
+#   local lineno=$1
+#   local msg=$2
+#   local func=$3
+#   echo "Failed at $lineno: $msg in function: ${func}"
+# }
+# trap 'failure ${LINENO} "$BASH_COMMAND" ${FUNCNAME[0]}' ERR
+
 # First argument commands
 ###############################################################################
 # Each command has three parts:
@@ -317,12 +328,14 @@ geo_db_stop() {
 geo_db_create() {
     local silent=false
     local acceptDefaults=
+    local no_prompt=
     local empty_db=false
     local OPTIND
     while getopts "sye" opt; do
         case "${opt}" in
             s ) silent=true ;;
             y ) acceptDefaults=true ;;
+            n ) no_prompt=true ;;
             e ) empty_db=true && status_bi 'Creating empty Postgres container';;
             \? ) 
                 Error "Invalid option: -$OPTARG"
@@ -335,7 +348,7 @@ geo_db_create() {
     db_version="$1"
     db_version=$(geo_make_alphanumeric "$db_version")
 
-    if [ -z "$db_version" ]; then
+    if [[ -z $db_version ]]; then
         Error "No database version provided."
         return
     fi
@@ -352,7 +365,7 @@ geo_db_create() {
         return 1
     fi
 
-    if [ ! $acceptDefaults ]; then
+    if [[ -z $acceptDefaults && -z $no_prompt ]]; then
         prompt_continue "Create db container with name $(txt_underline ${db_version})? (Y|n): " || return
     fi
     status_bi "Creating volume:"
@@ -539,13 +552,14 @@ geo_db_start() {
         # db_version="$1"
         # db_version=$(geo_make_alphanumeric "$db_version")
 
-        if [ ! $acceptDefaults ]; then
+        if [[ -z $acceptDefaults && -z $no_prompt ]]; then
             prompt_continue "Db container $(txt_italic ${db_version}) doesn't exist. Would you like to create it? (Y|n): " || return
         fi
         local opts=-s
-        [ $acceptDefaults ] && opts+=y
+        [[ $acceptDefaults == true ]] && opts+=y
+        [[ $no_prompt == true ]] && opts+=n
 
-        geo_db create $opts "$db_version" ||
+        geo_db_create $opts "$db_version" ||
             (Error 'Failed to create db' && return 1)
 
         try_to_start_db $container_name
@@ -554,6 +568,7 @@ geo_db_start() {
         if [[ -n $output ]]; then
             Error "Port 5432 is already in use."
             info "Fix: Stop postgresql"
+            [[ $no_prompt == true ]] && return 1
             if prompt_continue "Do you want to try to stop the postgresql service? (Y|n): "; then
                 sudo service postgresql stop && success 'postgresql service stopped'
                 sleep 2
@@ -574,6 +589,7 @@ geo_db_start() {
         status "  ID: $container_id"
         status "  NAME: $container_name"
 
+        [[ $no_prompt == true ]] && return
         if [ $acceptDefaults ] || prompt_continue 'Would you like to initialize the db? (Y|n): '; then
             geo_db_init $acceptDefaults
         else

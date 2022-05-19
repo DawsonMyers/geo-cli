@@ -24,7 +24,9 @@ def to_key(str):
 
 
 class RunningDbMenuItem(Gtk.MenuItem):
+    starting_up = True
     current_myg_release_db = ''
+
     def __init__(self, app: IndicatorApp):
         super().__init__(label='Checking for DB')
         self.app = app
@@ -84,7 +86,10 @@ class RunningDbMenuItem(Gtk.MenuItem):
             self.set_db_label(label)
             # self.set_db_label(get_running_db_label_markup(cur_running_db))
             self.app.icon_manager.set_icon(icons.GREEN)
-            self.app.show_quick_notification('DB Started: ' + cur_running_db)
+            if self.starting_up:
+                self.starting_up = False
+            else:
+                self.app.show_quick_notification('DB Started: ' + cur_running_db)
         self.running_db = cur_running_db
         self.update_db_start_items()
         self.change_db_if_myg_release_changed()
@@ -117,14 +122,15 @@ class RunningDbMenuItem(Gtk.MenuItem):
 
 
 class DbMenu(Gtk.Menu):
+    db_names = set()
     def __init__(self, app: IndicatorApp):
         self.app = app
         self.item_running_db = app.item_running_db
         super().__init__()
-        self.db_names = set(geo.get_geo_db_names())
+        # self.db_names = set(geo.get_geo_db_names())
         self.items = dict()
-        self.build_db_items()
-        GLib.timeout_add(2 * 1000, self.db_monitor)
+        # GLib.idle_add(self.build_db_items)
+        GLib.timeout_add(1000, self.db_monitor)
 
     def build_db_items(self):
         dbs = geo.get_geo_db_names()
@@ -133,7 +139,8 @@ class DbMenu(Gtk.Menu):
             db_item = DbMenuItem(db, self.app)
             self.items[db] = db_item
             self.append(db_item)
-        self.queue_draw()
+        # self.queue_draw()
+        self.show_all()
 
     def remove_items(self):
         for item in self.get_children():
@@ -142,7 +149,8 @@ class DbMenu(Gtk.Menu):
             self.remove(item)
             self.items.pop(item)
             item.destroy()
-        self.queue_draw()
+        # self.queue_draw()
+        self.show_all()
 
     def db_monitor(self):
         new_db_names = set(geo.get_geo_db_names())
@@ -156,19 +164,41 @@ class DbMenu(Gtk.Menu):
         print('Removed: ' + str(removed))
         added = new_db_names - self.db_names
         print('Added: ' + str(added))
+        if not removed and not added:
+            return
+        if not self.items:
+            self.build_db_items()
+            return
         for db in removed:
             if db not in self.items: continue
             item = self.items.pop(db)
             item.hide()
             item.set_sensitive(False)
             self.remove(item)
+            item.destroy()
+        sorted_items = sorted(self.items, reverse=True)
         for db in added:
             if db in self.items: continue
             item = DbMenuItem(db, self.app)
-            self.append(item)
             item.show()
+            i = 0
+            while i < len(sorted_items) and db < sorted_items[i]:
+                i += 1
+            self.insert(item, i)
+            sorted_items.insert(i, item.name)
+            # self.append(item)
+            # item.show()
             # self.show_all()
             self.items[db] = item
+        if not added:
+            self.show_all()
+            return
+        # for k, v in self.items.items():
+        #     self.remove(v)
+        # for key,value in sorted(self.items.items(), reverse=True):
+        #     self.add(value)
+
+        self.show_all()
         self.queue_draw()
 
 
@@ -201,6 +231,7 @@ class DbMenuItem(Gtk.MenuItem):
             self.app.item_databases.get_submenu().remove(self)
             self.set_sensitive(False)
             return False
+        # GLib.idle_add(run)
         GLib.timeout_add(5, lambda: run())
 
     def start_geo_db(self, obj):
@@ -217,6 +248,7 @@ class DbMenuItem(Gtk.MenuItem):
                 self.item_running_db.set_db_label(get_running_db_label_text(self.name))
 
         # Add timeout to allow event loop to update label name while the db start command runs.
+        # GLib.idle_add(run_after_label_update)
         GLib.timeout_add(10, run_after_label_update)
 
     def user_confirmed_removal(self, db):
@@ -267,8 +299,12 @@ class SetDbForMygReleaseMenuItem(Gtk.MenuItem):
     def monitor(self):
         if self.app.db and self.app.db != self.app.db_for_myg_release:
             self.set_sensitive(True)
+            self.set_label('Set DB for MYG Release')
+            self.show()
         else:
             self.set_sensitive(False)
+            self.set_label('Configured DB Running')
+            self.show()
         return True
 
     def set_db_for_release(self):
@@ -280,11 +316,12 @@ class SetDbForMygReleaseMenuItem(Gtk.MenuItem):
 
 
 class CheckedOutMygReleaseMenuItem(Gtk.MenuItem):
+    cur_release = ''
     def __init__(self, app: IndicatorApp):
         self.app = app
         super().__init__(label='MYG Release: Unknown')
-        self.cur_release = geo.get_myg_release()
-        self.app.myg_release = self.cur_release
+        # self.cur_release = geo.get_myg_release()
+        # self.app.myg_release = self.cur_release
         self.set_sensitive(False)
         self.update_label(self.cur_release)
         GLib.timeout_add(2000, self.monitor)
@@ -349,6 +386,7 @@ class DbForMygReleaseMenuItem(Gtk.MenuItem):
 
 
 class AutoSwitchDbEnableCheckMenuItem(Gtk.CheckMenuItem):
+    enabled = True
     def __init__(self, app: IndicatorApp):
         super().__init__(label='Enabled')
         self.app = app

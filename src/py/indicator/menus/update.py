@@ -21,8 +21,9 @@ class UpdateMenuItem(Gtk.MenuItem):
         self.app.menu.append(self)
 
         # Run once later so that 'Checking for updates' is initially displayed.
+        # GLib.idle_add(self.set_update_status)
         GLib.timeout_add(2000, lambda: not self.set_update_status())
-        self.set_update_status()
+        # self.set_update_status()
         GLib.timeout_add(update_interval, self.set_update_status)
 
     def set_update_status(self, source=None):
