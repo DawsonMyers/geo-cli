@@ -113,8 +113,11 @@ def get_running_db_name():
     return name
 
 
-def run_in_terminal(arg_str, title='geo-cli'):
-    util.run_in_terminal(get_geo_cmd(arg_str), title)
+def run_in_terminal(arg_str, title='geo-cli', stay_open_after=True):
+    if stay_open_after:
+        util.run_in_terminal(get_geo_cmd(arg_str), title)
+    else:
+        util.run_in_terminal_then_close(get_geo_cmd(arg_str), title)
 
 
 def db(args):

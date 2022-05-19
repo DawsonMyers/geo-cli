@@ -2142,20 +2142,25 @@ geo_id_doc() {
 }
 geo_id() {
     local interactive=false
+    local use_clipboard=false
     local format_output=true
+    [[ $1 == -c ]] && use_clipboard=true && shift
     [[ $1 == -i ]] && interactive=true && shift
     [[ $1 == -o ]] && format_output=false && shift
     local arg="$1"
-    local first_char=${arg:0:1}
+    
     local id=
-    # The regex for identifing guids.
+    # The regex for identifying guids.
     local guid_re='^[[:alnum:]]+-[[:alnum:]]+-[[:alnum:]]+-[[:alnum:]]+-[[:alnum:]]+$'
+    local encoded_guid_re='^a[a-zA-Z0-9_-]{22,22}$'
     local msg=
     number_re='^[0-9]+$'
   
     convert_id() {
         arg=${1:-$arg}
-        # Guid endcode.
+        local first_char=${arg:0:1}
+        # debug "arg='$arg'"
+        # Guid encode.
         if [[ $arg =~ $guid_re ]]; then
             if [[ ${#arg} -ne 36 ]]; then
                 Error "Invalid input format."
@@ -2179,11 +2184,14 @@ geo_id() {
             msg='Encoded guid id'
         # Guid decode.
         elif [[ $first_char =~ a ]]; then
-            if [[ ${#arg} -ne 23 ]]; then
-                Error "Invalid input format."
-                warn "Guid encoded ids must be prefixed with 'a' and be 23 characters long. The input string length was ${#arg}"
-                return 1
-            fi
+#        elif [[ $arg =~ $encoded_guid_re ]]; then
+             if [[ ! $arg =~ $encoded_guid_re ]]; then
+             # if [[ ${#arg} -ne 23 ]]; then
+                 Error "Invalid input format."
+                 warn "Guid encoded ids must be prefixed with 'a' and be 23 characters long."
+                 [[ ${#arg} -ne 23 ]] && warn "The input string length was: ${#arg}"
+                 return 1
+             fi
             id=${arg:1}
             # Add trailing'=='.
             id+="=="
@@ -2223,33 +2231,48 @@ geo_id() {
         fi
     }
     
-    if [[ $interactive == true ]]; then
+    if [[ $interactive == true || $use_clipboard == true ]]; then
         clipboard=$(xclip -o)
         # debug "Clip $clipboard"
+        local valid_id_re='^[a-zA-Z0-9_-]{1,36}$'
+        # [[ $clipboard =~ $valid_id_re]]
         # First try to convert the contents of the clipboard as an id.
         if [[ -n $clipboard && ${#clipboard} -le 36 ]]; then
+            # [[ $clipboard =~ $valid_id_re ]]
             # geo_id $clipboard
+            # debug "Clip $clipboard"
             output=$(convert_id $clipboard)
             # debug $output
+
             if [[ $output =~ Error ]]; then
                 detail 'No valid ID in clipboard'
             else
                 detail "Converting the following id from clipboard: $clipboard"
                 geo_id $clipboard
+                echo
             fi
+        fi
+
+        if [[ $use_clipboard == true ]]; then
+            detail 'closing in 5 seconds'
+            sleep 5
+            exit
         fi
         # Prompt repetitively to convert ids.
         while true; do
             prompt_for_info_n "Enter ID to encode/decode: "
             geo_id $prompt_return
+            echo
         done
         return
     fi
 
     # Convert the id.
-    convert_id $arg
+    if ! convert_id $arg; then
+        return 1
+    fi
     [[ $format_output == true ]] && status "$msg: "
-    [[ $format_output == true ]] && status -b $id || echo -n $id
+    [[ $format_output == true ]] && detail -b $id || echo -n $id
     if ! type xclip > /dev/null; then
         warn 'Install xclip (sudo apt-get instal xclip) in order to have the id copied to your clipboard.'
         return

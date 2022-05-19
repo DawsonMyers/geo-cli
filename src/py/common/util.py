@@ -2,6 +2,13 @@ import os
 import subprocess
 
 
+def run_in_terminal_then_close(cmd_to_run, title=''):
+    if len(title) > 0:
+        title = "--title='%s'" % title
+    cmd = "gnome-terminal %s --geometry=80x30 -- bash -c \"bash %s; cd $HOME\"" % (title, cmd_to_run)
+    os.system(cmd)
+
+
 def run_in_terminal(cmd_to_run, title=''):
     if len(title) > 0:
         title = "--title='%s'" % title
