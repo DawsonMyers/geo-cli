@@ -38,6 +38,8 @@ class AccessRequestMenuItem(Gtk.MenuItem):
     def monitor(self):
         menu = self.item_iap_start_prev.get_submenu()
         prev_cmds_str = geo.get_config('AR_IAP_CMDS')
+        if not prev_cmds_str:
+            prev_cmds_str = geo.get_config('AR_IAP_CMD')
         items = [item for item in menu.get_children()]
         items_dict = {item.cmd: item for item in menu.get_children()}
         cur_cmds = [item.cmd for item in items]
