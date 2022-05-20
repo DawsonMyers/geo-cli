@@ -1869,10 +1869,11 @@ geo_update() {
             return 1
         fi
         new_commit=$(git rev-parse HEAD)
+        bash $geo_cli_dir/install.sh $prev_commit $new_commit
+        geo_set GIT_PREVIOUS_COMMIT "$new_commit"
     )
     # debug "$prev_commit $new_commit"
-    bash $geo_cli_dir/install.sh $prev_commit $new_commit
-    geo_set GIT_PREVIOUS_COMMIT "$new_commit"
+    
     # Re-source .bashrc to reload geo in this terminal
     . ~/.bashrc
 }
@@ -1970,13 +1971,6 @@ geo_analyze() {
     # Default to running individually until cmd test batching is supported in more releases currently only 2104.
     local run_individually=true
 
-    # Check if the run previous analyzers option (-) was supplied.
-    if [[ $1 =~ ^-$ ]]; then
-        ids=$(geo_get ANALYZER_IDS)
-        [[ -n $ids ]] && echo && status "Using previous analyzer id(s): $ids"
-        shift
-    fi
-
     local OPTIND
     while getopts "ab" opt; do
         case "${opt}" in
@@ -2002,6 +1996,13 @@ geo_analyze() {
         esac
     done
     shift $((OPTIND - 1))
+
+    # Check if the run previous analyzers option (-) was supplied.
+    if [[ $1 =~ ^-$ ]]; then
+        ids=$(geo_get ANALYZER_IDS)
+        [[ -n $ids ]] && echo && status "Using previous analyzer id(s): $ids"
+        shift
+    fi
 
     # See if only the core/test project should be run.
     local run_project_only=

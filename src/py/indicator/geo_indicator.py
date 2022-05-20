@@ -178,8 +178,19 @@ class IndicatorApp(object):
 
     @staticmethod
     def get_analyzer_item():
+        menu = Gtk.Menu()
         item = Gtk.MenuItem(label='Run Analyzers')
-        item.connect('activate', lambda _: geo.run_in_terminal('analyze -b'))
+        item_run_all = Gtk.MenuItem(label='All')
+        item_choose = Gtk.MenuItem(label='Choose')
+        item_previous = Gtk.MenuItem(label='Previous')
+        item_run_all.connect('activate', lambda _: geo.run_in_terminal('analyze -b -a'))
+        item_choose.connect('activate', lambda _: geo.run_in_terminal('analyze -b'))
+        item_previous.connect('activate', lambda _: geo.run_in_terminal('analyze -b -'))
+        menu.append(item_run_all)
+        menu.append(item_choose)
+        menu.append(item_previous)
+        item.set_submenu(menu)
+        menu.show_all()
         return item
 
 
