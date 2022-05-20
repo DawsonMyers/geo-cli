@@ -291,7 +291,7 @@ geo_db_check_for_old_image_prefix() {
     done
 
     # Rename existing image.
-    docker image tag geo_cli_db_postgres11 $IMAGE 2>-
+    docker image tag geo_cli_db_postgres11 $IMAGE 2> /dev/null
 }
 
 geo_db_stop() {
@@ -493,7 +493,7 @@ geo_db_start() {
         Error "Postgres port 5432 is currently bound to the following container: $container_name_using_postgres_port"
         [[ $no_prompt == true ]] && Error "Port error" && return 1
         if prompt_continue "Do you want to stop this container so that a geo db one can be started? (Y|n): "; then
-            if docker stop "$container_name_using_postgres_port" >-; then
+            if docker stop "$container_name_using_postgres_port" > /dev/null; then
                 status 'Container stopped'
             else
                 Error 'Unable to stop container'
@@ -525,7 +525,7 @@ geo_db_start() {
         #     docker container rm $container_id
         #     local vol_mount="geo_cli_db_postgres11_${db_version}:/var/lib/postgresql/12/main"
         #     local port=5432:5432
-        #     docker create -v $vol_mount -p $port --name=$container_name $IMAGE >-
+        #     docker create -v $vol_mount -p $port --name=$container_name $IMAGE > /dev/null
         # fi
 
         try_to_start_db $container_id
