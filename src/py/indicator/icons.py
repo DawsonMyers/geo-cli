@@ -35,6 +35,7 @@ class IconManager:
         elif self.cur_icon == GREEN:
             img_path = GREY_UPDATE_PATH if self.update_available else GREEN_PATH
             self.indicator.set_icon_full(img_path, 'geo-cli: DB running')
+            # self.indicator.set_attention_icon_full(RED_PATH, 'geo-cli: DB running')
         elif self.cur_icon == ORANGE:
             img_path = ORANGE_UPDATE_PATH if self.update_available else ORANGE_PATH
             self.indicator.set_icon_full(img_path, 'geo-cli: DB Error')

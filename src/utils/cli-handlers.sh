@@ -1278,16 +1278,14 @@ geo_ar() {
                     esac    
                     shift
                 done
-                local gcloud_cmd="$*"
 
+                local gcloud_cmd="$*"
+                local expected_cmd_start='gcloud compute start-iap-tunnel'
                 local prompt_txt='Enter the gcloud IAP command that was copied from your MyAdmin access request:'
                 if [[ $prompt_for_cmd == true ]]; then
                     prompt_for_info "$prompt_txt"
-                    local expected_cmd_start='gcloud compute start-iap-tunnel'
-                    while [[ ! $prompt_return =~ ^$expected_cmd_start ]]; do
-                        warn -b "The command must start with 'gcloud compute start-iap-tunnel'"
-                        prompt_for_info "$prompt_txt"
-                    done
+                    
+                    
                     gcloud_cmd="$prompt_return"
                 fi
 
@@ -1295,8 +1293,15 @@ geo_ar() {
                 # debug $gcloud_cmd
                 [[ -z $gcloud_cmd ]] && gcloud_cmd="$(geo_get AR_IAP_CMD)"
                 [[ -z $gcloud_cmd ]] && Error 'The gcloud compute start-iap-tunnel command (copied from MyAdmin for your access request) is required.' && return 1
+                
+                while [[ ! $gcloud_cmd =~ ^$expected_cmd_start ]]; do
+                        warn -b "The command must start with 'gcloud compute start-iap-tunnel'"
+                        prompt_for_info "$prompt_txt"
+                        gcloud_cmd="$prompt_return"
+                done
                 geo_set AR_IAP_CMD "$gcloud_cmd"
-
+                _geo_ar_push_cmd "$gcloud_cmd"
+                
                 local open_port=$(python -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')
                 [ -z $open_port ] && Error 'Open port could not be found' && return 1
 
@@ -1407,6 +1412,60 @@ geo_ar() {
             Error "Unknown subcommand '$1'"
             ;;
     esac
+}
+
+# Save the previous 5 gcloud commands as a single value in the config file, delimited by the '@' character.
+_geo_ar_push_cmd() {
+    local cmd="$1"
+    [[ -z $cmd ]] && return 1
+    local cmds=$(geo_get AR_IAP_CMDS)
+    if [[ -z $cmds ]]; then
+        geo_set AR_IAP_CMDS "$cmd"
+        return
+    fi
+    # Remove duplicates if cmd is already stored.
+    cmds="${cmds//$cmd/}"
+    # Remove any delimiters left over from removed commands.
+    # The patterns remove lead and trailing @, as well as replaces 2 or more @ with a single one (3 patterns total).
+    cmds=$(echo $cmds | sed -r 's/^@//; s/@$//; s/@{2,}/@/g')
+
+    if [[ -z $cmds ]]; then
+        Error "_geo_ar_push_cmd[$LINENO]: cmds was empty"
+        return
+    fi
+    # Add the new command to the beginning, delimiting it with the '@' character.
+    cmds="$cmd@$cmds"
+    # Get the count of how many commands there are.
+    local count=$(echo $cmds | awk -F '@' '{ print NF }')
+#    debug $count
+    if (( count > 5 )); then
+        # Remove the oldest command, keeping only 5.
+        cmds=$(echo $cmds | awk -F '@' '{ print $1"@"$2"@"$3"@"$4"@"$5 }')
+    fi
+    geo_set AR_IAP_CMDS "$cmds"
+}
+
+_geo_ar_get_cmd_tags() {
+    geo get AR_IAP_CMDS | tr '@' '\n' | awk '{ print $4 }'
+}
+
+_geo_ar_get_cmd() {
+    local cmd_number="$1"
+    [[ -z $cmd_number || $cmd_number -gt 5 || $cmd_number -lt 0 ]] && Error "Invalid command number. Expected a value between 0 and 5." && return 1
+    
+    local cmds=$(geo_get AR_IAP_CMDS)
+    if [[ -z $cmds ]]; then
+        return
+    fi
+    local awk_cmd='{ print $'$cmd_number' }'
+    echo $(echo $cmds | awk -F '@' "$awk_cmd")
+}
+
+_geo_ar_get_cmd_count() {
+    local cmds=$(geo_get AR_IAP_CMDS)
+    # Get the count of how many commands there are.
+    local count=$(echo $cmds | awk -F '@' '{ print NF }')
+    echo $count
 }
 
 # pa() {

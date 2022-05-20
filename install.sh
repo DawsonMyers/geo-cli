@@ -105,6 +105,8 @@ info "$(fmt_text_and_indent_after_first_line "$step2" 3 3)"
 info "$(fmt_text_and_indent_after_first_line "$step3" 3 3)"
 echo
 
+python3 -m pip install setproctitle &> /dev/null
+
 # # Set up update cron job.
 # if type crontab > /dev/null; then
 #     check_for_updates_with_cron_job=$(geo_get CHECK_FOR_UPDATES_WITH_CRON_JOB)

@@ -8,6 +8,12 @@ import sys
 # Add local packages to python search path.
 sys.path.insert(0, os.path.join(sys.path[0], '..'))
 
+try:
+    import setproctitle
+    setproctitle.setproctitle('geo-cli')
+except ImportError as e:
+    pass
+
 from indicator import *
 from indicator import icons, menus
 from common import geo
@@ -15,6 +21,7 @@ from common import geo
 APPINDICATOR_ID = 'geo.indicator'
 
 UPDATE_INTERVAL = 10*60*1000
+
 
 class IndicatorApp(object):
     notification = None
