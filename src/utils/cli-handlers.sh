@@ -1103,7 +1103,7 @@ geo_db_rm() {
         local num_dbs=$(echo "$names" | wc -l)
         num_dbs=$((num_dbs - fail_count))
         success "Removed $num_dbs dbs"
-        [[ fail_count > 0 ]] && error "Failed to remove $fail_count dbs"
+        [[ fail_count -gt 0 ]] && error "Failed to remove $fail_count dbs"
         return
     fi
 
@@ -1243,6 +1243,8 @@ geo_ar_doc() {
             doc_cmd_sub_options_title
             doc_cmd_sub_option '-s'
             doc_cmd_sub_option_desc "Only start the IAP tunnel without SSHing into it."
+            doc_cmd_sub_option '-l'
+            doc_cmd_sub_option_desc "List and choose from previous IAP tunnel commands."
             # doc_cmd_sub_option_desc "Starts an SSH session to the server immediately after opening up the IAP tunnel."
         doc_cmd_sub_cmd 'ssh'
             doc_cmd_sub_cmd_desc "SSH into a server through the IAP tunnel started with $(green 'geo ar ssh')."
@@ -1270,10 +1272,12 @@ geo_ar() {
                 shift
                 local start_ssh='true'
                 local prompt_for_cmd='false'
+                local list_previous_cmds='false'
                 while [[ $1 =~ ^- ]]; do
                     case "$1" in
                         -s ) start_ssh= ;;
                         --prompt ) prompt_for_cmd='true' ;;
+                        -l ) list_previous_cmds='true' ;;
                         * ) Error "Unknown option '$1'" && return 1 ;;
                     esac    
                     shift
@@ -1284,20 +1288,32 @@ geo_ar() {
                 local prompt_txt='Enter the gcloud IAP command that was copied from your MyAdmin access request:'
                 if [[ $prompt_for_cmd == true ]]; then
                     prompt_for_info "$prompt_txt"
-                    
-                    
                     gcloud_cmd="$prompt_return"
                 fi
 
+                if [[ $list_previous_cmds == true ]]; then
+                    local prev_commands=$(_geo_ar_get_cmd_tags | tr '\n' ' ')
+                    # debug "$prev_commands"
+                    status -bi 'Enter the number for the gcould IAP command you want to use:'
+                    if [[ -n $prev_commands ]]; then
+                        select tag in $prev_commands; do
+                            gcloud_cmd=$(_geo_ar_get_cmd_from_tag $tag)
+                            [[ -z $tag || -z $gcloud_cmd ]] && warn "Invalid command number" && continue
+                            break
+                        done
+                    else
+                        warn "'-l' option supplied, but there arn't any previous comands stored to choose from."
+                    fi
+                fi
 
                 # debug $gcloud_cmd
                 [[ -z $gcloud_cmd ]] && gcloud_cmd="$(geo_get AR_IAP_CMD)"
                 [[ -z $gcloud_cmd ]] && Error 'The gcloud compute start-iap-tunnel command (copied from MyAdmin for your access request) is required.' && return 1
                 
                 while [[ ! $gcloud_cmd =~ ^$expected_cmd_start ]]; do
-                        warn -b "The command must start with 'gcloud compute start-iap-tunnel'"
-                        prompt_for_info "$prompt_txt"
-                        gcloud_cmd="$prompt_return"
+                    warn -b "The command must start with 'gcloud compute start-iap-tunnel'"
+                    prompt_for_info "$prompt_txt"
+                    gcloud_cmd="$prompt_return"
                 done
                 geo_set AR_IAP_CMD "$gcloud_cmd"
                 _geo_ar_push_cmd "$gcloud_cmd"
@@ -1352,7 +1368,7 @@ geo_ar() {
             local loop=true
 
             while [[ ${1:0:1} == - ]]; do
-                debug "option $1"
+                # debug "option $1"
                 # Don't save port/user if -n (no save) option supplied. This option is used in geo ar tunnel so that re-opening
                 # an SSH session doesn't overwrite the most recent port (from the newest IAP tunnel, which may be different from this one).
                 [[ $1 == '-n' ]] && save= && shift
@@ -1362,7 +1378,7 @@ geo_ar() {
                 [[ $1 == '-u' ]] && user=$2 && shift 2 && ((option_count++))
             done
 
-            [[ -z port ]] && Error "No port found. Add a port with the -p <port> option." && return 1
+            [[ -z $port ]] && Error "No port found. Add a port with the -p <port> option." && return 1
             
             echo
             status -bu 'Opening SSH session'
@@ -1417,6 +1433,7 @@ geo_ar() {
 # Save the previous 5 gcloud commands as a single value in the config file, delimited by the '@' character.
 _geo_ar_push_cmd() {
     local cmd="$1"
+#    debug "cmd=$1"
     [[ -z $cmd ]] && return 1
     local cmds=$(geo_get AR_IAP_CMDS)
     if [[ -z $cmds ]]; then
@@ -1442,11 +1459,16 @@ _geo_ar_push_cmd() {
         # Remove the oldest command, keeping only 5.
         cmds=$(echo $cmds | awk -F '@' '{ print $1"@"$2"@"$3"@"$4"@"$5 }')
     fi
+#    debug geo_set AR_IAP_CMDS "$cmds"
     geo_set AR_IAP_CMDS "$cmds"
 }
 
 _geo_ar_get_cmd_tags() {
     geo get AR_IAP_CMDS | tr '@' '\n' | awk '{ print $4 }'
+}
+
+_geo_ar_get_cmd_from_tag() {
+    geo get AR_IAP_CMDS | tr '@' '\n' | grep "$1"
 }
 
 _geo_ar_get_cmd() {
@@ -2129,7 +2151,7 @@ geo_analyze() {
                     fi
                 fi
 
-                if [[ $test_analyzers_count > 0 && $run_test == 'true' ]]; then
+                if [[ $test_analyzers_count -gt 0 && $run_test == 'true' ]]; then
                     echo
                     status_bi "Running the following $test_analyzers_count analyzer(s) against MyGeotab.Core.Tests:"
                     print_analyzers "$test_analyzers"
@@ -2162,9 +2184,9 @@ geo_analyze() {
                 analyzer_name="${analyzer[$name]}"
                 analyzer_proj="${analyzer[$proj]}"
 
-                if [[ $fail_count > 0 ]]; then
+                if [[ $fail_count -gt 0 ]]; then
                     echo
-                    warn "$fail_count failed test$([[ $fail_count > 1 ]] && echo s) so far"
+                    warn "$fail_count failed test$([[ $fail_count -gt 1 ]] && echo s) so far"
                 fi
                 echo
                 status_bi "Running ($((run_count++)) of $id_count): $analyzer_name"
@@ -2185,7 +2207,7 @@ geo_analyze() {
 
             echo
 
-            if [[ $fail_count > 0 ]]; then
+            if [[ $fail_count -gt 0 ]]; then
                 warn "$fail_count out of $id_count analyzers failed. The following analyzers failed:"
                 failed_tests=$(echo -e "$failed_tests")
                 detail "$failed_tests"

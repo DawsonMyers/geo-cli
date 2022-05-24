@@ -123,6 +123,7 @@ class RunningDbMenuItem(Gtk.MenuItem):
 
 class DbMenu(Gtk.Menu):
     db_names = set()
+
     def __init__(self, app: IndicatorApp):
         self.app = app
         self.item_running_db = app.item_running_db
@@ -182,6 +183,7 @@ class DbMenu(Gtk.Menu):
             item = DbMenuItem(db, self.app)
             item.show()
             i = 0
+            # Find index to insert the db item so that it is sorted in descending order.
             while i < len(sorted_items) and db < sorted_items[i]:
                 i += 1
             self.insert(item, i)
@@ -387,6 +389,7 @@ class DbForMygReleaseMenuItem(Gtk.MenuItem):
 
 class AutoSwitchDbEnableCheckMenuItem(Gtk.CheckMenuItem):
     enabled = True
+
     def __init__(self, app: IndicatorApp):
         super().__init__(label='Enabled')
         self.app = app
@@ -401,15 +404,17 @@ class AutoSwitchDbEnableCheckMenuItem(Gtk.CheckMenuItem):
     def handle_toggle(self, src):
         auto_switch_db_setting = geo.get_config('AUTO_SWITCH_DB') != 'false'
         new_state = not auto_switch_db_setting
+        self.enabled = new_state
+        self.set_active(new_state)
         new_state_str = 'true' if new_state else 'false'
         geo.set_config('AUTO_SWITCH_DB', new_state_str)
-        self.enabled = new_state
+
         if self.enabled:
             self.set_label('Enabled')
         else:
             self.set_label('Disabled')
+
         self.show()
-        self.set_active(new_state)
 
 
     def monitor(self):
