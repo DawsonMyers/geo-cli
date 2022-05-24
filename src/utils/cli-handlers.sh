@@ -3186,7 +3186,7 @@ make_logger_function_vte data VTE_COLOR_253
 # make_logger_function data White
 # make_logger_function warn Purple
 make_logger_function status Cyan
-make_logger_function verbose Cyan
+make_logger_function verbose Purple
 make_logger_function debug Purple
 make_logger_function purple Purple
 make_logger_function red Red
@@ -3195,9 +3195,26 @@ make_logger_function yellow Yellow
 make_logger_function green Green
 make_logger_function white White
 
+_stacktrace() {
+    local start=1
+    [[ $1 =~ ^- ]] && start=${1:1}
+    debug "start $start"
+    local debug_log=$(geo_get DEBUG_LOG)
+    if [[ $debug_log == true ]]; then
+        local stacktrace="${FUNCNAME[@]:start}"
+        local stacktrace_reversed=
+        for f in $stacktrace; do 
+            [[ -z $stacktrace_reversed ]] && stacktrace_reversed=$f && continue
+            stacktrace_reversed="$f -> $stacktrace_reversed"
+        done
+        debug "Stacktrace: $stacktrace_reversed"
+    fi
+}
+
 # ✘
 Error() {
     echo -e "❌  ${BIRed}Error: $@${Off}"
+    _stacktrace
 }
 error() {
     echo -e "❌  ${BIRed}$@${Off}"
