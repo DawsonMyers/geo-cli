@@ -1294,11 +1294,13 @@ geo_ar() {
                 if [[ $list_previous_cmds == true ]]; then
                     local prev_commands=$(_geo_ar_get_cmd_tags | tr '\n' ' ')
                     # debug "$prev_commands"
-                    status -bi 'Enter the number for the gcould IAP command you want to use:'
                     if [[ -n $prev_commands ]]; then
+                        status -bi 'Enter the number for the gcloud IAP command you want to use:'
                         select tag in $prev_commands; do
+                            [[ -z $tag ]] && warn "Invalid command number" && continue
                             gcloud_cmd=$(_geo_ar_get_cmd_from_tag $tag)
-                            [[ -z $tag || -z $gcloud_cmd ]] && warn "Invalid command number" && continue
+                            # debug "gcloud_cmd: $gcloud_cmd"
+                            # debug "tag: $tag"
                             break
                         done
                     else
@@ -1315,11 +1317,12 @@ geo_ar() {
                     prompt_for_info "$prompt_txt"
                     gcloud_cmd="$prompt_return"
                 done
+
                 geo_set AR_IAP_CMD "$gcloud_cmd"
                 _geo_ar_push_cmd "$gcloud_cmd"
                 
                 local open_port=$(python -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')
-                [ -z $open_port ] && Error 'Open port could not be found' && return 1
+                [[ -z $open_port ]] && Error 'Open port could not be found' && return 1
 
                 local port_arg='--local-host-port=localhost:'$open_port
                 
@@ -1433,34 +1436,35 @@ geo_ar() {
 # Save the previous 5 gcloud commands as a single value in the config file, delimited by the '@' character.
 _geo_ar_push_cmd() {
     local cmd="$1"
-#    debug "cmd=$1"
     [[ -z $cmd ]] && return 1
-    local cmds=$(geo_get AR_IAP_CMDS)
-    if [[ -z $cmds ]]; then
+    local prev_commands="$(geo_get AR_IAP_CMDS)"
+
+    if [[ -z $prev_commands ]]; then
+        debug "_geo_ar_push_cmd: cmds was empty"
         geo_set AR_IAP_CMDS "$cmd"
         return
     fi
     # Remove duplicates if cmd is already stored.
-    cmds="${cmds//$cmd/}"
+    prev_commands="${prev_commands//$cmd/}"
     # Remove any delimiters left over from removed commands.
     # The patterns remove lead and trailing @, as well as replaces 2 or more @ with a single one (3 patterns total).
-    cmds=$(echo $cmds | sed -r 's/^@//; s/@$//; s/@{2,}/@/g')
+    prev_commands=$(echo $prev_commands | sed -r 's/^@//; s/@$//; s/@{2,}/@/g')
 
-    if [[ -z $cmds ]]; then
+    if [[ -z $prev_commands ]]; then
         Error "_geo_ar_push_cmd[$LINENO]: cmds was empty"
         return
     fi
     # Add the new command to the beginning, delimiting it with the '@' character.
-    cmds="$cmd@$cmds"
+    prev_commands="$cmd@$prev_commands"
     # Get the count of how many commands there are.
-    local count=$(echo $cmds | awk -F '@' '{ print NF }')
+    local count=$(echo $prev_commands | awk -F '@' '{ print NF }')
 #    debug $count
     if (( count > 5 )); then
         # Remove the oldest command, keeping only 5.
-        cmds=$(echo $cmds | awk -F '@' '{ print $1"@"$2"@"$3"@"$4"@"$5 }')
+        prev_commands=$(echo $prev_commands | awk -F '@' '{ print $1"@"$2"@"$3"@"$4"@"$5 }')
     fi
-#    debug geo_set AR_IAP_CMDS "$cmds"
-    geo_set AR_IAP_CMDS "$cmds"
+#    debug geo_set AR_IAP_CMDS "_geo_ar_push_cmd: setting cmds to: $prev_commands"
+    geo_set AR_IAP_CMDS "$prev_commands"
 }
 
 _geo_ar_get_cmd_tags() {
@@ -1468,6 +1472,7 @@ _geo_ar_get_cmd_tags() {
 }
 
 _geo_ar_get_cmd_from_tag() {
+    [[ -z $1 ]] && return
     geo get AR_IAP_CMDS | tr '@' '\n' | grep "$1"
 }
 
