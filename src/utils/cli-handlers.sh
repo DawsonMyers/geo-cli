@@ -2961,6 +2961,10 @@ fmt_text() {
 
     [[ $indent -eq 0 ]] && indent_str=''
 
+    # echo interprets '-e' as a command line switch, so a space is added to it so that it will actually be printed.
+    re='^ *-e$'
+    [[ $txt =~ $re ]] && txt+=' '
+    
     # Replace 2 or more spaces with a single space and \n with a single space.
     [[ $keep_spaces = false ]] && txt=$(echo "$txt" | tr '\n' ' ' | sed -E 's/ {2,}/ /g')
 
@@ -2980,6 +2984,7 @@ fmt_text() {
     # "some-str". printf "%.3s" "some-str" would print 'som' (3 chars).
     sed_pattern+=$(printf "$indent_str%.0s" $(seq 1 $indent))
     sed_pattern+="/g"
+    
     # Text is piped into fmt to format the text to the correct width, then
     # indented using the sed substitution.
     echo "$txt" | fmt -w $width | sed "$sed_pattern"
@@ -3081,7 +3086,8 @@ make_logger_function() {
             local format_tokens=
             local opts=e
 
-            if [[ \$1 =~ ^-[a-z]+$ ]]; then
+            # Only parse options if a message to be printed was also supplied (allows messages like '-e' to be printed instead of being treated like an option).
+            if [[ \$1 =~ ^-[a-z]+$ && -n \$2 ]]; then
                 options=\$1
                 msg=\"\${@:2}\"
             fi
@@ -3114,6 +3120,9 @@ make_logger_function() {
                     ;;&
             esac
 
+            # echo interprets '-e' as a command line switch, so a space is added to it so that it will actually be printed.
+            re='^ *-e$'
+            [[ \$msg =~ \$re ]] && msg+=' '
             [[ \$GEO_RAW_OUTPUT == true ]] && echo -n \"\$msg\" && return
 
             echo \"-\${opts}\" \"\${format_tokens}\${!color_name}\${msg}\${Off}\"
@@ -3142,7 +3151,8 @@ make_logger_function_vte() {
             local format_tokens=
             local opts=e
 
-            if [[ \$1 =~ ^-[a-z]+$ ]]; then
+            # Only parse options if a message to be printed was also supplied (allows messages like '-e' to be printed instead of being treated like an option).
+            if [[ \$1 =~ ^-[a-z]+$ && -n \$2 ]]; then
                 options=\$1
                 msg=\"\${@:2}\"
             fi
@@ -3165,6 +3175,9 @@ make_logger_function_vte() {
                     ;;&
             esac
 
+            # echo interprets '-e' as a command line switch, so a space is added to it so that it will actually be printed.
+            re='^ *-e$'
+            [[ \$msg =~ \$re ]] && msg+=' '
             [[ \$GEO_RAW_OUTPUT == true ]] && echo -n \"\${msg}\" && return
 
             echo \"-\${opts}\" \"\${format_tokens}\${${color}}\${msg}\${Off}\"
