@@ -2606,6 +2606,16 @@ COMMANDS+=('dev')
 geo_dev_doc() {
     doc_cmd 'dev'
     doc_cmd_desc 'Commands used for internal geo-cli development.'
+
+    doc_cmd_sub_cmds_title
+        doc_cmd_sub_cmd 'update-available'
+            doc_cmd_sub_cmd_desc 'Returns "true" if an update is available'
+        doc_cmd_sub_cmd 'co <branch>'
+            doc_cmd_sub_cmd_desc 'Checks out a geo-cli branch'
+        doc_cmd_sub_cmd 'release'
+            doc_cmd_sub_cmd_desc 'Returns the name of the MyGeotab release version of the currently checked out branch'
+        doc_cmd_sub_cmd 'databases'
+            doc_cmd_sub_cmd_desc 'Returns a list of all of the geo-cli database container names'
 }
 geo_dev() {
     local geo_cli_dir="$(geo_get GEO_CLI_DIR)"
@@ -2614,6 +2624,7 @@ geo_dev() {
     [[ $1 == -u ]] && force_update_after_checkout=true && shift
     case "$1" in
         update-available )
+            GEO_NO_UPDATE_CHECK=false
             if geo_check_for_updates; then
                 status true
                 return
@@ -2768,6 +2779,7 @@ _geo_print_messages_between_commits_after_update() {
 
 # Check for updates. Return true (0 return value) if updates are available.
 geo_check_for_updates() {
+    [[ $GEO_NO_UPDATE_CHECK == true ]] && return 1
     local geo_cli_dir="$(geo_get GEO_CLI_DIR)"
     local cur_branch=$(cd $geo_cli_dir && git rev-parse --abbrev-ref HEAD)
     local v_remote=

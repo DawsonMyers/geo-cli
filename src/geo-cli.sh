@@ -42,6 +42,15 @@ function geo()
     # Log call.
     [[ $(geo_get LOG_HISTORY) == true ]] && echo "[$(date +"%Y-%m-%d_%H:%M:%S")] geo $@" >> ~/.geo-cli/history.txt
 
+    while [[ $1 == --raw-output || $1 == --no-update-check ]]; do
+        case "$1" in
+             # Disabled formatted output if the --raw-output option is present.
+            --raw-output ) export GEO_RAW_OUTPUT=true ;;
+            --no-update-check ) export GEO_NO_UPDATE_CHECK=true ;;
+        esac
+        shift
+    done
+
     # Check for updates in background process
     ( geo_check_for_updates >& /dev/null & )
 
@@ -51,8 +60,7 @@ function geo()
         detail 'Fix: Navigate to MyGeotab base repo (Development) directory, then run "geo init repo".'
     fi
 
-    # Disabled formatted output if the --raw-output option is present.
-    [[ $1 == --raw-output ]] && export GEO_RAW_OUTPUT=true && shift
+    
 
     # Check if colour variables have been changed by the terminal (wraped in \[ ... \]). Reload everything if they have to fix.
     # This issue would cause coloured log output to start with '\[\] some log message'.

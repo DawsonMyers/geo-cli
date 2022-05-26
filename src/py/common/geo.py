@@ -24,7 +24,7 @@ def run(arg_str):
 
 def geo(arg_str):
     geo_path = config.GEO_SRC_DIR + '/geo-cli.sh '
-    cmd = geo_path + ' --raw-output ' + arg_str
+    cmd = geo_path + ' --raw-output ' + ' --no-update-check ' + arg_str
     process = subprocess.Popen("bash %s" % (cmd), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable='/bin/bash', text=True)
     process.wait()
     result = process.communicate()

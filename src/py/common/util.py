@@ -17,11 +17,10 @@ def run_in_terminal(cmd_to_run, title=''):
 
 
 def run_shell_cmd(cmd):
-    return subprocess.run(cmd, shell=True, text=True, capture_output=True).stdout[0:-1]
-
+    return subprocess.run(cmd, shell=True, text=True, capture_output=True, executable="/bin/bash", timeout=10).stdout[0:-1]
 
 def run_cmd_and_wait(cmd):
     process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable='/bin/bash', text=True)
-    process.wait()
+    process.wait(timeout=15)
     result = process.communicate()
     print(result)
