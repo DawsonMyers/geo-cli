@@ -32,7 +32,7 @@ A tool that makes MyGeotab development easier. Specifically, this tool aims to s
     - [Convert MyGeotab Long/Guid Ids](#convert-mygeotab-longguid-ids)
     - [Access Requests](#access-requests)
   - [Help](#help)
-    - [Updates](#updates)
+  - [Updates](#updates)
 - [Help](#help-1)
 - [Troubleshooting](#troubleshooting)
   - [Update issues](#update-issues)
@@ -230,10 +230,12 @@ copied to clipboard
 
 # `geo-ui` (NEW)
 `geo-ui` is a tray menu UI (app indicator) that further simplifies MyGeotab development. It allows users to quickly access most of `geo-cli`'s features, as well as adding some additional ones, with just a couple mouse clicks.
+
 ![geo ui](res/ui/geo-ui-1.png)
 
 ## Databases
 The first section of the menu contains controls related to working with MyGeotab database containers. 
+
 ![database section](res/ui/geo-ui-db-1.png)
 
 
@@ -252,6 +254,7 @@ This menu item shows the name of the database that is currently running inside o
 
 ### Databases
 This item allows you start or remove any of your database containers.
+
 ![geo-ui-db-3](res/ui/geo-ui-db-3.png) ![geo-ui-db-4](res/ui/geo-ui-db-4.png)
 
 ### Create Database
@@ -286,6 +289,7 @@ Now the configured database container will automatically start whenever you chec
 
 ## Dev Utilities
 These items provide access to utilities that aim to simplify MyGeotab development.
+
 ![geo-ui-gu-1](res/ui/geo-ui-gu-1.png)
 
 ### Run Analyzers
@@ -323,10 +327,12 @@ The `Help` submenu contains the following items:
   1) `Show Notifications`: Enables or disables notification from being shown
   2) `View Readme`: Opens up this Readme in Chrome
   3) `Disable`: Disables the ui. It can be re-enabled by opening up a terminal and running `geo indicator enable`
+
+
 ![geo ui help menu](res/ui/geo-ui-help-1.png)
 
-### Updates
-![geo ui update icon](src/py/res/../indicator/res/geo-icon-green-update.svg)
+## Updates 
+![geo ui update icon](res/ui/geo-icon-green-update.png)
 
 `geo-ui` periodically checks for updates. When a new version is available, the G icon will have a red dot in the lower right corner of it (as shown above). To install the new update, click on the `Update Now` button. 
 
