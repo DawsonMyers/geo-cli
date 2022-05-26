@@ -29,6 +29,7 @@ A tool that makes MyGeotab development easier. Specifically, this tool aims to s
     - [Auto-Switch DB](#auto-switch-db)
   - [Dev Utilities](#dev-utilities)
     - [Run Analyzers](#run-analyzers)
+    - [npm install](#npm-install)
     - [Convert MyGeotab Long/Guid Ids](#convert-mygeotab-longguid-ids)
     - [Access Requests](#access-requests)
   - [Help](#help)
@@ -300,6 +301,9 @@ This submenu provides the following options:
 
 ![geo-ui-gu-2](res/ui/geo-ui-gu-2.png)
 ![geo-ui-gu-3](res/ui/geo-ui-gu-3.png)
+
+### npm install
+This item will run `npm install` in both the `CheckmateServer/src/wwwroot` and `CheckmateServer/src/wwwroot/drive` directories. This is required for MyGeotab.Core to build after switching from one MyGeotab release branch to another (e.g. 9.0 to 8.0).
 
 ### Convert MyGeotab Long/Guid Ids
 The following two items provide access to MyGeotab long/guid id conversion:
