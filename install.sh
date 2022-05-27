@@ -23,7 +23,18 @@ geo_set GEO_CLI_CONF_FILE $GEO_CLI_CONF_FILE
 geo_set GEO_CLI_VERSION "$GEO_CLI_VERSION"
 geo_set OUTDATED false
 
+prev_commit=$1
+cur_commit=$2
+
 if [[ $(geo_get FEATURE) == true ]]; then
+    if _geo_check_if_feature_branch_merged; then
+        cur_commit=$(git rev-parse HEAD)
+        geo_rm FEATURE
+        geo_rm FEATURE_VER_LOCAL
+        geo_rm FEATURE_VER_REMOTE
+        bash "$GEO_CLI_DIR/install.sh" $prev_commit $cur_commit
+        exit
+    fi
     GEO_CLI_VERSION=$(geo_get FEATURE_VER_REMOTE)
     previously_installed_version=$(geo_get FEATURE_VER_LOCAL)
     [[ -z $GEO_CLI_VERSION ]] && GEO_CLI_VERSION=$previously_installed_version
@@ -57,8 +68,6 @@ fi
 echo
 
 # Display commit messages between the old version and the new version (if any).
-prev_commit=$1
-cur_commit=$2
 # prev_commit=daf4b4adeaff0223b590d978d3fc41a5e2324332
 # cur_commit=901e0c31528e27b21216826b7cb338a39bec6185
 if [[ -n $prev_commit && -n $cur_commit ]]; then

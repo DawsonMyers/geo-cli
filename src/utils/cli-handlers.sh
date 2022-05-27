@@ -1822,6 +1822,9 @@ geo_get() {
     [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
 
     value=$(cfg_read $GEO_CLI_CONF_FILE $key)
+    
+    [[ $key == GEO_CLI_DIR && -z $value && -n $GEO_CLI_DIR ]] && value="$GEO_CLI_DIR"
+
     [[ -z $value ]] && return
     local opts=
     [[ $GEO_RAW_OUTPUT == true ]] && opts=-n
@@ -1888,6 +1891,7 @@ geo_update() {
     local geo_cli_dir="$(geo_get GEO_CLI_DIR)"
     local prev_commit="$(geo_get GIT_PREVIOUS_COMMIT)"
     local new_commit=
+    
     (
         cd $geo_cli_dir
         [[ -z $prev_commit ]] && prev_commit=$(git rev-parse HEAD)
@@ -1903,6 +1907,33 @@ geo_update() {
     
     # Re-source .bashrc to reload geo in this terminal
     . ~/.bashrc
+}
+
+_geo_check_if_feature_branch_merged() {
+    [[ ! -f $GEO_CLI_DIR/feature-version.txt ]] && return 1
+
+    local feature_version=$(cat "$GEO_CLI_DIR/feature-version.txt")
+    [[ $feature_version != MERGED ]] && return 1
+
+    local msg="The feature branch you are on has been merged and is no longer being maintained.\nSwitch back to the main branch now? (Y|n): "
+    
+    if prompt_continue "$msg"; then
+        (
+            cd "$GEO_CLI_DIR"
+            if ! git checkout master; then
+                Error "Failed to checkout main"
+                return 1
+            fi
+            if ! git pull; then
+                Error "Failed to pull changes from main"
+                return 1
+            fi
+        )
+        return $?
+    else
+        warn "This feature branch is no longer being maintained. You should switch back to the main branch ASAP."
+    fi
+    return 1
 }
 
 ###########################################################
@@ -2794,7 +2825,7 @@ geo_check_for_updates() {
             geo_set FEATURE_VER_LOCAL "${cur_branch}_V$feature_version"
             geo_set FEATURE_VER_REMOTE "${cur_branch}_V$v_remote"
             # debug "current feature version = $feature_version, remote = $v_remote"
-            if (( v_remote > feature_version )); then
+            if [[ $feature_version == MERGED || $v_remote == MERGED || $v_remote -gt $feature_version ]]; then
                 # debug setting outdated true
                 geo_set OUTDATED true
                 return
@@ -3223,9 +3254,10 @@ make_logger_function white White
 _stacktrace() {
     local start=1
     [[ $1 =~ ^- ]] && start=${1:1}
-    debug "start $start"
+    # debug "start $start"
     local debug_log=$(geo_get DEBUG_LOG)
     if [[ $debug_log == true ]]; then
+        # debug "_stacktrace: ${FUNCNAME[@]}"
         local stacktrace="${FUNCNAME[@]:start}"
         local stacktrace_reversed=
         for f in $stacktrace; do 
