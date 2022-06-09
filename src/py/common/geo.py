@@ -22,14 +22,14 @@ def run(arg_str):
     return geo(arg_str)
 
 
-def geo(arg_str):
+def geo(arg_str, return_error=False):
     geo_path = config.GEO_SRC_DIR + '/geo-cli.sh '
     cmd = geo_path + ' --raw-output ' + ' --no-update-check ' + arg_str
     process = subprocess.Popen("bash %s" % (cmd), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable='/bin/bash', text=True)
     process.wait()
     result = process.communicate()
     # print(result)
-    return result[0]
+    return result[1] if return_error else result[0]
 
 
 def get_myg_release():

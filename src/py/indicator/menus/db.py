@@ -96,17 +96,20 @@ class RunningDbMenuItem(Gtk.MenuItem):
         return True
 
     def change_db_if_myg_release_changed(self):
-        if self.app.item_auto_switch_db_toggle and not self.app.item_auto_switch_db_toggle.enabled:
-            return
-        if not self.app.db_for_myg_release:
-            return
+        # if self.app.item_auto_switch_db_toggle and not self.app.item_auto_switch_db_toggle.enabled:
+        #     return
+        # if not self.app.db_for_myg_release:
+        #     return
             # cur_db_release = geo.try_get_db_name_for_current_myg_release()
-        else:
-            cur_db_release = self.app.db_for_myg_release
+        auto_switch_db_enabled = self.app.get_state('auto-db') #self.app.item_auto_switch_db_toggle and self.app.item_auto_switch_db_toggle.enabled
+        auto_npm_install_enabled = self.app.get_state('auto-npm') # self.app.item_auto_switch_db_toggle and self.app.item_auto_switch_db_toggle.auto_npm_install_enabled
+        cur_db_release = self.app.db_for_myg_release
 
         if cur_db_release and cur_db_release != self.current_myg_release_db:
-            if self.current_myg_release_db is not None:
+            if auto_switch_db_enabled and self.current_myg_release_db:
                 geo.start_db(cur_db_release)
+            if auto_npm_install_enabled:
+                self.handle_npm()
             self.current_myg_release_db = cur_db_release
 
     def update_db_start_items(self):
@@ -119,6 +122,14 @@ class RunningDbMenuItem(Gtk.MenuItem):
             else:
                 item.item_start.set_sensitive(True)
             item.show()
+
+    def handle_npm(self):
+        error = geo.geo('init npm', return_error=True)
+        if 'ERR' in error:
+            self.app.show_quick_notification('npm install failed')
+            geo.run_in_terminal('init npm')
+            return
+        self.app.show_quick_notification('npm install successful')
 
 
 class DbMenu(Gtk.Menu):
@@ -274,16 +285,21 @@ class AutoSwitchDbMenuItem(Gtk.MenuItem):
         super().__init__(label='Auto-Switch DB')
         self.app = app
         self.enabled = geo.get_config('AUTO_SWITCH_DB') != 'false'
+        # self.auto_npm_install_enabled = geo.get_config('AUTO_NPM_INSTALL') != 'false'
+        self.app.state['auto-db'] = geo.get_config('AUTO_SWITCH_DB') != 'false'
+        self.app.state['auto-npm'] = geo.get_config('AUTO_NPM_INSTALL') != 'false'
         self.build_submenu(app)
         self.show_all()
 
     def build_submenu(self, app):
         submenu = Gtk.Menu()
         item_toggle = AutoSwitchDbEnableCheckMenuItem(app)
+        item_npm_toggle = AutoNpmInstallCheckMenuItem(app)
         item_cur_release = CheckedOutMygReleaseMenuItem(app)
         item_db_for_release = DbForMygReleaseMenuItem(app)
         item_set_db_for_release = SetDbForMygReleaseMenuItem(app)
         submenu.append(item_toggle)
+        submenu.append(item_npm_toggle)
         submenu.append(item_cur_release)
         submenu.append(item_db_for_release)
         submenu.append(item_set_db_for_release)
@@ -391,12 +407,13 @@ class AutoSwitchDbEnableCheckMenuItem(Gtk.CheckMenuItem):
     enabled = True
 
     def __init__(self, app: IndicatorApp):
-        super().__init__(label='Enabled')
+        super().__init__(label='Auto-Switch DB')
         self.app = app
-        self.enabled = geo.get_config('AUTO_SWITCH_DB') == 'true'
-        if not self.enabled:
-            self.set_label("Disabled")
+        self.enabled = geo.get_config('AUTO_SWITCH_DB') != 'false'
+        # if not self.enabled:
+        #     self.set_label("Auto-Switch DB")
         self.set_active(self.enabled)
+        self.app.state['auto-db'] = self.enabled
         self.connect('toggled', self.handle_toggle)
         self.show_all()
         GLib.timeout_add(1000, self.monitor)
@@ -405,14 +422,15 @@ class AutoSwitchDbEnableCheckMenuItem(Gtk.CheckMenuItem):
         auto_switch_db_setting = geo.get_config('AUTO_SWITCH_DB') != 'false'
         new_state = not auto_switch_db_setting
         self.enabled = new_state
+        self.app.state['auto-db'] = new_state
         self.set_active(new_state)
         new_state_str = 'true' if new_state else 'false'
         geo.set_config('AUTO_SWITCH_DB', new_state_str)
 
-        if self.enabled:
-            self.set_label('Enabled')
-        else:
-            self.set_label('Disabled')
+        # if self.enabled:
+        #     self.set_label('Auto-Switch DB (Enabled)')
+        # else:
+        #     self.set_label('Auto-Switch DB (Disabled)')
 
         self.show()
 
@@ -421,10 +439,58 @@ class AutoSwitchDbEnableCheckMenuItem(Gtk.CheckMenuItem):
         auto_switch_db_setting = geo.get_config('AUTO_SWITCH_DB') != 'false'
         if self.enabled != auto_switch_db_setting:
             self.enabled = auto_switch_db_setting
+            self.app.state['auto-db'] = self.enabled
             self.set_active(auto_switch_db_setting)
-            if self.enabled:
-                self.set_label('Enabled')
-            else:
-                self.set_label('Disabled')
+            # if self.enabled:
+            #     self.set_label('Auto-Switch DB (Enabled)')
+            # else:
+            #     self.set_label('Auto-Switch DB (Disabled)')
             self.show()
+        return True
+
+
+class AutoNpmInstallCheckMenuItem(Gtk.CheckMenuItem):
+    enabled = True
+
+    def __init__(self, app: IndicatorApp):
+        super().__init__(label='Auto-Install npm')
+        self.app = app
+        self.enabled = geo.get_config('AUTO_NPM_INSTALL') != 'false'
+        # if not self.enabled:
+        #     self.set_label("Disabled")
+        self.set_active(self.enabled)
+        self.app.state['auto-npm'] = self.enabled
+        self.connect('toggled', self.handle_toggle)
+        self.show_all()
+        GLib.timeout_add(1000, self.monitor)
+
+    def handle_toggle(self, src):
+        auto_npm_install_enabled = geo.get_config('AUTO_NPM_INSTALL') != 'false'
+        new_state = not auto_npm_install_enabled
+        self.enabled = new_state
+        self.set_active(new_state)
+        new_state_str = 'true' if new_state else 'false'
+        geo.set_config('AUTO_NPM_INSTALL', new_state_str)
+
+        # if self.enabled:
+        #     self.set_label('Auto-npm Install (Enabled)')
+        # else:
+        #     self.set_label('Auto-npm Install (Disabled)')
+        self.app.item_auto_switch_db_toggle.auto_npm_install_enabled = new_state
+        self.app.state['auto-npm'] = new_state
+        self.show()
+
+
+    def monitor(self):
+        auto_npm_install_enabled = geo.get_config('AUTO_NPM_INSTALL') != 'false'
+        if self.enabled != auto_npm_install_enabled:
+            self.enabled = auto_npm_install_enabled
+            self.set_active(auto_npm_install_enabled)
+            # self.app.item_auto_switch_db_toggle.auto_npm_install_enabled = auto_npm_install_enabled
+            self.app.state['auto-npm'] = self.enabled
+        # if self.enabled:
+        #     self.set_label('Auto-npm Install (Enabled)')
+        # else:
+        #     self.set_label('Auto-npm Install (Disabled)')
+        self.show()
         return True

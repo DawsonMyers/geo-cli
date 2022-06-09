@@ -1579,18 +1579,50 @@ geo_init() {
         status "MyGeotab base repo (Development) path set to:"
         detail "    $repo_dir"
         ;;
+    # npmi )
+    #     (
+    #         cd ~/test
+    #         npm i || Error "npm install failed" && return 1
+
+    #     )
+    #     ;;
     npm )
+        local close_delayed=false
+        local arg="$2"
+        [[ $arg == -c ]] && close_delayed=true
         (
+            local fail_count=0
+
             local current_repo_dir=$(geo_get DEV_REPO_DIR)
             [[ -z $current_repo_dir ]] && Error "MyGeotab repo directory not set." && return 1
+
             cd $current_repo_dir/Checkmate/CheckmateServer/src/wwwroot
             # echo
             status -b '\nInstalling npm packages for CheckmateServer/src/wwwroot\n'
-            npm i
+            npm i || ((fail_count++))
             status -b '\nInstalling npm packages for CheckmateServer/src/wwwroot/drive\n'
             cd drive
-            npm i
+            npm i || ((fail_count++))
+            # debug "fail $fail_count"
+            ((fail_count == 0))
         )
+        
+        if [[ $? != 0 ]]; then
+            Error "npm install failed $"
+            if [[ $close_delayed == true ]]; then
+                detail 'Press Enter to exit'
+                read
+                exit 1
+            fi
+            return 1
+        fi
+
+        success 'npm install was successful'
+        if [[ $close_delayed == true ]]; then
+            detail 'closing in 5 seconds'
+            sleep 5
+            exit 0
+        fi
         ;;
     esac
 }

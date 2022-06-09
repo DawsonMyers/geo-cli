@@ -24,3 +24,4 @@ def run_cmd_and_wait(cmd):
     process.wait(timeout=15)
     result = process.communicate()
     print(result)
+    return result

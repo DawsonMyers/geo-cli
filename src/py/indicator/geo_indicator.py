@@ -29,6 +29,7 @@ class IndicatorApp(object):
     myg_release = None
     db_for_myg_release = None
     db = None
+    state = {}
 
     def __init__(self):
         Notify.init(APPINDICATOR_ID)
@@ -45,6 +46,12 @@ class IndicatorApp(object):
         self.menu = MainMenu(self)
         self.build_menu(self.menu)
         self.indicator.set_menu(self.menu)
+
+    def get_state(self, key):
+        return self.state[key] if key in self.state else None
+
+    def set_state(self, key, value):
+        self.state[key] = value
 
     def show_notification(self):
         if not geo.notifications_are_allowed():
@@ -88,8 +95,10 @@ class IndicatorApp(object):
 
         item_run_analyzers = self.get_analyzer_item()
 
+        # item_npmi = Gtk.MenuItem(label='npmi install')
+        # item_npmi.connect('activate', lambda _: self.handle_npm())
         item_npm = Gtk.MenuItem(label='npm install')
-        item_npm.connect('activate', lambda _: geo.run_in_terminal('init npm'))
+        item_npm.connect('activate', lambda _: geo.run_in_terminal('init npm -c', stay_open_after=False))
         item_id = Gtk.MenuItem(label='Convert Long/Guid Ids')
         item_id_clipboard = Gtk.MenuItem(label='Convert Id From Clipboard')
         # item_id.connect('activate', self.handle_id)
@@ -113,6 +122,7 @@ class IndicatorApp(object):
         menu.append(Gtk.SeparatorMenuItem())
 
         menu.append(item_run_analyzers)
+        # menu.append(item_npmi)
         menu.append(item_npm)
         menu.append(item_id)
         menu.append(item_id_clipboard)
