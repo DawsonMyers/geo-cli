@@ -2652,6 +2652,51 @@ _geo_indicator_check_dependencies() {
     _geo_install_apt_package_if_missing 'gir1.2-notify-0.7'
     _geo_install_apt_package_if_missing 'xclip'
 }
+
+###########################################################
+COMMANDS+=('test')
+geo_test_doc() {
+    doc_cmd 'test <filter>'
+        doc_cmd_desc 'Runs tests on the local build of MyGeotab.'
+
+    doc_cmd_options_title
+        doc_cmd_option '-d, --docker'
+            doc_cmd_option_desc 'Run tests in a docker environment matching the one used in ci/cd pipelines. Requires docker to be logged into gitlab.'
+
+    doc_cmd_examples_title
+        doc_cmd_example 'geo test UserTest.AddDriverScopeTest'
+        doc_cmd_example 'geo test "FullyQualifiedName=Geotab.Checkmate.ObjectModel.Tests.JSONSerializer.DisplayDiagnosticSerializerTest.DateRangeTest|FullyQualifiedName=Geotab.Checkmate.ObjectModel.Tests.JSONSerializer.DisplayDiagnosticSerializerTest.NotificationUserModifiedValueInfoTest"'
+}
+geo_test() {
+    local dev_repo=$(geo_get DEV_REPO_DIR)
+    local myg_tests_dir_path="${dev_repo}/Checkmate/MyGeotab.Core.Tests/"
+    local script_path="${dev_repo}/gitlab-ci/scripts/StartDockerForTests.sh"
+    local use_docker=false
+    if [[ $1 == '-d' || $1 == '--docker' ]]; then
+        shift
+        if [[ ! -f $script_path ]]; then
+            Error "Script to run ci docker environment locally not found in:\n  '${script_path}'."
+            warn "\nThis option is currently only supported for MyGeotab version 9.0 or later (current version is $(geo_dev release)). Running locally instead.\n"
+        else
+            use_docker=true
+        fi
+    fi
+    if [[ $use_docker == true ]]; then
+        local test_container_name="ci_test_container"
+        $script_path $test_container_name
+        docker exec -it $test_container_name /bin/bash -c "pushd MyGeotabRepository/publish; ./CheckmateServer.Tests --filter=\"${1}\""
+    else
+        (
+            cd "$myg_tests_dir_path"
+            if dotnet run --filter="${1}" --displayresults; then
+                success 'OK'
+            else
+                Error 'dotnet run failed'
+            fi
+        )
+    fi
+}
+
 ###########################################################
 COMMANDS+=('help')
 geo_help_doc() {

@@ -21,6 +21,8 @@ A tool that makes MyGeotab development easier. Specifically, this tool aims to s
     - [Connecting to Servers Using IAP Tunnels](#connecting-to-servers-using-iap-tunnels)
     - [Encode/Decode MyGeotab Long and Guid Ids](#encodedecode-mygeotab-long-and-guid-ids)
       - [Examples](#examples)
+    - [Running Tests](#running-tests)
+      - [Setting up a GitLab Access Token](#setting-up-a-gitlab-access-token)
 - [`geo-ui` (NEW)](#geo-ui-new)
   - [Databases](#databases)
     - [Running DB](#running-db)
@@ -228,6 +230,17 @@ Decoded guid id:
 00e74ee1-97e7-4f28-9f5e-2ad222451f6d
 copied to clipboard
 ```
+
+### Running Tests
+The `geo test <filter>` command can be used to run tests on your local build. The filter behaves the same as in [dotnet test --filter](https://docs.microsoft.com/en-us/dotnet/core/testing/selective-unit-tests?pivots=xunit). By default, tests matching the given `filter` will be run on your local machine. When run with the `-d` or `--docker` option, the tests will be run in a docker container which matches the one used in CI/CD pipelines instead. This option requires [docker to be logged into gitlab](https://git.geotab.com/dev/Development/container_registry/), and is only supported from 9.0 onwards.
+
+#### Setting up a GitLab Access Token
+Go to https://git.geotab.com/-/profile/personal_access_tokens and create a token with api access. Copy the token to your clipboard and then run the following command in a terminal:
+```
+  docker login git.geotab.com:4567
+```
+You will then be prompted for your GitLab username and a password. Paste (`Ctrl + Shift + V`) the access token in your clipboard when asked for the password.
+
 
 # `geo-ui` (NEW)
 `geo-ui` is a tray menu UI (app indicator) that further simplifies MyGeotab development. It allows users to quickly access most of `geo-cli`'s features, as well as adding some additional ones, with just a couple mouse clicks.
