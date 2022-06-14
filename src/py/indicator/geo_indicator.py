@@ -95,13 +95,10 @@ class IndicatorApp(object):
 
         item_run_analyzers = self.get_analyzer_item()
 
-        # item_npmi = Gtk.MenuItem(label='npmi install')
-        # item_npmi.connect('activate', lambda _: self.handle_npm())
         item_npm = Gtk.MenuItem(label='npm install')
         item_npm.connect('activate', lambda _: geo.run_in_terminal('init npm -c', stay_open_after=False))
         item_id = Gtk.MenuItem(label='Convert Long/Guid Ids')
         item_id_clipboard = Gtk.MenuItem(label='Convert Id From Clipboard')
-        # item_id.connect('activate', self.handle_id)
         # Run 'geo id -i' in terminal. This causes geo id to run interactively (-i), first trying to convert the contents of the clipboard.
         item_id.connect('activate', lambda _: geo.run_in_terminal('id -i'))
         item_id_clipboard.connect('activate', lambda _: geo.run_in_terminal('id -c', stay_open_after=False))
@@ -112,7 +109,6 @@ class IndicatorApp(object):
         item_quit.connect('activate', self.quit)
 
         item_help = menus.HelpMenuItem(self)
-        # item_help = self.build_help_item()
 
         menu.append(item_running_db)
 
@@ -122,7 +118,6 @@ class IndicatorApp(object):
         menu.append(Gtk.SeparatorMenuItem())
 
         menu.append(item_run_analyzers)
-        # menu.append(item_npmi)
         menu.append(item_npm)
         menu.append(item_id)
         menu.append(item_id_clipboard)
@@ -134,8 +129,6 @@ class IndicatorApp(object):
 
         item_update = self.build_update_item()
         menu.append(item_update)
-        # item_label = Gtk.MenuItem(label="Test_label_1[a_a_b]")
-        # menu.append(item_label)
         menu.show_all()
 
     @staticmethod
@@ -159,26 +152,6 @@ class IndicatorApp(object):
     @staticmethod
     def quit(source=None):
         Gtk.main_quit()
-
-    # def show_disable_dialog(self, widget):
-    #     dialog = Gtk.MessageDialog(
-    #         transient_for=None,
-    #         flags=0,
-    #         message_type=Gtk.MessageType.WARNING,
-    #         buttons=Gtk.ButtonsType.OK_CANCEL,
-    #         text="Disable geo-cli app indicator?",
-    #     )
-    #     dialog.format_secondary_text(
-    #         "The indicator can be re-enabled by running 'geo indicator enable' in a terminal."
-    #     )
-    #     response = dialog.run()
-    #     if response == Gtk.ResponseType.OK:
-    #         print("WARN dialog closed by clicking OK button")
-    #         self.disable()
-    #     elif response == Gtk.ResponseType.CANCEL:
-    #         print("WARN dialog closed by clicking CANCEL button")
-    #
-    #     dialog.destroy()
 
     def get_database_item(self):
         item_databases = Gtk.MenuItem(label='Databases')

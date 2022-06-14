@@ -18,7 +18,6 @@ class HelpMenuItem(Gtk.MenuItem):
         submenu = Gtk.Menu()
 
         item_show_notifications = ShowNotificationsMenuItem(self)
-        # Gtk.CheckMenuItem(label='Show Notifications')
 
         item_disable = Gtk.MenuItem(label='Disable')
         item_disable.connect('activate', self.show_disable_dialog)
