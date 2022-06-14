@@ -30,6 +30,7 @@ class IndicatorApp(object):
     db_for_myg_release = None
     db = None
     state = {}
+    last_notification_time = 0
 
     def __init__(self):
         Notify.init(APPINDICATOR_ID)
@@ -68,11 +69,22 @@ class IndicatorApp(object):
     def show_quick_notification(self, body, title='geo-cli'):
         if not geo.notifications_are_allowed():
             return
+
+        current_time = util.current_time_ms()
+        # Make sure only one notification is occuring at a time.
+        if current_time - self.last_notification_time < 1500:
+            GLib.timeout_add(1500, lambda: self.show_quick_notification(body, title))
+            return
+        self.last_notification_time = current_time
+
         n = Notify.Notification.new(title, body, icons.GEO_CLI)
         n.set_urgency(Notify.Urgency.LOW)
         n.set_timeout(300)
         n.show()
-        GLib.timeout_add(1500, n.close)
+
+        def close():
+            n.close()
+        GLib.timeout_add(1500, close)
 
     def notification_handler(self, notification=None, action=None, data=None):
         print('notification_handler pressed')

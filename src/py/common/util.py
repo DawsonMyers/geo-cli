@@ -1,5 +1,6 @@
 import os
 import subprocess
+import time
 
 
 def run_in_terminal_then_close(cmd_to_run, title=''):
@@ -25,3 +26,7 @@ def run_cmd_and_wait(cmd):
     result = process.communicate()
     print(result)
     return result
+
+
+def current_time_ms():
+    return round(time.time() * 1000)
