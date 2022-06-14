@@ -1,6 +1,6 @@
 #!/bin/bash
 # This file is sourced from ~/.bashrc to make geo cli available from any bash terminal.
-if [[ `whoami` = 'root' ]]; then echo 'ERROR: Do not run geo as root (sudo)'; exit; fi
+if [[ `whoami` = 'root' && -z $GEO_ALLOW_ROOT ]]; then echo 'ERROR: Do not run geo as root (sudo)'; exit; fi
 
 # Init geo config directory if it doesn't exist.
 export GEO_CLI_CONFIG_DIR="$HOME/.geo-cli"
@@ -39,6 +39,18 @@ export GEO_CLI_SRC_DIR="${GEO_CLI_DIR}/src"
 
 function geo()
 {
+    # Log call.
+    [[ $(geo_get LOG_HISTORY) == true ]] && echo "[$(date +"%Y-%m-%d_%H:%M:%S")] geo $@" >> ~/.geo-cli/history.txt
+
+    while [[ $1 == --raw-output || $1 == --no-update-check ]]; do
+        case "$1" in
+             # Disabled formatted output if the --raw-output option is present.
+            --raw-output ) export GEO_RAW_OUTPUT=true ;;
+            --no-update-check ) export GEO_NO_UPDATE_CHECK=true ;;
+        esac
+        shift
+    done
+
     # Check for updates in background process
     ( geo_check_for_updates >& /dev/null & )
 
@@ -47,6 +59,8 @@ function geo()
         warn 'MyGeotab repo directory not set.'
         detail 'Fix: Navigate to MyGeotab base repo (Development) directory, then run "geo init repo".'
     fi
+
+    
 
     # Check if colour variables have been changed by the terminal (wraped in \[ ... \]). Reload everything if they have to fix.
     # This issue would cause coloured log output to start with '\[\] some log message'.
@@ -90,9 +104,9 @@ function geo()
     [[ $cmd == -f ]] && return
         
     # Quit if the command isn't valid
-    if [ -z `cmd_exists $cmd` ]; then
+    if [[ -z `cmd_exists $cmd` ]]; then
         [[ ${#cmd} == 0 ]] && echo && warn "geo was run without any command"
-        [ ${#cmd} -gt 0 ] && echo && warn "Unknown command: '$cmd'"
+        [[ ${#cmd} -gt 0 ]] && echo && warn "Unknown command: '$cmd'"
         
         # geotab_logo
         # geo_logo

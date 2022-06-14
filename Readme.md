@@ -21,7 +21,20 @@ A tool that makes MyGeotab development easier. Specifically, this tool aims to s
     - [Connecting to Servers Using IAP Tunnels](#connecting-to-servers-using-iap-tunnels)
     - [Encode/Decode MyGeotab Long and Guid Ids](#encodedecode-mygeotab-long-and-guid-ids)
       - [Examples](#examples)
+- [`geo-ui` (NEW)](#geo-ui-new)
+  - [Databases](#databases)
+    - [Running DB](#running-db)
+    - [Databases](#databases-1)
+    - [Create Database](#create-database)
+    - [Auto-Switch DB](#auto-switch-db)
+  - [Dev Utilities](#dev-utilities)
+    - [Run Analyzers](#run-analyzers)
+    - [npm install](#npm-install)
+    - [Convert MyGeotab Long/Guid Ids](#convert-mygeotab-longguid-ids)
+    - [Access Requests](#access-requests)
   - [Help](#help)
+  - [Updates](#updates)
+- [Help](#help-1)
 - [Troubleshooting](#troubleshooting)
   - [Update issues](#update-issues)
   - [Problems Creating Databases](#problems-creating-databases)
@@ -216,8 +229,120 @@ Decoded guid id:
 copied to clipboard
 ```
 
+# `geo-ui` (NEW)
+`geo-ui` is a tray menu UI (app indicator) that further simplifies MyGeotab development. It allows users to quickly access most of `geo-cli`'s features, as well as adding some additional ones, with just a couple mouse clicks.
+
+![geo ui](res/ui/geo-ui-1.png)
+
+## Databases
+The first section of the menu contains controls related to working with MyGeotab database containers. 
+
+![database section](res/ui/geo-ui-db-1.png)
+
+
+### Running DB
+
+This menu item shows the name of the database that is currently running inside of square brackets (e.g. `Running DB [9]` for a db named "9"). If no database is running, the item will be disabled and its label will be "No DB running". It also has a submenu that provides the following functionality:
+  * `Stop`: Stops the database container
+  * `SSH`:  Opens a terminal and starts an SSH session into the db container
+  * `PSQL`:  Opens a terminal, starts an SSH session into the db container, and then starts a psql session for the geotabdemo database
+  
+> The G tray icon will be green if a database is running or red if there isn't one running.
+
+![geo-ui-db-2](res/ui/geo-ui-2.png) ![geo-ui-db-2](res/ui/geo-ui-db-2.png)
+
+> There seems to be a bug in the framework used to build the menu items that will sometimes remove underscores from labels. So if you have a db named 9_0, it might be rendered as 'Running DB [90]'. 
+
+### Databases
+This item allows you start or remove any of your database containers.
+
+![geo-ui-db-3](res/ui/geo-ui-db-3.png) ![geo-ui-db-4](res/ui/geo-ui-db-4.png)
+
+### Create Database
+This item opens a terminal and will guide you through creating a new MyGeotab database.
+> Note: Make sure you have built MyGeotab.Core on the current branch that you have checked out. The db container will be compatible with the MyGeotab release version of that branch.
+
+> You usually want to name the database container after the MyGeotab release version that it is compatible with (e.g. '9' for version 9.0).
+
+![geo-ui-db-5](res/ui/geo-ui-db-5.png)
+
+### Auto-Switch DB
+DB auto-switching will automatically switch the database container based on what MyGeotab release version is checked out. 
+This submenu contains the following items:
+  1) `Enabled/Disabled`: This toggle button enables or disables auto-switching
+  2) `MYG Release: ...`: Displays the MyGeotab release version of the currently checked out branch
+  3) `Configured DB: ...`: Displays the name of the database container that is linked to the current MyGeotab release version
+  4) `Set DB for MYG Release`: Links the current MyGeotab release version to the running database container
+
+
+You can link a MyGeotab release version to a database container by doing the following :
+  1) Checkout a MyGeotab release branch that you want to link a database container to. The `MYG Release` label shows the MyGeotab release version of the current branch
+  2) Start a compatible database container (using the `Databases` submenu)
+  3) Click the `Set DB for MYG Release` button under the `Auto-Switch DB` submenu
+
+The `Configured DB` label will now show the name of the database container and the `Set DB for MYG Release` button will be disabled and labeled `Configured DB Running`. 
+
+Now the configured database container will automatically start whenever you checkout a branch based on its linked MyGeotab release version.
+
+
+![geo-ui-db-6](res/ui/geo-ui-db-6.png) ![geo-ui-db-7](res/ui/geo-ui-db-7.png)
+
+
+## Dev Utilities
+These items provide access to utilities that aim to simplify MyGeotab development.
+
+![geo-ui-gu-1](res/ui/geo-ui-gu-1.png)
+
+### Run Analyzers
+This submenu provides the following options:
+  1) `All`: Runs all analyzers
+  2) `Choose`: Lets you choose analyzers from a list that you would like to run
+  3) `Previous`: Runs the same analyzers as you ran last time
+
+![geo-ui-gu-2](res/ui/geo-ui-gu-2.png)
+![geo-ui-gu-3](res/ui/geo-ui-gu-3.png)
+
+### npm install
+This item will run `npm install` in both the `CheckmateServer/src/wwwroot` and `CheckmateServer/src/wwwroot/drive` directories. This is required for MyGeotab.Core to build after switching from one MyGeotab release branch to another (e.g. 9.0 to 8.0).
+
+### Convert MyGeotab Long/Guid Ids
+The following two items provide access to MyGeotab long/guid id conversion:
+1) `Convert Long/Guid Ids`: Opens a terminal where you may enter a long/guid encoded/decoded id to convert. The result is copied to your clipboard
+2) `Convert Id from Clipboard`: Opens a terminal, converts an id from your clipboard, copies the result to your clipboard, and then closes the terminal
+
+> Tip: Middle clicking on the G tray icon will run `Convert Id from Clipboard`. Allowing you to quickly convert ids from your clipboard with just one click.
+
+### Access Requests
+This submenu provides access to utilities for working with access requests. It contains the following items:
+
+  1) `Create`: Opens up the Access Request page on MyAdmin where you can create a new access request
+  2) `IAP Tunnel`: A submenu menu for working with IAP tunnels. It has the following items:
+     1) `Start New`: Opens a terminal were you can paste in the gcloud command that you copied from your MyAdmin access request. An SSH session is automatically started after the IAP tunnel is opened
+     2) `Start Previous`: Opens a submenu where you can select from the previous 5 gcloud commands to reopen an IAP tunnel. An SSH session is automatically started after the IAP tunnel is opened
+  3) `SSH Over Open IAP`: Opens up a terminal and starts an SSH session using the port from the IAP tunnel that was most recently opened
+
+![geo ui iap 1](res/ui/geo-ui-iap-1.png) ![geo ui iap 2](res/ui/geo-ui-iap-2.png) ![geo ui iap 3](res/ui/geo-ui-iap-3.png)
+
+> If your SSH session is closed (e.g. via timeout), you may press Enter in the terminal to restart it.
 
 ## Help
+The `Help` submenu contains the following items:
+
+  1) `Show Notifications`: Enables or disables notification from being shown
+  2) `View Readme`: Opens up this Readme in Chrome
+  3) `Disable`: Disables the ui. It can be re-enabled by opening up a terminal and running `geo indicator enable`
+
+
+![geo ui help menu](res/ui/geo-ui-help-1.png)
+
+## Updates 
+![geo ui update icon](res/ui/geo-icon-green-update.png)
+
+`geo-ui` periodically checks for updates. When a new version is available, the G icon will have a red dot in the lower right corner of it (as shown above). To install the new update, click on the `Update Now` button. 
+
+![geo ui update icon](res/ui/geo-ui-update-1.png)
+
+# Help
 Get help for a specific command by entering `geo [command] help`.
 
 Example:
@@ -228,16 +353,17 @@ Gives you the following:
 ```
     db
       Database commands.
-        Options:
+        Commands:
             create [option] <name>
                 Creates a versioned db container and volume.
                   Options:
                     -y
                       Accept all prompts.
-                    
+                    -e 
                       Create blank Postgres 12 container.
             start [option] [name]
-                Starts (creating if necessary) a versioned db container and volume. If no name is provided, the most recent db container name is started.
+                Starts (creating if necessary) a versioned db container and volume. If no name
+                is provided, the most recent db container name is started.
                   Options:
                     -y
                       Accept all prompts.
@@ -256,24 +382,43 @@ Gives you the following:
             ps
                 List running geo-cli db containers.
             init
-                Initialize a running db container with geotabdemo or an empty db with a custom name.
+                Initialize a running db container with geotabdemo or an empty db with a custom
+                name.
                   Options:
                     -y
                       Accept all prompts.
             psql [options]
-                Open an interactive psql session to geotabdemo (or a different db, if a db name was provided with the -d option) in the running geo-cli db container. You can also use the -q option to execute a query on the database instead of starting an interactive session. The default
-                username and password used to connect is geotabuser and vircom43, respectively.
+                Open an interactive psql session to geotabdemo (or a different db, if a db name
+                was provided with the -d option) in the running geo-cli db container. You can
+                also use the -q option to execute a query on the database instead of starting
+                an interactive session. The default username and password used to connect is
+                geotabuser and vircom43, respectively.
                   Options:
                     -d
-                      The name of the postgres database you want to connect to. The default value used is "geotabdemo"
+                      The name of the postgres database you want to connect to. The default
+                      value used is "geotabdemo"
                     -p
                       The admin sql password. The default value used is "vircom43"
                     -q
-                      A query to run with psql in the running container. This option will cause the result of the query to be returned instead of starting an interactive psql terminal.
+                      A query to run with psql in the running container. This option will cause
+                      the result of the query to be returned instead of starting an interactive
+                      psql terminal.
                     -u
                       The admin sql user. The default value used is "geotabuser"
             bash
                 Open a bash session with the running geo-cli db container.
+            script <add|edit|ls|rm> <script_name>
+                Add, edit, list, or remove scripts that can be run with geo db psql -q
+                script_name.
+                  Options:
+                    add
+                      Adds a new script and opens it in a text editor.
+                    edit
+                      Opens an existing script in a text editor.
+                    ls
+                      Lists existing scripts.
+                    rm
+                      Removes a script.
         Example:
             geo db start 2004
             geo db start -y 2004
@@ -284,7 +429,6 @@ Gives you the following:
             geo db psql
             geo db psql -u mySqlUser -p mySqlPassword -d dbName
             geo db psql -q "SELECT * FROM deviceshare LIMIT 10"
-
 ```
 
 While running the following results in all help being printed:
@@ -312,11 +456,11 @@ Available commands:
                   Options:
                     -y
                       Accept all prompts.
-                    
+                    -e 
                       Create blank Postgres 12 container.
             start [option] [name]
-                Starts (creating if necessary) a versioned db container and volume. If no name is provided, the most recent db
-                container name is started.
+                Starts (creating if necessary) a versioned db container and volume. If no name is provided,
+                the most recent db container name is started.
                   Options:
                     -y
                       Accept all prompts.
@@ -340,22 +484,34 @@ Available commands:
                     -y
                       Accept all prompts.
             psql [options]
-                Open an interactive psql session to geotabdemo (or a different db, if a db name was provided with the -d option)
-                in the running geo-cli db container. You can also use the -q option to execute a query on the database instead
-                of starting an interactive session. The default username and password used to connect is geotabuser and vircom43,
-                respectively.
+                Open an interactive psql session to geotabdemo (or a different db, if a db name was provided
+                with the -d option) in the running geo-cli db container. You can also use the -q option
+                to execute a query on the database instead of starting an interactive session. The default
+                username and password used to connect is geotabuser and vircom43, respectively.
                   Options:
                     -d
-                      The name of the postgres database you want to connect to. The default value used is "geotabdemo"
+                      The name of the postgres database you want to connect to. The default value used is
+                      "geotabdemo"
                     -p
                       The admin sql password. The default value used is "vircom43"
                     -q
-                      A query to run with psql in the running container. This option will cause the result of the query to be
-                      returned instead of starting an interactive psql terminal.
+                      A query to run with psql in the running container. This option will cause the result
+                      of the query to be returned instead of starting an interactive psql terminal.
                     -u
                       The admin sql user. The default value used is "geotabuser"
             bash
                 Open a bash session with the running geo-cli db container.
+            script <add|edit|ls|rm> <script_name>
+                Add, edit, list, or remove scripts that can be run with geo db psql -q script_name.
+                  Options:
+                    add
+                      Adds a new script and opens it in a text editor.
+                    edit
+                      Opens an existing script in a text editor.
+                    ls
+                      Lists existing scripts.
+                    rm
+                      Removes a script.
         Example:
             geo db start 2004
             geo db start -y 2004
@@ -372,25 +528,28 @@ Available commands:
             create
                 Opens up the My Access Request page on the MyAdmin website in Chrome.
             tunnel [gcloud start-iap-tunnel cmd]
-                Starts the IAP tunnel (using the gcloud start-iap-tunnel command copied from MyAdmin after opening an access
-                request) and then connects to the server over SSH. The port is saved and used when you SSH to the server using
-                geo ar ssh. This command will be saved and re-used next time you call the command without any arguments
-                (i.e. geo ar tunnel)
+                Starts the IAP tunnel (using the gcloud start-iap-tunnel command copied from MyAdmin after
+                opening an access request) and then connects to the server over SSH. The port is saved and
+                used when you SSH to the server using geo ar ssh. This command will be saved and
+                re-used next time you call the command without any arguments (i.e. geo ar tunnel)
                   Options:
                     -s
                       Only start the IAP tunnel without SSHing into it.
+                    -l
+                      List and choose from previous IAP tunnel commands.
             ssh
                 SSH into a server through the IAP tunnel started with geo ar ssh.
                   Options:
                     -p <port>
-                      The port to use when connecting to the server. This value is optional since the port that the IAP tunnel
-                      was opened on using geo ar ssh is used as the default value
+                      The port to use when connecting to the server. This value is optional since the port
+                      that the IAP tunnel was opened on using geo ar ssh is used as the default value
                     -u <user>
-                      The user to use when connecting to the server. This value is optional since the username stored in $USER is
-                      used as the default value. The value supplied here will be stored and reused next time you call the command
+                      The user to use when connecting to the server. This value is optional since the username
+                      stored in $USER is used as the default value. The value supplied here will be stored
+                      and reused next time you call the command
         Example:
-            geo ar tunnel -s gcloud compute start-iap-tunnel gceseropst4-20220109062647 22 --project=geotab-serverops
-            --zone=projects/709472407379/zones/northamerica-northeast1-b
+            geo ar tunnel -s gcloud compute start-iap-tunnel gceseropst4-20220109062647 22
+            --project=geotab-serverops --zone=projects/709472407379/zones/northamerica-northeast1-b
             geo ar ssh
             geo ar ssh -p 12345
             geo ar ssh -u dawsonmyers
@@ -405,14 +564,11 @@ Available commands:
             repo
                 Init Development repo directory using the current directory.
             npm
-                Runs 'npm install' in both the wwwroot and drive CheckmateServer directories. This is quick way to fix the npm
-                dependencies after Switching to a different MYG release branch.
+                Runs 'npm install' in both the wwwroot and drive CheckmateServer directories. This is quick
+                way to fix the npm dependencies after Switching to a different MYG release branch.
         Example:
             geo init repo
             geo init npm
-            
-        Example:
-            geo init repo
     env <cmd> [arg1] [arg2]
       Get, set, or list geo environment variable.
         Commands:
@@ -452,12 +608,14 @@ Available commands:
             geo update
             geo update --force
     uninstall
-      Remove geo-cli installation. This prevents geo-cli from being loaded into new bash terminals, but does not remove the
-      geo-cli repo directory. Navigate to the geo-cli repo directory and run 'bash install.sh' to reinstall.
+      Remove geo-cli installation. This prevents geo-cli from being loaded into new bash terminals, but does
+      not remove the geo-cli repo directory. Navigate to the geo-cli repo directory and run 'bash install.sh'
+      to reinstall.
         Example:
             geo uninstall
     analyze [option or analyzerIds]
-      Allows you to select and run various pre-build analyzers. You can optionally include the list of analyzers if already known.
+      Allows you to select and run various pre-build analyzers. You can optionally include the list of
+      analyzers if already known.
         Options:
             -a
                 Run all analyzers
@@ -470,8 +628,9 @@ Available commands:
             geo analyze -a
             geo analyze 0 3 6
     id
-      Both encodes and decodes long and guid ids to simplify working with the MyGeotab API. The result is copied to your
-      clipboard. Guid encoded ids must be prefixed with 'a' and long encoded ids must be prefixed with 'b'
+      Both encodes and decodes long and guid ids to simplify working with the MyGeotab API. The result is
+      copied to your clipboard. Guid encoded ids must be prefixed with 'a' and long encoded ids must be
+      prefixed with 'b'
         Options:
             -o
                 Do not format output.
@@ -516,6 +675,15 @@ Available commands:
       Prints out help for all commands.
     dev
       Commands used for internal geo-cli development.
+        Commands:
+            update-available
+                Returns "true" if an update is available
+            co <branch>
+                Checks out a geo-cli branch
+            release
+                Returns the name of the MyGeotab release version of the currently checked out branch
+            databases
+                Returns a list of all of the geo-cli database container names
 
 ```
 

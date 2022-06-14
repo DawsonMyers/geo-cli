@@ -28,6 +28,17 @@ export CURRENT_COMMAND=''
 export CURRENT_SUBCOMMAND=''
 export CURRENT_SUBCOMMANDS=()
 
+
+# set -eE -o functrace
+# set -x
+# failure() {
+#   local lineno=$1
+#   local msg=$2
+#   local func=$3
+#   echo "Failed at $lineno: $msg in function: ${func}"
+# }
+# trap 'failure ${LINENO} "$BASH_COMMAND" ${FUNCNAME[0]}' ERR
+
 # First argument commands
 ###############################################################################
 # Each command has three parts:
@@ -280,7 +291,7 @@ geo_db_check_for_old_image_prefix() {
     done
 
     # Rename existing image.
-    docker image tag geo_cli_db_postgres11 $IMAGE 2>-
+    docker image tag geo_cli_db_postgres11 $IMAGE 2> /dev/null
 }
 
 geo_db_stop() {
@@ -317,12 +328,14 @@ geo_db_stop() {
 geo_db_create() {
     local silent=false
     local acceptDefaults=
+    local no_prompt=
     local empty_db=false
     local OPTIND
     while getopts "sye" opt; do
         case "${opt}" in
             s ) silent=true ;;
             y ) acceptDefaults=true ;;
+            n ) no_prompt=true ;;
             e ) empty_db=true && status_bi 'Creating empty Postgres container';;
             \? ) 
                 Error "Invalid option: -$OPTARG"
@@ -335,7 +348,7 @@ geo_db_create() {
     db_version="$1"
     db_version=$(geo_make_alphanumeric "$db_version")
 
-    if [ -z "$db_version" ]; then
+    if [[ -z $db_version ]]; then
         Error "No database version provided."
         return
     fi
@@ -352,7 +365,7 @@ geo_db_create() {
         return 1
     fi
 
-    if [ ! $acceptDefaults ]; then
+    if [[ -z $acceptDefaults && -z $no_prompt ]]; then
         prompt_continue "Create db container with name $(txt_underline ${db_version})? (Y|n): " || return
     fi
     status_bi "Creating volume:"
@@ -430,9 +443,7 @@ geo_db_start() {
     # debug $db_version
     if [ -z "$db_version" ]; then
         if [[ -n $prompt_db_name ]]; then
-            while [[ -z $db_version ]]; do
-                prompt_for_db_version
-            done
+            prompt_for_db_name
         else
             db_version=$(geo_get LAST_DB_VERSION)
             if [[ -z $db_version ]]; then
@@ -482,7 +493,7 @@ geo_db_start() {
         Error "Postgres port 5432 is currently bound to the following container: $container_name_using_postgres_port"
         [[ $no_prompt == true ]] && Error "Port error" && return 1
         if prompt_continue "Do you want to stop this container so that a geo db one can be started? (Y|n): "; then
-            if docker stop "$container_name_using_postgres_port" >-; then
+            if docker stop "$container_name_using_postgres_port" > /dev/null; then
                 status 'Container stopped'
             else
                 Error 'Unable to stop container'
@@ -514,7 +525,7 @@ geo_db_start() {
         #     docker container rm $container_id
         #     local vol_mount="geo_cli_db_postgres11_${db_version}:/var/lib/postgresql/12/main"
         #     local port=5432:5432
-        #     docker create -v $vol_mount -p $port --name=$container_name $IMAGE >-
+        #     docker create -v $vol_mount -p $port --name=$container_name $IMAGE > /dev/null
         # fi
 
         try_to_start_db $container_id
@@ -541,13 +552,14 @@ geo_db_start() {
         # db_version="$1"
         # db_version=$(geo_make_alphanumeric "$db_version")
 
-        if [ ! $acceptDefaults ]; then
+        if [[ -z $acceptDefaults && -z $no_prompt ]]; then
             prompt_continue "Db container $(txt_italic ${db_version}) doesn't exist. Would you like to create it? (Y|n): " || return
         fi
         local opts=-s
-        [ $acceptDefaults ] && opts+=y
+        [[ $acceptDefaults == true ]] && opts+=y
+        [[ $no_prompt == true ]] && opts+=n
 
-        geo_db create $opts "$db_version" ||
+        geo_db_create $opts "$db_version" ||
             (Error 'Failed to create db' && return 1)
 
         try_to_start_db $container_name
@@ -556,6 +568,7 @@ geo_db_start() {
         if [[ -n $output ]]; then
             Error "Port 5432 is already in use."
             info "Fix: Stop postgresql"
+            [[ $no_prompt == true ]] && return 1
             if prompt_continue "Do you want to try to stop the postgresql service? (Y|n): "; then
                 sudo service postgresql stop && success 'postgresql service stopped'
                 sleep 2
@@ -576,6 +589,7 @@ geo_db_start() {
         status "  ID: $container_id"
         status "  NAME: $container_name"
 
+        [[ $no_prompt == true ]] && return
         if [ $acceptDefaults ] || prompt_continue 'Would you like to initialize the db? (Y|n): '; then
             geo_db_init $acceptDefaults
         else
@@ -1089,7 +1103,7 @@ geo_db_rm() {
         local num_dbs=$(echo "$names" | wc -l)
         num_dbs=$((num_dbs - fail_count))
         success "Removed $num_dbs dbs"
-        [[ fail_count > 0 ]] && error "Failed to remove $fail_count dbs"
+        [[ fail_count -gt 0 ]] && error "Failed to remove $fail_count dbs"
         return
     fi
 
@@ -1229,6 +1243,8 @@ geo_ar_doc() {
             doc_cmd_sub_options_title
             doc_cmd_sub_option '-s'
             doc_cmd_sub_option_desc "Only start the IAP tunnel without SSHing into it."
+            doc_cmd_sub_option '-l'
+            doc_cmd_sub_option_desc "List and choose from previous IAP tunnel commands."
             # doc_cmd_sub_option_desc "Starts an SSH session to the server immediately after opening up the IAP tunnel."
         doc_cmd_sub_cmd 'ssh'
             doc_cmd_sub_cmd_desc "SSH into a server through the IAP tunnel started with $(green 'geo ar ssh')."
@@ -1255,17 +1271,58 @@ geo_ar() {
             ( # Run in subshell to catch EXIT signals
                 shift
                 local start_ssh='true'
-                # Option for starting ssh after starting tunnel
-                [[ $1 == -s ]] && start_ssh= && shift
+                local prompt_for_cmd='false'
+                local list_previous_cmds='false'
+                while [[ $1 =~ ^- ]]; do
+                    case "$1" in
+                        -s ) start_ssh= ;;
+                        --prompt ) prompt_for_cmd='true' ;;
+                        -l ) list_previous_cmds='true' ;;
+                        * ) Error "Unknown option '$1'" && return 1 ;;
+                    esac    
+                    shift
+                done
 
                 local gcloud_cmd="$*"
+                local expected_cmd_start='gcloud compute start-iap-tunnel'
+                local prompt_txt='Enter the gcloud IAP command that was copied from your MyAdmin access request:'
+                if [[ $prompt_for_cmd == true ]]; then
+                    prompt_for_info "$prompt_txt"
+                    gcloud_cmd="$prompt_return"
+                fi
+
+                if [[ $list_previous_cmds == true ]]; then
+                    local prev_commands=$(_geo_ar_get_cmd_tags | tr '\n' ' ')
+                    # debug "$prev_commands"
+                    if [[ -n $prev_commands ]]; then
+                        status -bi 'Enter the number for the gcloud IAP command you want to use:'
+                        select tag in $prev_commands; do
+                            [[ -z $tag ]] && warn "Invalid command number" && continue
+                            gcloud_cmd=$(_geo_ar_get_cmd_from_tag $tag)
+                            # debug "gcloud_cmd: $gcloud_cmd"
+                            # debug "tag: $tag"
+                            break
+                        done
+                    else
+                        warn "'-l' option supplied, but there arn't any previous comands stored to choose from."
+                    fi
+                fi
+
                 # debug $gcloud_cmd
                 [[ -z $gcloud_cmd ]] && gcloud_cmd="$(geo_get AR_IAP_CMD)"
-                [[ -z $gcloud_cmd ]] && Error 'The gcloud compute start-iap-tunnel command (copied from MyAdmin for you access request) is required.' && return 1
-                geo_set AR_IAP_CMD "$gcloud_cmd"
+                [[ -z $gcloud_cmd ]] && Error 'The gcloud compute start-iap-tunnel command (copied from MyAdmin for your access request) is required.' && return 1
+                
+                while [[ ! $gcloud_cmd =~ ^$expected_cmd_start ]]; do
+                    warn -b "The command must start with 'gcloud compute start-iap-tunnel'"
+                    prompt_for_info "$prompt_txt"
+                    gcloud_cmd="$prompt_return"
+                done
 
+                geo_set AR_IAP_CMD "$gcloud_cmd"
+                _geo_ar_push_cmd "$gcloud_cmd"
+                
                 local open_port=$(python -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')
-                [ -z $open_port ] && Error 'Open port could not be found' && return 1
+                [[ -z $open_port ]] && Error 'Open port could not be found' && return 1
 
                 local port_arg='--local-host-port=localhost:'$open_port
                 
@@ -1314,7 +1371,7 @@ geo_ar() {
             local loop=true
 
             while [[ ${1:0:1} == - ]]; do
-                debug "option $1"
+                # debug "option $1"
                 # Don't save port/user if -n (no save) option supplied. This option is used in geo ar tunnel so that re-opening
                 # an SSH session doesn't overwrite the most recent port (from the newest IAP tunnel, which may be different from this one).
                 [[ $1 == '-n' ]] && save= && shift
@@ -1324,7 +1381,7 @@ geo_ar() {
                 [[ $1 == '-u' ]] && user=$2 && shift 2 && ((option_count++))
             done
 
-            [[ -z port ]] && Error "No port found. Add a port with the -p <port> option." && return 1
+            [[ -z $port ]] && Error "No port found. Add a port with the -p <port> option." && return 1
             
             echo
             status -bu 'Opening SSH session'
@@ -1374,6 +1431,68 @@ geo_ar() {
             Error "Unknown subcommand '$1'"
             ;;
     esac
+}
+
+# Save the previous 5 gcloud commands as a single value in the config file, delimited by the '@' character.
+_geo_ar_push_cmd() {
+    local cmd="$1"
+    [[ -z $cmd ]] && return 1
+    local prev_commands="$(geo_get AR_IAP_CMDS)"
+
+    if [[ -z $prev_commands ]]; then
+        debug "_geo_ar_push_cmd: cmds was empty"
+        geo_set AR_IAP_CMDS "$cmd"
+        return
+    fi
+    # Remove duplicates if cmd is already stored.
+    prev_commands="${prev_commands//$cmd/}"
+    # Remove any delimiters left over from removed commands.
+    # The patterns remove lead and trailing @, as well as replaces 2 or more @ with a single one (3 patterns total).
+    prev_commands=$(echo $prev_commands | sed -r 's/^@//; s/@$//; s/@{2,}/@/g')
+
+    if [[ -z $prev_commands ]]; then
+        Error "_geo_ar_push_cmd[$LINENO]: cmds was empty"
+        return
+    fi
+    # Add the new command to the beginning, delimiting it with the '@' character.
+    prev_commands="$cmd@$prev_commands"
+    # Get the count of how many commands there are.
+    local count=$(echo $prev_commands | awk -F '@' '{ print NF }')
+#    debug $count
+    if (( count > 5 )); then
+        # Remove the oldest command, keeping only 5.
+        prev_commands=$(echo $prev_commands | awk -F '@' '{ print $1"@"$2"@"$3"@"$4"@"$5 }')
+    fi
+#    debug geo_set AR_IAP_CMDS "_geo_ar_push_cmd: setting cmds to: $prev_commands"
+    geo_set AR_IAP_CMDS "$prev_commands"
+}
+
+_geo_ar_get_cmd_tags() {
+    geo get AR_IAP_CMDS | tr '@' '\n' | awk '{ print $4 }'
+}
+
+_geo_ar_get_cmd_from_tag() {
+    [[ -z $1 ]] && return
+    geo get AR_IAP_CMDS | tr '@' '\n' | grep "$1"
+}
+
+_geo_ar_get_cmd() {
+    local cmd_number="$1"
+    [[ -z $cmd_number || $cmd_number -gt 5 || $cmd_number -lt 0 ]] && Error "Invalid command number. Expected a value between 0 and 5." && return 1
+    
+    local cmds=$(geo_get AR_IAP_CMDS)
+    if [[ -z $cmds ]]; then
+        return
+    fi
+    local awk_cmd='{ print $'$cmd_number' }'
+    echo $(echo $cmds | awk -F '@' "$awk_cmd")
+}
+
+_geo_ar_get_cmd_count() {
+    local cmds=$(geo_get AR_IAP_CMDS)
+    # Get the count of how many commands there are.
+    local count=$(echo $cmds | awk -F '@' '{ print NF }')
+    echo $count
 }
 
 # pa() {
@@ -1460,17 +1579,50 @@ geo_init() {
         status "MyGeotab base repo (Development) path set to:"
         detail "    $repo_dir"
         ;;
+    # npmi )
+    #     (
+    #         cd ~/test
+    #         npm i || Error "npm install failed" && return 1
+
+    #     )
+    #     ;;
     npm )
+        local close_delayed=false
+        local arg="$2"
+        [[ $arg == -c ]] && close_delayed=true
         (
+            local fail_count=0
+
             local current_repo_dir=$(geo_get DEV_REPO_DIR)
             [[ -z $current_repo_dir ]] && Error "MyGeotab repo directory not set." && return 1
+
             cd $current_repo_dir/Checkmate/CheckmateServer/src/wwwroot
-            status -b 'Installing npm packages for CheckmateServer/src/wwwroot'
-            npm i
-            status -b 'Installing npm packages for CheckmateServer/src/wwwroot/drive'
+            # echo
+            status -b '\nInstalling npm packages for CheckmateServer/src/wwwroot\n'
+            npm i || ((fail_count++))
+            status -b '\nInstalling npm packages for CheckmateServer/src/wwwroot/drive\n'
             cd drive
-            npm i
+            npm i || ((fail_count++))
+            # debug "fail $fail_count"
+            ((fail_count == 0))
         )
+        
+        if [[ $? != 0 ]]; then
+            Error "npm install failed $"
+            if [[ $close_delayed == true ]]; then
+                detail 'Press Enter to exit'
+                read
+                exit 1
+            fi
+            return 1
+        fi
+
+        success 'npm install was successful'
+        if [[ $close_delayed == true ]]; then
+            detail 'closing in 5 seconds'
+            sleep 5
+            exit 0
+        fi
         ;;
     esac
 }
@@ -1605,6 +1757,10 @@ geo_env() {
         geo_rm "$2"
         ;;
     'ls')
+        if [[ $2 == keys ]]; then
+            awk -F= '{ gsub("GEO_CLI_","",$1); printf "%s ",$1 } ' $GEO_CLI_CONF_FILE | sort
+            return
+        fi
         local header=$(printf "%-26s %-26s\n" 'Variable' 'Value')
         local env_vars=$(awk -F= '{ gsub("GEO_CLI_","",$1); printf "%-26s %-26s\n",$1,$2 } ' $GEO_CLI_CONF_FILE | sort)
         info_bi "$header"
@@ -1649,18 +1805,30 @@ geo_set() {
     [[ $value == $old ]] && value_changed=false
 
     # Only write to file if the value has changed.
-    [[ $value_changed == true ]] && cfg_write $GEO_CLI_CONF_FILE "$geo_key" "$value"
+    if [[ $value_changed == true ]]; then
+        (
+            # Get an exclusive lock on file descriptor 200, waiting only 5 second before timing out.
+            flock -w 5 -e 200
+            # Check if the lock was successfully acquired.
+            (( $? != 0 )) && Error "'geo set' failed to lock config file after timeout. Key: $geo_key, value: $value." && return 1
+            # Write to the file atomically.
+            cfg_write $GEO_CLI_CONF_FILE "$geo_key" "$value"
+        # Open up the lock file for writing on file descriptor 200. The lock is release as soon as the subshell exits.
+        ) 200> /tmp/.geo.conf.lock
+        [[ $? != 0 ]] && return 1
+    fi
+        
 
-    local final_line_count=$(wc -l $GEO_CLI_CONF_FILE | awk '{print $1}')
+    # local final_line_count=$(wc -l $GEO_CLI_CONF_FILE | awk '{print $1}')
 
     # debug "$initial_line_count, $final_line_count"
     # debug "$conf_backup"
     # Restore original configuration file and try to write to it again. The conf file can be corrupted
     # if two processes try to write to it at the same time.
-    if (( final_line_count < initial_line_count )); then
-        echo "$conf_backup" > $GEO_CLI_CONF_FILE
-        [[ $value_changed == true ]] && cfg_write $GEO_CLI_CONF_FILE "$geo_key" "$value"
-    fi
+    # if (( final_line_count < initial_line_count )); then
+    #     echo "$conf_backup" > $GEO_CLI_CONF_FILE
+    #     [[ $value_changed == true ]] && cfg_write $GEO_CLI_CONF_FILE "$geo_key" "$value"
+    # fi
 
     if [[ $show_status == true ]]; then
         info_bi "$key"
@@ -1686,6 +1854,9 @@ geo_get() {
     [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
 
     value=$(cfg_read $GEO_CLI_CONF_FILE $key)
+    
+    [[ $key == GEO_CLI_DIR && -z $value && -n $GEO_CLI_DIR ]] && value="$GEO_CLI_DIR"
+
     [[ -z $value ]] && return
     local opts=
     [[ $GEO_RAW_OUTPUT == true ]] && opts=-n
@@ -1709,14 +1880,23 @@ geo_rm_doc() {
 }
 geo_rm() {
     # Get value of env var.
-    local key="$1"
+    local key="${1^^}"
     [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
 
-    cfg_delete $GEO_CLI_CONF_FILE "$key"
+    (
+        # Get an exclusive lock on file descriptor 200, waiting only 5 second before timing out.
+        flock -w 5 -e 200
+        # Check if the lock was successfully acquired.
+        (( $? != 0 )) && Error "'geo rm' failed to lock config file after timeout. Key: $key" && return 1
+        # Write to the file atomically.
+        cfg_delete $GEO_CLI_CONF_FILE "$key"
+    # Open up the lock file for writing on file descriptor 200. The lock is release as soon as the subshell exits.
+    ) 200> /tmp/.geo.conf.lock
+    [[ $? != 0 ]] && return 1
 }
 
 geo_haskey() {
-    local key="$1"
+    local key="${1^^}"
     [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
     cfg_haskey $GEO_CLI_CONF_FILE "$key"
 }
@@ -1741,21 +1921,51 @@ geo_update() {
     fi
 
     local geo_cli_dir="$(geo_get GEO_CLI_DIR)"
-    local prev_commit=
+    local prev_commit="$(geo_get GIT_PREVIOUS_COMMIT)"
     local new_commit=
+    
     (
         cd $geo_cli_dir
-        prev_commit=$(git rev-parse HEAD)
+        [[ -z $prev_commit ]] && prev_commit=$(git rev-parse HEAD)
         if ! git pull >/dev/null; then
             Error 'Unable to pull changes from remote'
             return 1
         fi
         new_commit=$(git rev-parse HEAD)
+        bash $geo_cli_dir/install.sh $prev_commit $new_commit
+        geo_set GIT_PREVIOUS_COMMIT "$new_commit"
     )
     # debug "$prev_commit $new_commit"
-    bash $geo_cli_dir/install.sh $prev_commit $new_commit
+    
     # Re-source .bashrc to reload geo in this terminal
     . ~/.bashrc
+}
+
+_geo_check_if_feature_branch_merged() {
+    [[ ! -f $GEO_CLI_DIR/feature-version.txt ]] && return 1
+
+    local feature_version=$(cat "$GEO_CLI_DIR/feature-version.txt")
+    [[ $feature_version != MERGED ]] && return 1
+
+    local msg="The feature branch you are on has been merged and is no longer being maintained.\nSwitch back to the main branch now? (Y|n): "
+    
+    if prompt_continue "$msg"; then
+        (
+            cd "$GEO_CLI_DIR"
+            if ! git checkout master; then
+                Error "Failed to checkout main"
+                return 1
+            fi
+            if ! git pull; then
+                Error "Failed to pull changes from main"
+                return 1
+            fi
+        )
+        return $?
+    else
+        warn "This feature branch is no longer being maintained. You should switch back to the main branch ASAP."
+    fi
+    return 1
 }
 
 ###########################################################
@@ -1773,6 +1983,9 @@ geo_uninstall() {
     if ! prompt_continue "Are you sure that you want to remove geo-cli? (Y|n)"; then
         return
     fi
+
+    geo_indicator disable
+    geo_set disabled true
 
     # Remove lines from .bashrc that load geo-cli into terminals.
     sed -i '/#geo-cli-start/,/#geo-cli-end/d' ~/.bashrc
@@ -1848,13 +2061,6 @@ geo_analyze() {
     # Default to running individually until cmd test batching is supported in more releases currently only 2104.
     local run_individually=true
 
-    # Check if the run previous analyzers option (-) was supplied.
-    if [[ $1 =~ ^-$ ]]; then
-        ids=$(geo_get ANALYZER_IDS)
-        [[ -n $ids ]] && echo && status "Using previous analyzer id(s): $ids"
-        shift
-    fi
-
     local OPTIND
     while getopts "ab" opt; do
         case "${opt}" in
@@ -1880,6 +2086,13 @@ geo_analyze() {
         esac
     done
     shift $((OPTIND - 1))
+
+    # Check if the run previous analyzers option (-) was supplied.
+    if [[ $1 =~ ^-$ ]]; then
+        ids=$(geo_get ANALYZER_IDS)
+        [[ -n $ids ]] && echo && status "Using previous analyzer id(s): $ids"
+        shift
+    fi
 
     # See if only the core/test project should be run.
     local run_project_only=
@@ -2006,7 +2219,7 @@ geo_analyze() {
                     fi
                 fi
 
-                if [[ $test_analyzers_count > 0 && $run_test == 'true' ]]; then
+                if [[ $test_analyzers_count -gt 0 && $run_test == 'true' ]]; then
                     echo
                     status_bi "Running the following $test_analyzers_count analyzer(s) against MyGeotab.Core.Tests:"
                     print_analyzers "$test_analyzers"
@@ -2039,9 +2252,9 @@ geo_analyze() {
                 analyzer_name="${analyzer[$name]}"
                 analyzer_proj="${analyzer[$proj]}"
 
-                if [[ $fail_count > 0 ]]; then
+                if [[ $fail_count -gt 0 ]]; then
                     echo
-                    warn "$fail_count failed test$([[ $fail_count > 1 ]] && echo s) so far"
+                    warn "$fail_count failed test$([[ $fail_count -gt 1 ]] && echo s) so far"
                 fi
                 echo
                 status_bi "Running ($((run_count++)) of $id_count): $analyzer_name"
@@ -2062,7 +2275,7 @@ geo_analyze() {
 
             echo
 
-            if [[ $fail_count > 0 ]]; then
+            if [[ $fail_count -gt 0 ]]; then
                 warn "$fail_count out of $id_count analyzers failed. The following analyzers failed:"
                 failed_tests=$(echo -e "$failed_tests")
                 detail "$failed_tests"
@@ -2094,71 +2307,138 @@ geo_id_doc() {
         doc_cmd_example 'geo id aAOdO4ZfnTyifXirSIkUfbQ => 00e74ee1-97e7-4f28-9f5e-2ad222451f6d'
 }
 geo_id() {
+    local interactive=false
+    local use_clipboard=false
     local format_output=true
+    [[ $1 == -c ]] && use_clipboard=true && shift
+    [[ $1 == -i ]] && interactive=true && shift
     [[ $1 == -o ]] && format_output=false && shift
     local arg="$1"
-    local first_char=${arg:0:1}
+    
     local id=
-    # The regex for identifing guids.
+    # The regex for identifying guids.
     local guid_re='^[[:alnum:]]+-[[:alnum:]]+-[[:alnum:]]+-[[:alnum:]]+-[[:alnum:]]+$'
+    local encoded_guid_re='^a[a-zA-Z0-9_-]{22,22}$'
     local msg=
     number_re='^[0-9]+$'
+  
+    convert_id() {
+        arg=${1:-$arg}
+        local first_char=${arg:0:1}
+        # debug "arg='$arg'"
+        # Guid encode.
+        if [[ $arg =~ $guid_re ]]; then
+            if [[ ${#arg} -ne 36 ]]; then
+                Error "Invalid input format."
+                warn "Guid ids must be 36 characters long. The input string length was ${#arg}"
+                return 1
+            fi
+            id=$arg
+            # Remove all occurrences of '-'.
+            id=${id//-/}
+            # Reorder bytes to match the C# Guid.TryWriteBytes() ordering.
+            id=${id:6:2}${id:4:2}${id:2:2}${id:0:2}${id:10:2}${id:8:2}${id:14:2}${id:12:2}${id:16:4}${id:20:12}
+            # Convert to bytes and then encode to base64.
+            id=$(echo $id | xxd -r -p | base64)
+            # Remove trailing'=='.
+            id=${id:0:-2}
+            # Replace '+' with '-'.
+            id=${id//+/-}
+            # Replace '/' with '_'.
+            id=${id//\//_}
+            id='a'$id
+            msg='Encoded guid id'
+        # Guid decode.
+        elif [[ $first_char =~ a ]]; then
+#        elif [[ $arg =~ $encoded_guid_re ]]; then
+             if [[ ! $arg =~ $encoded_guid_re ]]; then
+             # if [[ ${#arg} -ne 23 ]]; then
+                 Error "Invalid input format."
+                 warn "Guid encoded ids must be prefixed with 'a' and be 23 characters long."
+                 [[ ${#arg} -ne 23 ]] && warn "The input string length was: ${#arg}"
+                 return 1
+             fi
+            id=${arg:1}
+            # Add trailing'=='.
+            id+="=="
+            # Replace '-' with '+'.
+            id=${id//-/+}
+            # Replace '_' with '/'.
+            id=${id//_/\/}
+            # Decode base64 to bytes and then to a hex string.
+            id=$(echo $id | base64 -d | xxd -p)
+            # Reorder bytes to match the C# Guid.TryWriteBytes() ordering.
+            id=${id:6:2}${id:4:2}${id:2:2}${id:0:2}${id:10:2}${id:8:2}${id:14:2}${id:12:2}${id:16:4}${id:20:12}
+            # Format the decoded guid with hyphens so that it takes the same form as this example: 9567aac6-b5a9-4561-8b82-ca009760b1b3.
+            id=${id:0:8}-${id:8:4}-${id:12:4}-${id:16:4}-${id:20}
+            # To upper case.
+            id=${id^^}
+            msg='Decoded guid id'
+        # Long encode.
+        elif [[ $arg =~ $number_re ]]; then
+            id=$(printf '%x' $arg)
+            # To upper case.
+            id=b${id^^}
+            msg='Encoded long id'
+        # Long decode
+        elif [[ $first_char == b ]]; then
+            # Trim 'b' suffix.
+            id=${arg:1}
+            # Convert from hex to long.
+            id=$(printf '%d' 0x$id)
+            msg='Decoded long id'
+        else
+            Error "Invalid input format."
+            warn "Guid ids must be 36 characters long."
+            warn "Encoded guid ids must be prefixed with 'a' and be 23 characters long."
+            warn "Encoded long ids must be prefixed with 'b'."
+            warn "Use 'geo id help' for usage info."
+            return 1
+        fi
+    }
     
-    # Guid endcode.
-    if [[ $arg =~ $guid_re ]]; then
-        id=$arg
-        # Remove all occurrences of '-'.
-        id=${id//-/}
-        # Reorder bytes to match the C# Guid.TryWriteBytes() ordering.
-        id=${id:6:2}${id:4:2}${id:2:2}${id:0:2}${id:10:2}${id:8:2}${id:14:2}${id:12:2}${id:16:4}${id:20:12}
-        id=$(echo $id | xxd -r -p | base64)
-        # Remove trailing'=='.
-        id=${id:0:-2}
-        # Replace '+' with '-'.
-        id=${id//+/-}
-        # Replace '/' with '_'.
-        id=${id//\//_}
-        id='a'$id
-        msg='Encoded guid id'
-    # Guid decode.
-    elif [[ $first_char =~ a ]]; then
-        id=${arg:1}
-        # Add trailing'=='.
-        id+="=="
-        # Replace '-' with '+'.
-        id=${id//-/+}
-        # Replace '_' with '/'.
-        id=${id//_/\/}
-        id=$(echo $id | base64 -d | xxd -p)
-        # Reorder bytes to match the C# Guid.TryWriteBytes() ordering.
-        id=${id:6:2}${id:4:2}${id:2:2}${id:0:2}${id:10:2}${id:8:2}${id:14:2}${id:12:2}${id:16:4}${id:20:12}
-        # Format the decoded guid with hyphens so that it takes the same form as this example: 9567aac6-b5a9-4561-8b82-ca009760b1b3.
-        id=${id:0:8}-${id:8:4}-${id:12:4}-${id:16:4}-${id:20}
-        # To upper case.
-        id=${id^^}
-        msg='Decoded guid id'
-    # Long encode.
-    elif [[ $arg =~ $number_re ]]; then
-        id=$(printf '%x' $arg)
-        # To upper case.
-        id=b${id^^}
-        msg='Encoded long id'
-    # Long decode
-    elif [[ $first_char == b ]]; then
-        # Trim 'b' suffix.
-        id=${arg:1}
-        # Convert from hex to long.
-        id=$(printf '%d' 0x$id)
-        msg='Decoded long id'
-    else
-        Error "Invalid input format."
-        warn "Guid encoded ids must be prefixed with 'a' and long encoded ids must be prefixed with 'b'."
-        warn "Use 'geo id help' for usage info."
-        return 1
+    if [[ $interactive == true || $use_clipboard == true ]]; then
+        clipboard=$(xclip -o)
+        # debug "Clip $clipboard"
+        local valid_id_re='^[a-zA-Z0-9_-]{1,36}$'
+        # [[ $clipboard =~ $valid_id_re]]
+        # First try to convert the contents of the clipboard as an id.
+        if [[ -n $clipboard && ${#clipboard} -le 36 ]]; then
+            # [[ $clipboard =~ $valid_id_re ]]
+            # geo_id $clipboard
+            # debug "Clip $clipboard"
+            output=$(convert_id $clipboard)
+            # debug $output
+
+            if [[ $output =~ Error ]]; then
+                detail 'No valid ID in clipboard'
+            else
+                detail "Converting the following id from clipboard: $clipboard"
+                geo_id $clipboard
+                echo
+            fi
+        fi
+
+        if [[ $use_clipboard == true ]]; then
+            detail 'closing in 5 seconds'
+            sleep 5
+            exit
+        fi
+        # Prompt repetitively to convert ids.
+        while true; do
+            prompt_for_info_n "Enter ID to encode/decode: "
+            geo_id $prompt_return
+            echo
+        done
+        return
     fi
 
+    # Convert the id.
+    if ! convert_id $arg; then
+        return 1
+    fi
     [[ $format_output == true ]] && status "$msg: "
-    [[ $format_output == true ]] && status -b $id || echo -n $id
+    [[ $format_output == true ]] && detail -b $id || echo -n $id
     if ! type xclip > /dev/null; then
         warn 'Install xclip (sudo apt-get instal xclip) in order to have the id copied to your clipboard.'
         return
@@ -2222,6 +2502,157 @@ geo_cd() {
 }
 
 ###########################################################
+COMMANDS+=('indicator')
+geo_indicator_doc() {
+    doc_cmd 'indicator <command>'
+    doc_cmd_desc 'Enables or disables the app indicator.'
+    
+    doc_cmd_sub_cmds_title
+        doc_cmd_sub_cmd 'enable'
+            doc_cmd_sub_cmd_desc 'Enable the app indicator.'
+        doc_cmd_sub_cmd 'disable'
+            doc_cmd_sub_cmd_desc 'Disable the app indicator.'
+        doc_cmd_sub_cmd 'start'
+            doc_cmd_sub_cmd_desc 'Start the app indicator.'
+        doc_cmd_sub_cmd 'stop'
+            doc_cmd_sub_cmd_desc 'Stop the app indicator.'
+        doc_cmd_sub_cmd 'restart'
+            doc_cmd_sub_cmd_desc 'Restart the app indicator.'
+        doc_cmd_sub_cmd 'status'
+            doc_cmd_sub_cmd_desc 'Gets the systemctl service status for the app indicator.'
+    doc_cmd_examples_title
+    doc_cmd_example 'geo indicator enable'
+    doc_cmd_example 'geo indicator disable'
+}
+geo_indicator() {
+    local running_in_headless_ubuntu=$(dpkg -l ubuntu-desktop | grep 'no packages found')
+    if [[ -n $running_in_headless_ubuntu ]]; then
+        Error 'Cannot use geo-cli indicator with headless versions of Ubuntu.'
+        return 1
+    fi
+
+    local geo_indicator_service_name=geo-indicator.service
+    local geo_indicator_desktop_file_name=geo.indicator.desktop
+    # local indicator_bin_path=~/.geo-cli/bin/geo-indicator
+    # local indicator_bin_path=/usr/local/bin/geo-indicator
+    local indicator_service_path=~/.config/systemd/user/$geo_indicator_service_name
+    local app_desktop_entry_dir="$HOME/.local/share/applications"
+    _geo_indicator_check_dependencies
+    case "$1" in
+        enable )
+            status -b "Enabling app indicator"
+            geo_set 'APP_INDICATOR_ENABLED' 'true'
+
+            # Directory where user service files are stored.
+            mkdir -p  ~/.config/systemd/user/
+            mkdir -p  ~/.geo-cli/.data
+            mkdir -p  ~/.geo-cli/.indicator
+            export src_dir=$(geo_get GEO_CLI_SRC_DIR)
+            # echo $src_dir > ~/.geo-cli/.data/geo-cli-src-dir.txt
+            export geo_indicator_app_dir="$src_dir/py/indicator"
+            local init_script_path="$geo_indicator_app_dir/geo-indicator.sh"
+            local service_file_path="$geo_indicator_app_dir/$geo_indicator_service_name"
+            # local desktop_file_path="$geo_indicator_app_dir/$geo_indicator_desktop_file_name"
+
+            if [[ ! -f $init_script_path ]]; then
+                Error "App indicator script not found at '$init_script_path'"
+                return 1
+            fi
+            if [[ ! -f $service_file_path ]]; then
+                Error "App indicator service file not found at '$service_file_path'"
+                return 1
+            fi
+            if [[ ! -d $app_desktop_entry_dir ]]; then
+                mkdir -p $app_desktop_entry_dir
+            fi
+            # Replace the environment variables in the script file (with the ones loaded in this context)
+            # and then copy the contents to a file at the bin path
+            # tmp_file=/tmp/geo_ind_init_script.sh
+            
+            
+            export geo_indicator_path="$init_script_path"
+            # export indicator_py_path="$src_dir/indicator/geo-indicator.py"
+            envsubst < $service_file_path > $indicator_service_path
+            # envsubst < $desktop_file_path > /tmp/$geo_indicator_desktop_file_name
+
+            # desktop-file-install --dir=$app_desktop_entry_dir /tmp/$geo_indicator_desktop_file_name
+            # envsubst < $desktop_file_path > $app_desktop_entry_dir/$geo_indicator_desktop_file_name
+            # update-desktop-database $app_desktop_entry_dir
+            # sudo chmod 777 $indicator_bin_path
+            
+            systemctl --user daemon-reload
+            systemctl --user enable --now $geo_indicator_service_name
+            systemctl --user restart $geo_indicator_service_name
+            ;;
+        start )
+            systemctl --user start --now $geo_indicator_service_name
+            ;;
+        stop )
+            systemctl --user stop --now $geo_indicator_service_name
+            ;;
+        disable )
+            systemctl --user stop --now $geo_indicator_service_name
+            systemctl --user disable --now $geo_indicator_service_name
+            geo_set 'APP_INDICATOR_ENABLED' 'false'
+            success 'Indicator disabled'
+            ;;
+        status )
+            systemctl --user status $geo_indicator_service_name
+            ;;
+        restart )
+            systemctl --user restart $geo_indicator_service_name
+            ;;
+        init )
+            indicator_enabled=$(geo_get 'APP_INDICATOR_ENABLED')
+
+            [[ -z $indicator_enabled ]] && indicator_enabled=true && geo_set 'APP_INDICATOR_ENABLED' 'true'
+            [[ $indicator_enabled == false ]] && detail "Indicator is disabled. Run $(txt_underline geo indicator enable) to enable it.\n" && return
+            geo_indicator enable
+            ;;
+        *)
+            Error "Unknown argument: '$1'"
+            ;;
+    esac
+}
+
+_geo_service_exists() {
+    local n=$1
+    if [[ $(systemctl --user list-units --all -t service --full --no-legend "$n.service" | sed 's/^\s*//g' | cut -f1 -d' ') == $n.service ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+_geo_install_apt_package_if_missing() {
+    local pkg_name="$1"
+    ! type sudo &> /dev/null && sudo='' || sudo=sudo
+    [[ -z $pkg_name ]] && warn 'No package name supplied' && return 1
+
+    if ! dpkg -l $pkg_name &> /dev/null; then
+        status "Installing missing package: $pkg_name"
+        $sudo apt install -y "$pkg_name"
+    fi
+}
+_geo_indicator_check_dependencies() {
+    ! type sudo &> /dev/null && sudo='' || sudo=sudo
+    if ! type python3 &> /dev/null; then
+        if ! prompt_continue "python3 is required for geo indicator. Install now (Y|n)?"; then
+            return
+        fi
+        $sudo apt update
+        $sudo apt install software-properties-common
+        $sudo add-apt-repository ppa:deadsnakes/ppa
+        $sudo apt update
+        $sudo apt install python3.8
+        # $sudo apt install gir1.2-appindicator3-0.1 libappindicator3-1
+    fi
+
+    _geo_install_apt_package_if_missing 'gir1.2-appindicator3-0.1'
+    _geo_install_apt_package_if_missing 'libappindicator3-1'
+    _geo_install_apt_package_if_missing 'gir1.2-notify-0.7'
+    _geo_install_apt_package_if_missing 'xclip'
+}
+###########################################################
 COMMANDS+=('help')
 geo_help_doc() {
     doc_cmd 'help, -h, --help'
@@ -2237,14 +2668,17 @@ geo_help() {
 COMMANDS+=('dev')
 geo_dev_doc() {
     doc_cmd 'dev'
-        doc_cmd_desc 'Commands used for internal geo-cli development.'
+    doc_cmd_desc 'Commands used for internal geo-cli development.'
+
     doc_cmd_sub_cmds_title
         doc_cmd_sub_cmd 'update-available'
-            doc_cmd_sub_cmd_desc 'Checks if there is an update available for geo.'
-        doc_cmd_sub_cmd 'co [branch]'
-            doc_cmd_sub_cmd_desc 'Changes the geo-cli branch.'
+            doc_cmd_sub_cmd_desc 'Returns "true" if an update is available'
+        doc_cmd_sub_cmd 'co <branch>'
+            doc_cmd_sub_cmd_desc 'Checks out a geo-cli branch'
         doc_cmd_sub_cmd 'release'
-            doc_cmd_sub_cmd_desc 'Prints the currently checked out MYG release version of the Development repo.'
+            doc_cmd_sub_cmd_desc 'Returns the name of the MyGeotab release version of the currently checked out branch'
+        doc_cmd_sub_cmd 'databases'
+            doc_cmd_sub_cmd_desc 'Returns a list of all of the geo-cli database container names'
 }
 geo_dev() {
     local geo_cli_dir="$(geo_get GEO_CLI_DIR)"
@@ -2253,6 +2687,7 @@ geo_dev() {
     [[ $1 == -u ]] && force_update_after_checkout=true && shift
     case "$1" in
         update-available )
+            GEO_NO_UPDATE_CHECK=false
             if geo_check_for_updates; then
                 status true
                 return
@@ -2407,6 +2842,7 @@ _geo_print_messages_between_commits_after_update() {
 
 # Check for updates. Return true (0 return value) if updates are available.
 geo_check_for_updates() {
+    [[ $GEO_NO_UPDATE_CHECK == true ]] && return 1
     local geo_cli_dir="$(geo_get GEO_CLI_DIR)"
     local cur_branch=$(cd $geo_cli_dir && git rev-parse --abbrev-ref HEAD)
     local v_remote=
@@ -2419,10 +2855,10 @@ geo_check_for_updates() {
         if [[ -n $v_remote && -f $geo_cli_dir/feature-version.txt ]]; then
             local feature_version=$(cat $geo_cli_dir/feature-version.txt)
             geo_set FEATURE_VER_LOCAL "${cur_branch}_V$feature_version"
+            geo_set FEATURE_VER_REMOTE "${cur_branch}_V$v_remote"
             # debug "current feature version = $feature_version, remote = $v_remote"
-            if (( v_remote > feature_version )); then
+            if [[ $feature_version == MERGED || $v_remote == MERGED || $v_remote -gt $feature_version ]]; then
                 # debug setting outdated true
-                geo_set FEATURE_VER_REMOTE "${cur_branch}_V$v_remote"
                 geo_set OUTDATED true
                 return
             fi
@@ -2476,6 +2912,8 @@ _geo_show_update_notification() {
     local title="Update Available"
     local msg="Run 'geo update' in a terminal to update geo-cli."
     _geo_show_critical_notification "$msg" "$title"
+
+    # TODO uncomment before release
 }
 
 _geo_show_critical_notification() {
@@ -2598,6 +3036,10 @@ fmt_text() {
 
     [[ $indent -eq 0 ]] && indent_str=''
 
+    # echo interprets '-e' as a command line switch, so a space is added to it so that it will actually be printed.
+    re='^ *-e$'
+    [[ $txt =~ $re ]] && txt+=' '
+    
     # Replace 2 or more spaces with a single space and \n with a single space.
     [[ $keep_spaces = false ]] && txt=$(echo "$txt" | tr '\n' ' ' | sed -E 's/ {2,}/ /g')
 
@@ -2617,6 +3059,7 @@ fmt_text() {
     # "some-str". printf "%.3s" "some-str" would print 'som' (3 chars).
     sed_pattern+=$(printf "$indent_str%.0s" $(seq 1 $indent))
     sed_pattern+="/g"
+    
     # Text is piped into fmt to format the text to the correct width, then
     # indented using the sed substitution.
     echo "$txt" | fmt -w $width | sed "$sed_pattern"
@@ -2718,7 +3161,8 @@ make_logger_function() {
             local format_tokens=
             local opts=e
 
-            if [[ \$1 =~ ^-[a-z]+$ ]]; then
+            # Only parse options if a message to be printed was also supplied (allows messages like '-e' to be printed instead of being treated like an option).
+            if [[ \$1 =~ ^-[a-z]+$ && -n \$2 ]]; then
                 options=\$1
                 msg=\"\${@:2}\"
             fi
@@ -2751,6 +3195,9 @@ make_logger_function() {
                     ;;&
             esac
 
+            # echo interprets '-e' as a command line switch, so a space is added to it so that it will actually be printed.
+            re='^ *-e$'
+            [[ \$msg =~ \$re ]] && msg+=' '
             [[ \$GEO_RAW_OUTPUT == true ]] && echo -n \"\$msg\" && return
 
             echo \"-\${opts}\" \"\${format_tokens}\${!color_name}\${msg}\${Off}\"
@@ -2779,7 +3226,8 @@ make_logger_function_vte() {
             local format_tokens=
             local opts=e
 
-            if [[ \$1 =~ ^-[a-z]+$ ]]; then
+            # Only parse options if a message to be printed was also supplied (allows messages like '-e' to be printed instead of being treated like an option).
+            if [[ \$1 =~ ^-[a-z]+$ && -n \$2 ]]; then
                 options=\$1
                 msg=\"\${@:2}\"
             fi
@@ -2802,6 +3250,9 @@ make_logger_function_vte() {
                     ;;&
             esac
 
+            # echo interprets '-e' as a command line switch, so a space is added to it so that it will actually be printed.
+            re='^ *-e$'
+            [[ \$msg =~ \$re ]] && msg+=' '
             [[ \$GEO_RAW_OUTPUT == true ]] && echo -n \"\${msg}\" && return
 
             echo \"-\${opts}\" \"\${format_tokens}\${${color}}\${msg}\${Off}\"
@@ -2823,7 +3274,7 @@ make_logger_function_vte data VTE_COLOR_253
 # make_logger_function data White
 # make_logger_function warn Purple
 make_logger_function status Cyan
-make_logger_function verbose Cyan
+make_logger_function verbose Purple
 make_logger_function debug Purple
 make_logger_function purple Purple
 make_logger_function red Red
@@ -2832,9 +3283,27 @@ make_logger_function yellow Yellow
 make_logger_function green Green
 make_logger_function white White
 
+_stacktrace() {
+    local start=1
+    [[ $1 =~ ^- ]] && start=${1:1}
+    # debug "start $start"
+    local debug_log=$(geo_get DEBUG_LOG)
+    if [[ $debug_log == true ]]; then
+        # debug "_stacktrace: ${FUNCNAME[@]}"
+        local stacktrace="${FUNCNAME[@]:start}"
+        local stacktrace_reversed=
+        for f in $stacktrace; do 
+            [[ -z $stacktrace_reversed ]] && stacktrace_reversed=$f && continue
+            stacktrace_reversed="$f -> $stacktrace_reversed"
+        done
+        debug "Stacktrace: $stacktrace_reversed"
+    fi
+}
+
 # ✘
 Error() {
     echo -e "❌  ${BIRed}Error: $@${Off}"
+    _stacktrace
 }
 error() {
     echo -e "❌  ${BIRed}$@${Off}"
@@ -3107,9 +3576,14 @@ _geo_complete()
             if [[ -v SUBCOMMAND_COMPLETIONS[$prev] ]]; then
                 # echo "SUBCOMMANDS[$cur]: ${SUBCOMMANDS[$prev]}" >> bcompletions.txt
                 COMPREPLY=($(compgen -W "${SUBCOMMAND_COMPLETIONS[$prev]}" -- ${cur}))
+                case $prev in
+                    get|set|rm ) COMPREPLY=($(compgen -W "$(geo_env ls keys)" -- ${cur^^})) ;;
+                esac
             else
-                COMPREPLY=(ss aa)
+                COMPREPLY=()
+                
             fi
+            
             # case ${prev} in
             #     configure)
             #         COMPREPLY=($(compgen -W "CM DSP NPU" -- ${cur}))
@@ -3120,10 +3594,15 @@ _geo_complete()
             # esac
             ;;
         3)
+            case $prevprev in
+                db ) [[ $prev =~ start|rm ]] && COMPREPLY=($(compgen -W "$(geo_dev databases)" -- ${cur})) ;;
+                env ) [[ $prev =~ ls|get|set|rm ]] && COMPREPLY=($(compgen -W "$(geo_env ls keys)" -- ${cur^^})) ;;
+                # get|set|rm ) COMPREPLY=($(compgen -W "$(geo_env ls keys)" -- ${cur})) ;;
+            esac
             # geo db start
-            if [[ $prevprev == db && $prev =~ start|rm ]]; then
-                COMPREPLY=($(compgen -W "$(geo_dev databases)" -- ${cur}))
-            fi
+            # if [[ $prevprev == db && $prev =~ start|rm ]]; then
+            #     COMPREPLY=($(compgen -W "$(geo_dev databases)" -- ${cur}))
+            # fi
             ;;
         *)
             COMPREPLY=()

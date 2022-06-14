@@ -23,6 +23,23 @@ geo_set GEO_CLI_CONF_FILE $GEO_CLI_CONF_FILE
 geo_set GEO_CLI_VERSION "$GEO_CLI_VERSION"
 geo_set OUTDATED false
 
+prev_commit=$1
+cur_commit=$2
+
+if [[ $(geo_get FEATURE) == true ]]; then
+    if _geo_check_if_feature_branch_merged; then
+        cur_commit=$(git rev-parse HEAD)
+        geo_rm FEATURE
+        geo_rm FEATURE_VER_LOCAL
+        geo_rm FEATURE_VER_REMOTE
+        bash "$GEO_CLI_DIR/install.sh" $prev_commit $cur_commit
+        exit
+    fi
+    GEO_CLI_VERSION=$(geo_get FEATURE_VER_REMOTE)
+    previously_installed_version=$(geo_get FEATURE_VER_LOCAL)
+    [[ -z $GEO_CLI_VERSION ]] && GEO_CLI_VERSION=$previously_installed_version
+fi
+
 # Remove previous aliases/config from .bashrc/.zshrc for geo command.
 # Remove content starting at "#geo-cli-start" and ending at "#geo-cli-end" comments.
 sed -i '/#geo-cli-start/,/#geo-cli-end/d' ~/.bashrc
@@ -51,8 +68,6 @@ fi
 echo
 
 # Display commit messages between the old version and the new version (if any).
-prev_commit=$1
-cur_commit=$2
 # prev_commit=daf4b4adeaff0223b590d978d3fc41a5e2324332
 # cur_commit=901e0c31528e27b21216826b7cb338a39bec6185
 if [[ -n $prev_commit && -n $cur_commit ]]; then
@@ -62,13 +77,21 @@ fi
 
 # Enable notification if the SHOW_NOTIFICATIONS setting doesn't exist in the config file.
 show_notifications=$(geo_get SHOW_NOTIFICATIONS)
-[[ -z show_notifications ]] && geo_set SHOW_NOTIFICATIONS true
+[[ -z $show_notifications ]] && geo_set SHOW_NOTIFICATIONS true
 
 # Reset update notification.
 geo_set UPDATE_NOTIFICATION_SENT false
 
 # Generate geo autocompletions.
 geo_generate_autocompletions
+
+# Set up app indicator service if not in headless Ubuntu (no UI).
+running_in_headless_ubuntu=$(dpkg -l ubuntu-desktop | grep 'no packages found')
+if [[ -z $running_in_headless_ubuntu ]]; then
+    geo_indicator init
+    echo
+fi
+
 
 geo_check_for_dev_repo_dir
 
@@ -90,6 +113,8 @@ info "$(fmt_text_and_indent_after_first_line "$step1" 3 3)"
 info "$(fmt_text_and_indent_after_first_line "$step2" 3 3)"
 info "$(fmt_text_and_indent_after_first_line "$step3" 3 3)"
 echo
+
+python3 -m pip install setproctitle &> /dev/null
 
 # # Set up update cron job.
 # if type crontab > /dev/null; then
