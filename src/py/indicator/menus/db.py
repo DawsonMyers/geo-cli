@@ -21,8 +21,6 @@ def get_running_db_none_label_text():
     return 'Running DB [None]'
 
 
-def to_key(str):
-    return str.replace('.', '_').replace('/', '_').replace(' ', '_')
 
 
 class RunningDbMenuItem(Gtk.MenuItem):
@@ -252,219 +250,219 @@ class DbMenuItem(Gtk.MenuItem):
         return response == Gtk.ResponseType.OK
 
 
-class AutoSwitchDbMenuItem(Gtk.MenuItem):
-    cur_myg_release = ''
-    prev_myg_release = ''
-    auto_switch_tasks = set()
-
-    def __init__(self, app: IndicatorApp):
-        super().__init__(label='Auto-Switch DB')
-        self.app = app
-        self.enabled = geo.get_config('AUTO_SWITCH_DB') != 'false'
-        self.app.state['auto-db'] = geo.get_config('AUTO_SWITCH_DB') != 'false'
-        self.app.state['auto-npm'] = geo.get_config('AUTO_NPM_INSTALL') != 'false'
-        self.build_submenu(app)
-        self.show_all()
-        GLib.timeout_add(1000, self.myg_release_monitor)
-
-    def build_submenu(self, app):
-        submenu = Gtk.Menu()
-        item_toggle = AutoSwitchDbEnableCheckMenuItem(app, self)
-        item_npm_toggle = AutoNpmInstallCheckMenuItem(app, self)
-        item_cur_release = CheckedOutMygReleaseMenuItem(app, self)
-        item_db_for_release = DbForMygReleaseMenuItem(app, self)
-        item_set_db_for_release = SetDbForMygReleaseMenuItem(app, self)
-        submenu.append(item_toggle)
-        submenu.append(item_npm_toggle)
-        submenu.append(item_cur_release)
-        submenu.append(item_db_for_release)
-        submenu.append(item_set_db_for_release)
-        self.set_submenu(submenu)
-        submenu.show_all()
-
-    def myg_release_monitor(self):
-        self.cur_myg_release = self.app.get_state('myg_release')
-        if self.cur_myg_release and self.prev_myg_release and self.cur_myg_release != self.prev_myg_release:
-            self.app.set_state('myg_release', self.cur_myg_release)
-            print(f'AutoSwitchDbMenuItem: MYG version changed from {self.prev_myg_release} to {self.cur_myg_release}')
-        self.prev_myg_release = self.cur_myg_release
-        return True
-
-    def run_auto_switch_tasks(self):
-        for task in self.auto_switch_tasks:
-            task(self.cur_myg_release, self.prev_myg_release)
-
-    def add_auto_switch_task(self, task):
-        self.auto_switch_tasks.add(task)
-
-    def remove_auto_switch_task(self, task):
-        self.auto_switch_tasks.remove(task)
-
-
-class SetDbForMygReleaseMenuItem(Gtk.MenuItem):
-    def __init__(self, app: IndicatorApp, parent: AutoSwitchDbMenuItem):
-        self.parent = parent
-        self.app = app
-        super().__init__(label='Set DB for MYG Release')
-        self.connect('activate', lambda _: self.set_db_for_release())
-        GLib.timeout_add(2000, self.monitor)
-
-    def monitor(self):
-        if self.app.db and self.app.db != self.app.db_for_myg_release:
-            self.set_sensitive(True)
-            self.set_label('Set DB for MYG Release')
-            self.show()
-        else:
-            self.set_sensitive(False)
-            self.set_label('Configured DB Running')
-            self.show()
-        return True
-
-    def set_db_for_release(self):
-        if not self.app.db or not self.app.myg_release:
-            return
-        release_key = 'DB_FOR_RELEASE_' + to_key(self.app.myg_release)
-        geo.set_config(release_key, self.app.db)
-        self.app.db_for_myg_release = self.app.db
-
-
-class CheckedOutMygReleaseMenuItem(Gtk.MenuItem):
-    cur_myg_release = ''
-
-    def __init__(self, app: IndicatorApp, parent: AutoSwitchDbMenuItem):
-        self.parent = parent
-        self.app = app
-        super().__init__(label='MYG Release: Unknown')
-        self.set_sensitive(False)
-        self.update_label(self.cur_myg_release)
-        GLib.timeout_add(2000, self.monitor)
-
-    def update_label(self, label):
-        self.set_label('MYG Release: %s' % label)
-        self.show()
-
-    def monitor(self):
-        cur_release = geo.get_myg_release()
-        if self.cur_myg_release != cur_release:
-            self.cur_myg_release = cur_release
-            self.app.state['myg_release'] = self.cur_myg_release
-            self.app.myg_release = self.cur_myg_release
-            self.update_label(self.cur_myg_release)
-        return True
-
-    def get_db_for_release(self):
-        if self.cur_myg_release is None:
-            return
-        release_key = 'DB_FOR_RELEASE_' + self.cur_myg_release.replace('.', '_').replace('/', '_').replace(' ', '_')
-        return geo.get_config(release_key)
-
-
-class DbForMygReleaseMenuItem(Gtk.MenuItem):
-    db_for_release = ''
-
-    def __init__(self, app: IndicatorApp, parent: AutoSwitchDbMenuItem):
-        self.parent = parent
-        self.app = app
-        super().__init__(label='Configured DB: None')
-        self.set_sensitive(False)
-        GLib.timeout_add(2000, self.monitor)
-
-    def update_label(self):
-        if not self.db_for_release:
-            label = 'None'
-        else:
-            label = self.db_for_release
-        if len(label) == 0:
-            label = 'None'
-        self.set_label('Configured DB: %s' % label)
-        self.show()
-
-    def monitor(self):
-        db_for_release = self.get_db_for_release()
-
-        if self.db_for_release != db_for_release:
-            self.db_for_release = db_for_release
-            self.app.db_for_myg_release = db_for_release
-            self.update_label()
-        return True
-
-    def has_db_for_release(self):
-        return self.get_db_for_release() is not None
-
-    def get_db_for_release(self):
-        if not self.app.myg_release or not self.app.db:
-            return ''
-        release_key = 'DB_FOR_RELEASE_' + to_key(self.app.myg_release)
-        return geo.get_config(release_key)
-
-
-class AutoSwitchDbEnableCheckMenuItem(PersistentCheckMenuItem):
-    def __init__(self, app: IndicatorApp, parent: AutoSwitchDbMenuItem):
-        super().__init__(app, label='Auto-Switch DB', config_id='AUTO_SWITCH_DB', app_state_id='auto-db', default_state=True)
-        self.parent = parent
-        self.app = app
-
-
-class AutoNpmInstallCheckMenuItem(PersistentCheckMenuItem):
-    enabled = True
-    prev_myg_release = None
-    
-    def __init__(self, app: IndicatorApp, parent: AutoSwitchDbMenuItem):
-        super().__init__(app, label='Auto-Install npm', config_id='AUTO_NPM_INSTALL', app_state_id='auto-npm', default_state=False)
-        self.parent = parent
-        self.app = app
-
-        # GLib.timeout_add(1000, self.myg_release_monitor)
-
-    # def handle_toggle(self, src):
-    #     auto_npm_install_enabled = geo.get_config('AUTO_NPM_INSTALL') != 'false'
-    #     new_state = not auto_npm_install_enabled
-    #     self.enabled = new_state
-    #     self.set_active(new_state)
-    #     new_state_str = 'true' if new_state else 'false'
-    #     geo.set_config('AUTO_NPM_INSTALL', new_state_str)
-    #
-    #     # if self.enabled:
-    #     #     self.set_label('Auto-npm Install (Enabled)')
-    #     # else:
-    #     #     self.set_label('Auto-npm Install (Disabled)')
-    #     self.app.item_auto_switch_db_toggle.auto_npm_install_enabled = new_state
-    #     self.app.state['auto-npm'] = new_state
-    #     self.show()
-
-    # def monitor(self):
-    #     auto_npm_install_enabled = geo.get_config('AUTO_NPM_INSTALL') != 'false'
-    #     if self.enabled != auto_npm_install_enabled:
-    #         self.enabled = auto_npm_install_enabled
-    #         self.set_active(auto_npm_install_enabled)
-    #         self.app.state['auto-npm'] = self.enabled
-    #
-    #     # if self.enabled:
-    #     #     self.set_label('Auto-npm Install (Enabled)')
-    #     # else:
-    #     #     self.set_label('Auto-npm Install (Disabled)')
-    #     self.show()
-    #     # if self.enabled:
-    #     #     self.myg_release_monitor()
-    #     return True
-
-    # def myg_release_monitor(self):
-    #     cur_myg_release = self.app.get_state('myg_release')
-    #     if cur_myg_release and self.prev_myg_release and cur_myg_release != self.prev_myg_release:
-    #         print(f'AutoNpmInstallCheckMenuItem.npm_install_if_myg_release_changed: installing npm. MYG version changed from {self.prev_myg_release} to {cur_myg_release}')
-    #         self.npm_install()
-    #     self.prev_myg_release = cur_myg_release
-    #     return True
-
-    def npm_install(self, cur_myg_release=None, prev_myg_release=None):
-        if not self.enabled:
-            return
-        error = geo.geo('init npm', return_error=True)
-        if 'ERR' in error:
-            self.app.show_quick_notification('npm install failed')
-            geo.run_in_terminal('init npm')
-            return True
-        self.app.show_quick_notification('npm install successful')
+# class AutoSwitchDbMenuItem(Gtk.MenuItem):
+#     cur_myg_release = ''
+#     prev_myg_release = ''
+#     auto_switch_tasks = set()
+#
+#     def __init__(self, app: IndicatorApp):
+#         super().__init__(label='Auto-Switch DB')
+#         self.app = app
+#         self.enabled = geo.get_config('AUTO_SWITCH_DB') != 'false'
+#         self.app.state['auto-db'] = geo.get_config('AUTO_SWITCH_DB') != 'false'
+#         self.app.state['auto-npm'] = geo.get_config('AUTO_NPM_INSTALL') != 'false'
+#         self.build_submenu(app)
+#         self.show_all()
+#         GLib.timeout_add(1000, self.myg_release_monitor)
+#
+#     def build_submenu(self, app):
+#         submenu = Gtk.Menu()
+#         item_toggle = AutoSwitchDbEnableCheckMenuItem(app, self)
+#         item_npm_toggle = AutoNpmInstallCheckMenuItem(app, self)
+#         item_cur_release = CheckedOutMygReleaseMenuItem(app, self)
+#         item_db_for_release = DbForMygReleaseMenuItem(app, self)
+#         item_set_db_for_release = SetDbForMygReleaseMenuItem(app, self)
+#         submenu.append(item_toggle)
+#         submenu.append(item_npm_toggle)
+#         submenu.append(item_cur_release)
+#         submenu.append(item_db_for_release)
+#         submenu.append(item_set_db_for_release)
+#         self.set_submenu(submenu)
+#         submenu.show_all()
+#
+#     def myg_release_monitor(self):
+#         self.cur_myg_release = self.app.get_state('myg_release')
+#         if self.cur_myg_release and self.prev_myg_release and self.cur_myg_release != self.prev_myg_release:
+#             self.app.set_state('myg_release', self.cur_myg_release)
+#             print(f'AutoSwitchDbMenuItem: MYG version changed from {self.prev_myg_release} to {self.cur_myg_release}')
+#         self.prev_myg_release = self.cur_myg_release
+#         return True
+#
+#     def run_auto_switch_tasks(self):
+#         for task in self.auto_switch_tasks:
+#             task(self.cur_myg_release, self.prev_myg_release)
+#
+#     def add_auto_switch_task(self, task):
+#         self.auto_switch_tasks.add(task)
+#
+#     def remove_auto_switch_task(self, task):
+#         self.auto_switch_tasks.remove(task)
+#
+#
+# class SetDbForMygReleaseMenuItem(Gtk.MenuItem):
+#     def __init__(self, app: IndicatorApp, parent: AutoSwitchDbMenuItem):
+#         self.parent = parent
+#         self.app = app
+#         super().__init__(label='Set DB for MYG Release')
+#         self.connect('activate', lambda _: self.set_db_for_release())
+#         GLib.timeout_add(2000, self.monitor)
+#
+#     def monitor(self):
+#         if self.app.db and self.app.db != self.app.db_for_myg_release:
+#             self.set_sensitive(True)
+#             self.set_label('Set DB for MYG Release')
+#             self.show()
+#         else:
+#             self.set_sensitive(False)
+#             self.set_label('Configured DB Running')
+#             self.show()
+#         return True
+#
+#     def set_db_for_release(self):
+#         if not self.app.db or not self.app.myg_release:
+#             return
+#         release_key = 'DB_FOR_RELEASE_' + to_key(self.app.myg_release)
+#         geo.set_config(release_key, self.app.db)
+#         self.app.db_for_myg_release = self.app.db
+#
+#
+# class CheckedOutMygReleaseMenuItem(Gtk.MenuItem):
+#     cur_myg_release = ''
+#
+#     def __init__(self, app: IndicatorApp, parent: AutoSwitchDbMenuItem):
+#         self.parent = parent
+#         self.app = app
+#         super().__init__(label='MYG Release: Unknown')
+#         self.set_sensitive(False)
+#         self.update_label(self.cur_myg_release)
+#         GLib.timeout_add(2000, self.monitor)
+#
+#     def update_label(self, label):
+#         self.set_label('MYG Release: %s' % label)
+#         self.show()
+#
+#     def monitor(self):
+#         cur_release = geo.get_myg_release()
+#         if self.cur_myg_release != cur_release:
+#             self.cur_myg_release = cur_release
+#             self.app.state['myg_release'] = self.cur_myg_release
+#             self.app.myg_release = self.cur_myg_release
+#             self.update_label(self.cur_myg_release)
+#         return True
+#
+#     def get_db_for_release(self):
+#         if self.cur_myg_release is None:
+#             return
+#         release_key = 'DB_FOR_RELEASE_' + self.cur_myg_release.replace('.', '_').replace('/', '_').replace(' ', '_')
+#         return geo.get_config(release_key)
+#
+#
+# class DbForMygReleaseMenuItem(Gtk.MenuItem):
+#     db_for_release = ''
+#
+#     def __init__(self, app: IndicatorApp, parent: AutoSwitchDbMenuItem):
+#         self.parent = parent
+#         self.app = app
+#         super().__init__(label='Configured DB: None')
+#         self.set_sensitive(False)
+#         GLib.timeout_add(2000, self.monitor)
+#
+#     def update_label(self):
+#         if not self.db_for_release:
+#             label = 'None'
+#         else:
+#             label = self.db_for_release
+#         if len(label) == 0:
+#             label = 'None'
+#         self.set_label('Configured DB: %s' % label)
+#         self.show()
+#
+#     def monitor(self):
+#         db_for_release = self.get_db_for_release()
+#
+#         if self.db_for_release != db_for_release:
+#             self.db_for_release = db_for_release
+#             self.app.db_for_myg_release = db_for_release
+#             self.update_label()
+#         return True
+#
+#     def has_db_for_release(self):
+#         return self.get_db_for_release() is not None
+#
+#     def get_db_for_release(self):
+#         if not self.app.myg_release or not self.app.db:
+#             return ''
+#         release_key = 'DB_FOR_RELEASE_' + to_key(self.app.myg_release)
+#         return geo.get_config(release_key)
+#
+#
+# class AutoSwitchDbEnableCheckMenuItem(PersistentCheckMenuItem):
+#     def __init__(self, app: IndicatorApp, parent: AutoSwitchDbMenuItem):
+#         super().__init__(app, label='Auto-Switch DB', config_id='AUTO_SWITCH_DB', app_state_id='auto-db', default_state=True)
+#         self.parent = parent
+#         self.app = app
+#
+#
+# class AutoNpmInstallCheckMenuItem(PersistentCheckMenuItem):
+#     enabled = True
+#     prev_myg_release = None
+#
+#     def __init__(self, app: IndicatorApp, parent: AutoSwitchDbMenuItem):
+#         super().__init__(app, label='Auto-Install npm', config_id='AUTO_NPM_INSTALL', app_state_id='auto-npm', default_state=False)
+#         self.parent = parent
+#         self.app = app
+#
+#         # GLib.timeout_add(1000, self.myg_release_monitor)
+#
+#     # def handle_toggle(self, src):
+#     #     auto_npm_install_enabled = geo.get_config('AUTO_NPM_INSTALL') != 'false'
+#     #     new_state = not auto_npm_install_enabled
+#     #     self.enabled = new_state
+#     #     self.set_active(new_state)
+#     #     new_state_str = 'true' if new_state else 'false'
+#     #     geo.set_config('AUTO_NPM_INSTALL', new_state_str)
+#     #
+#     #     # if self.enabled:
+#     #     #     self.set_label('Auto-npm Install (Enabled)')
+#     #     # else:
+#     #     #     self.set_label('Auto-npm Install (Disabled)')
+#     #     self.app.item_auto_switch_db_toggle.auto_npm_install_enabled = new_state
+#     #     self.app.state['auto-npm'] = new_state
+#     #     self.show()
+#
+#     # def monitor(self):
+#     #     auto_npm_install_enabled = geo.get_config('AUTO_NPM_INSTALL') != 'false'
+#     #     if self.enabled != auto_npm_install_enabled:
+#     #         self.enabled = auto_npm_install_enabled
+#     #         self.set_active(auto_npm_install_enabled)
+#     #         self.app.state['auto-npm'] = self.enabled
+#     #
+#     #     # if self.enabled:
+#     #     #     self.set_label('Auto-npm Install (Enabled)')
+#     #     # else:
+#     #     #     self.set_label('Auto-npm Install (Disabled)')
+#     #     self.show()
+#     #     # if self.enabled:
+#     #     #     self.myg_release_monitor()
+#     #     return True
+#
+#     # def myg_release_monitor(self):
+#     #     cur_myg_release = self.app.get_state('myg_release')
+#     #     if cur_myg_release and self.prev_myg_release and cur_myg_release != self.prev_myg_release:
+#     #         print(f'AutoNpmInstallCheckMenuItem.npm_install_if_myg_release_changed: installing npm. MYG version changed from {self.prev_myg_release} to {cur_myg_release}')
+#     #         self.npm_install()
+#     #     self.prev_myg_release = cur_myg_release
+#     #     return True
+#
+#     def npm_install(self, cur_myg_release=None, prev_myg_release=None):
+#         if not self.enabled:
+#             return
+#         error = geo.geo('init npm', return_error=True)
+#         if 'ERR' in error:
+#             self.app.show_quick_notification('npm install failed')
+#             geo.run_in_terminal('init npm')
+#             return True
+#         self.app.show_quick_notification('npm install successful')
 
 # class AutoNpmInstallCheckMenuItem(Gtk.CheckMenuItem):
 #     enabled = True
