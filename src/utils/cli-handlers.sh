@@ -2390,7 +2390,7 @@ geo_id() {
             id=$(printf '%d' 0x$id)
             msg='Decoded long id'
         else
-            Error "Invalid input format."
+            Error "Invalid input format. Length: ${#arg}, input: '$arg'"
             warn "Guid ids must be 36 characters long."
             warn "Encoded guid ids must be prefixed with 'a' and be 23 characters long."
             warn "Encoded long ids must be prefixed with 'b'."
