@@ -28,7 +28,10 @@ A tool that makes MyGeotab development easier. Specifically, this tool aims to s
     - [Running DB](#running-db)
     - [Databases](#databases-1)
     - [Create Database](#create-database)
-    - [Auto-Switch DB](#auto-switch-db)
+    - [Auto-Switch](#auto-switch)
+      - [Auto-Switch DB](#auto-switch-db)
+      - [Auto-Install npm](#auto-install-npm)
+      - [Auto-Switch server.config](#auto-switch-serverconfig)
   - [Dev Utilities](#dev-utilities)
     - [Run Analyzers](#run-analyzers)
     - [npm install](#npm-install)
@@ -279,26 +282,52 @@ This item opens a terminal and will guide you through creating a new MyGeotab da
 
 ![geo-ui-db-5](res/ui/geo-ui-db-5.png)
 
-### Auto-Switch DB
-DB auto-switching will automatically switch the database container based on what MyGeotab release version is checked out. 
+### Auto-Switch
+
+![geo-ui-as-1](res/ui/geo-ui-as-1.png)
+
+The Auto-Switch feature performs certain tasks when the checked out MyGeotab release version changes (i.e., from 8.0 to 9.0).
 This submenu contains the following items:
-  1) `Enabled/Disabled`: This toggle button enables or disables auto-switching
-  2) `MYG Release: ...`: Displays the MyGeotab release version of the currently checked out branch
-  3) `Configured DB: ...`: Displays the name of the database container that is linked to the current MyGeotab release version
-  4) `Set DB for MYG Release`: Links the current MyGeotab release version to the running database container
+  1) `Auto-Switch DB`: Enables/disables auto-switching database containers
+  2) `Auto-Install npm`: Enables/disables auto-installing npm in both the `CheckmateServer/src/wwwroot` and `CheckmateServer/src/wwwroot/drive` directories
+  3) `Auto-Switch server.config`: Enables/disables auto-switching server.config files
+  4) `MYG Release: ...`: Displays the MyGeotab release version of the currently checked out branch
+  5) `Configured DB: ...`: Displays the name of the database container that is linked to the current MyGeotab release version
+  6) `Set DB for MYG Release`: Links the current MyGeotab release version to the running database container
 
 
-You can link a MyGeotab release version to a database container by doing the following :
+#### Auto-Switch DB
+You can link a MyGeotab release version to a database container by doing the following:
   1) Checkout a MyGeotab release branch that you want to link a database container to. The `MYG Release` label shows the MyGeotab release version of the current branch
   2) Start a compatible database container (using the `Databases` submenu)
-  3) Click the `Set DB for MYG Release` button under the `Auto-Switch DB` submenu
+  3) Click the `Set DB for MYG Release` button under the `Auto-Switch` submenu
 
 The `Configured DB` label will now show the name of the database container and the `Set DB for MYG Release` button will be disabled and labeled `Configured DB Running`. 
 
 Now the configured database container will automatically start whenever you checkout a branch based on its linked MyGeotab release version.
 
+#### Auto-Install npm
+When enabled, `npm install` will automatically be run in both the `CheckmateServer/src/wwwroot` and `CheckmateServer/src/wwwroot/drive` directories.
 
-![geo-ui-db-6](res/ui/geo-ui-db-6.png) ![geo-ui-db-7](res/ui/geo-ui-db-7.png)
+#### Auto-Switch server.config
+> This is an experimental feature, it is advised that you make a copy of your server.config file before enabling it.
+
+
+When enabled, the server.config file will automatically be switched based on the MyGeotab release version of the Development branch that is currently checked out.
+
+This example shows how it works once enabled:
+1. Auto-Switch server.config is enabled for the first time
+2. The MyGeotab release version of your current branch is `8.0`
+3. You edit the server.config file with specific settings for `8.0`
+4. You checkout a `9.0` branch
+5. The server.config file at `~/GEOTAB/Checkmate/server.config` is copied and renamed to `~/.geo-cli/data/server-config/server.config_8.0`
+6. Since this is the first time you have switched release versions with this feature enabled, there isn't a `9.0` server.config version available in `~/.geo-cli/data/server-config/`, so the file at `~/GEOTAB/Checkmate/server.config` remains unchanged
+7. You edit the server.config file with specific settings for `9.0`
+8. You checkout the `8.0` branch again
+9. The server.config file at `~/GEOTAB/Checkmate/server.config` is copied and renamed to `~/.geo-cli/data/server-config/server.config_9.0`
+10. The matching file for the release version is copied and renamed from `~/.geo-cli/data/server-config/server.config_8.0` to  `~/GEOTAB/Checkmate/server.config`, replacing the current server.config file with the `8.0` version
+
+You can now continue switching to different release branches and setting up specific settings in the server.config for each one. Your changes will always be saved/restored when switching to/from a certain MyGeotab release branch.
 
 
 ## Dev Utilities

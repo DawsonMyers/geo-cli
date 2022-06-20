@@ -1,3 +1,5 @@
+import concurrent.futures
+
 from indicator import *
 from indicator.geo_indicator import IndicatorApp
 from indicator.menus.components import PersistentCheckMenuItem
@@ -13,7 +15,7 @@ class AutoSwitchDbMenuItem(Gtk.MenuItem):
     auto_switch_tasks = set()
 
     def __init__(self, app: IndicatorApp):
-        super().__init__(label='Auto-Switch DB')
+        super().__init__(label='Auto-Switch')
         self.app = app
         # self.enabled = geo.get_config('AUTO_SWITCH_DB') != 'false'
         # self.app.state['auto-db'] = geo.get_config('AUTO_SWITCH_DB') != 'false'
@@ -26,11 +28,13 @@ class AutoSwitchDbMenuItem(Gtk.MenuItem):
         submenu = Gtk.Menu()
         item_toggle = AutoSwitchDbEnableCheckMenuItem(app, self)
         item_npm_toggle = AutoNpmInstallCheckMenuItem(app, self)
+        item_server_config_toggle = AutoServerConfigCheckMenuItem(app, self)
         item_cur_release = CheckedOutMygReleaseMenuItem(app, self)
         item_db_for_release = DbForMygReleaseMenuItem(app, self)
         item_set_db_for_release = SetDbForMygReleaseMenuItem(app, self)
         submenu.append(item_toggle)
         submenu.append(item_npm_toggle)
+        submenu.append(item_server_config_toggle)
         submenu.append(item_cur_release)
         submenu.append(item_db_for_release)
         submenu.append(item_set_db_for_release)
@@ -49,16 +53,39 @@ class AutoSwitchDbMenuItem(Gtk.MenuItem):
     def run_auto_switch_tasks(self):
         if not self.auto_switch_tasks:
             return
+        start = time.time()
+        print("Time elapsed on working...")
+        print('Running Auto Switch tasks')
 
-        output = "Auto switch tasks:\n"
+        output = ""
+        # output = "Auto switch tasks:\n"
 
+        # 9.7, 9.4, 16.5, 15.6
         for task in self.auto_switch_tasks:
             if not task.is_enabled:
                 continue
             result = task(self.cur_myg_release, self.prev_myg_release)
             result = 'Fail' if not result else result
             output += f'{task.name}[{result}], \n'
-        self.app.show_quick_notification(output)
+
+        # Running with ThreadPoolExecutor seems to be slower, so comment out for now.
+        #16.8, 14, 15.9, 14, 11
+        # with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        #     future_to_task = {executor.submit(task, self.cur_myg_release, self.prev_myg_release): task for task in self.auto_switch_tasks if task.is_enabled}
+        #     for future in concurrent.futures.as_completed(future_to_task):
+        #         task = future_to_task[future]
+        #         try:
+        #             result = future.result()
+        #             result = 'Fail' if not result else result
+        #             output += f'{task.name}[{result}], \n'
+        #         except Exception as exc:
+        #             print('%r generated an exception: %s' % (task.name, exc))
+        #         else:
+        #             print(f'Done running auto-switch task: {task.name}')
+
+        self.app.show_notification(output, 'Auto-Switch Tasks Complete', 4000)
+        end = time.time()
+        print("Time consumed in working: ",end - start)
 
     def add_auto_switch_task(self, task):
         self.auto_switch_tasks.add(task)
@@ -74,6 +101,7 @@ class AutoSwitchTask:
         self.task = task
 
     def __call__(self, *args, **kwargs):
+        print(f'Running auto-switch task: {self.name}')
         return self.task(*args, **kwargs)
 
     @property
@@ -190,11 +218,8 @@ class AutoSwitchDbEnableCheckMenuItem(PersistentCheckMenuItem):
 
     def change_db_when_myg_release_changed(self, cur_myg_release=None, prev_myg_release=None):
         auto_switch_db_enabled = self.app.get_state('auto-db')
-        # cur_db_release = self.app.db_for_myg_release
-        #
-        # if cur_db_release and cur_db_release != self.current_myg_release_db:
-        #     # print(f'MYG release changed from {self.current_myg_release_db} to {cur_db_release}')
         if auto_switch_db_enabled and self.app.db_for_myg_release:
+            self.app.item_running_db.skip_next_notification = True
             geo.start_db(self.app.db_for_myg_release)
             # self.current_myg_release_db = cur_db_release
         return 'Done'
@@ -217,8 +242,27 @@ class AutoNpmInstallCheckMenuItem(PersistentCheckMenuItem):
             return
         error = geo.geo('init npm', return_error=True)
         if 'ERR' in error:
-            # self.app.show_quick_notification('npm install failed')
             geo.run_in_terminal('init npm')
             return 'Fail'
-        # self.app.show_quick_notification('npm install successful')
+        return 'Done'
+
+
+class AutoServerConfigCheckMenuItem(PersistentCheckMenuItem):
+    enabled = True
+    prev_myg_release = None
+
+    def __init__(self, app: IndicatorApp, parent: AutoSwitchDbMenuItem):
+        super().__init__(app, label='Auto-Switch server.config', config_id='AUTO_SERVER_CONFIG', app_state_id='auto-server-config', default_state=False)
+        self.parent = parent
+        self.app = app
+        is_enabled = lambda: self.enabled
+        parent.add_auto_switch_task(AutoSwitchTask('server.config', self.auto_switch_server_config, is_enabled))
+
+    def auto_switch_server_config(self, cur_myg_release=None, prev_myg_release=None):
+        if not self.enabled:
+            return
+        output = geo.geo(f'dev auto-switch {cur_myg_release} {prev_myg_release}', return_all=True)
+        if 'Error' in output:
+            print(f'Failed to switch server.config: {output}')
+            return 'Fail'
         return 'Done'

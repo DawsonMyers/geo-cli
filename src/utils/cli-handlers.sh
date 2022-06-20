@@ -2764,12 +2764,50 @@ geo_dev() {
         db|dbs|databases )
             echo $(docker container ls --filter name="geo_cli_db_"  -a --format="{{ .Names }}") | sed -e "s/geo_cli_db_postgres_//g"
             ;;
+        auto-switch )
+            _geo_auto_switch_server_config "$2" "$3"
+            ;;
         *)
             Error "Unknown argument: '$1'"
             ;;
     esac
 }
 
+
+_geo_auto_switch_server_config() {
+    local cur_myg_release=$1
+    local prev_myg_release=$2
+    local server_config_path="${HOME}/GEOTAB/Checkmate/server.config"
+    local server_config_storage_path="${HOME}/.geo-cli/data/server-config"
+    local server_config_backup_path="${HOME}/.geo-cli/data/server-config/backup"
+    local prev_server_config_path="$server_config_storage_path/server.config_${prev_myg_release}"
+    local next_server_config_name="server.config_${cur_myg_release}"
+    local next_server_config_path="$server_config_storage_path/${next_server_config_name}"
+    
+    [[ -e $cur_myg_release || -e $prev_myg_release ]] && Error "cur_myg_release or prev_myg_release missing" && return 1
+
+    if [[ ! -f $server_config_path ]]; then
+        Error "server.config not found at path: '$server_config_path'"
+        return 1
+    fi
+
+    if [[ ! -d $server_config_storage_path ]]; then
+        mkdir -p "$server_config_storage_path"
+    fi
+
+    if [[ ! -d $server_config_backup_path ]]; then
+        mkdir -p "$server_config_backup_path"
+    fi
+
+    # Copy server.config to storage.
+    cp $server_config_path $prev_server_config_path
+
+    # If there is a server.config in storage that matches the current myg version, switch it in now.
+    if [[ -f $next_server_config_path ]]; then
+        cp $next_server_config_path $server_config_path
+        status "server.config replaced with '$next_server_config_path'"
+    fi
+}
 ###########################################################
 # COMMANDS+=('command')
 # geo_command_doc() {

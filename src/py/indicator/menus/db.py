@@ -25,13 +25,14 @@ def get_running_db_none_label_text():
 
 class RunningDbMenuItem(Gtk.MenuItem):
     starting_up = True
+    skip_next_notification = False
     current_myg_release_db = ''
 
     def __init__(self, app: IndicatorApp):
         super().__init__(label='Checking for DB')
         self.app = app
         self.running_db = ''
-        self.auto_switch_db_based_on_myg_release = geo.get_config('AUTO_SWITCH_DB') != 'false'
+        # self.auto_switch_db_based_on_myg_release = geo.get_config('AUTO_SWITCH_DB') != 'false'
         self.db_monitor()
         self.stop_menu = Gtk.Menu()
         item_stop_db = Gtk.MenuItem(label='Stop')
@@ -81,8 +82,9 @@ class RunningDbMenuItem(Gtk.MenuItem):
             label = get_running_db_label_text(cur_running_db)
             self.set_db_label(label)
             self.app.icon_manager.set_icon(icons.GREEN)
-            if self.starting_up:
+            if self.starting_up or self.skip_next_notification:
                 self.starting_up = False
+                self.skip_next_notification = False
             else:
                 self.app.show_quick_notification('DB Started: ' + cur_running_db)
         self.running_db = cur_running_db
