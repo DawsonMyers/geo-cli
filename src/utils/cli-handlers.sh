@@ -2316,8 +2316,10 @@ geo_id() {
     local arg="$1"
     
     local id=
-    # The regex for identifying guids.
+    # The regex for identifying guids (e.g., 00e74ee1-97e7-4f28-9f5e-2ad222451f6d).
     local guid_re='^[[:alnum:]]+-[[:alnum:]]+-[[:alnum:]]+-[[:alnum:]]+-[[:alnum:]]+$'
+    # Matches an unencoded guid without dashes: cfc4a516477e39428dcb130b81c2efb3
+    local guid_re_no_dashes='^[[:alnum:]]{32,32}$'
     local encoded_guid_re='^a[a-zA-Z0-9_-]{22,22}$'
     local msg=
     number_re='^[0-9]+$'
@@ -2327,8 +2329,8 @@ geo_id() {
         local first_char=${arg:0:1}
         # debug "arg='$arg'"
         # Guid encode.
-        if [[ $arg =~ $guid_re ]]; then
-            if [[ ${#arg} -ne 36 ]]; then
+        if [[ $arg =~ $guid_re || $arg =~ $guid_re_no_dashes ]]; then
+            if [[ ${#arg} -ne 36 && ${#arg} -ne 32 ]]; then
                 Error "Invalid input format."
                 warn "Guid ids must be 36 characters long. The input string length was ${#arg}"
                 return 1
