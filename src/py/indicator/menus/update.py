@@ -10,6 +10,8 @@ from gi.repository import Gtk, GLib, Gio, GdkPixbuf
 from gi.repository import AppIndicator3 as appindicator
 
 class UpdateMenuItem(Gtk.MenuItem):
+    added_to_menu = False
+
     def __init__(self, app, update_interval):
         self.update_interval = update_interval
         super().__init__(label='Checking for updates...')
@@ -26,20 +28,31 @@ class UpdateMenuItem(Gtk.MenuItem):
 
     def set_update_status(self, source=None):
         self.update_available = geo.is_update_available()
-        if self.update_available:
-            self.set_label('●   Update Now')
+        version = geo.get_config('VERSION')
+        if version:
+            self.app.set_state('version', version)
+        if not self.added_to_menu:
             self.app.menu.append(self.separator)
             self.app.menu.append(self)
+            self.added_to_menu =True
+        if self.update_available:
+            self.set_label('●   Update Now')
+            # self.app.menu.append(self.separator)
+            # self.app.menu.append(self)
             self.set_sensitive(True)
             self.app.menu.show_all()
             self.app.icon_manager.set_update_available(True)
+            self.show()
+        elif version:
+            self.set_label(f'v{version}')
+            self.set_sensitive(False)
             self.show()
         else:
             self.set_label('geo-cli is up-to-date')
             self.app.icon_manager.set_update_available(False)
             self.set_sensitive(False)
-            self.app.menu.remove(self.separator)
-            self.app.menu.remove(self)
+            # self.app.menu.remove(self.separator)
+            # self.app.menu.remove(self)
             self.hide()
         return True
 
