@@ -1,4 +1,6 @@
 import concurrent.futures
+import os
+import shutil
 
 from indicator import *
 from indicator.geo_indicator import IndicatorApp
@@ -261,8 +263,17 @@ class AutoServerConfigCheckMenuItem(PersistentCheckMenuItem):
     def auto_switch_server_config(self, cur_myg_release=None, prev_myg_release=None):
         if not self.enabled:
             return
-        output = geo.geo(f'dev auto-switch {cur_myg_release} {prev_myg_release}', return_all=True)
-        if 'Error' in output:
-            print(f'Failed to switch server.config: {output}')
-            return 'Fail'
+        try:
+            # Delete the geotabdemo_data directory if it exists.
+            geotabdemo_data_dir = os.environ['HOME'] + '/GEOTAB/Checkmate/geotabdemo_data'
+            if os.path.exists(geotabdemo_data_dir):
+                shutil.rmtree(geotabdemo_data_dir)
+
+            output = geo.geo(f'dev auto-switch {cur_myg_release} {prev_myg_release}', return_all=True)
+            if 'Error' in output:
+                print(f'Failed to switch server.config: {output}')
+                return 'Fail'
+        except Exception as err:
+            print(f'Error running auto_switch_server_config(): {err}')
+
         return 'Done'
