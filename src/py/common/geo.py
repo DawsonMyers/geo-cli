@@ -7,6 +7,10 @@ BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 GEO_SRC_DIR = os.path.dirname(BASE_DIR)
 GEO_CMD_BASE = GEO_SRC_DIR + '/geo-cli.sh '
 
+geo_config_file_modified_time = 0
+GEO_CONFIG_FILE_PATH = os.environ['HOME'] + '/.geo-cli/.geo.conf'
+geo_config_cache = {}
+
 
 def start_db(name):
     # '-n' option is the 'no prompt' option. It causes geo to exit instead of waiting for user input.
@@ -70,6 +74,10 @@ def try_get_db_name_for_current_myg_release():
 
 
 def get_config(key):
+    load_geo_config_if_required()
+    key = key.upper()
+    if key in geo_config_cache:
+        return geo_config_cache[key]
     value = geo('get ' + key)
     return value
 
@@ -127,4 +135,42 @@ def run_in_terminal(arg_str, title='geo-cli', stay_open_after=True):
 
 def db(args):
     geo('db ' + args)
+
+def get_geo_config_modified_time():
+    try:
+        if not os.path.exists(GEO_CONFIG_FILE_PATH):
+            return 0
+        return os.path.getmtime(GEO_CONFIG_FILE_PATH)
+    except Exception as err:
+        print(f'Error running get_geo_config_modified_time(): {err}')
+
+
+def load_geo_config_if_required():
+    global geo_config_file_modified_time
+    global geo_config_cache
+    try:
+        if not os.path.exists(GEO_CONFIG_FILE_PATH):
+            return
+        last_modified_time = get_geo_config_modified_time()
+        if last_modified_time <= geo_config_file_modified_time:
+            return
+
+        loading = 'Loading' if geo_config_file_modified_time == 0 else 'Reloading'
+        print(f'load_geo_config_if_required: {loading} config')
+        geo_config_file_modified_time = last_modified_time
+
+        with open(GEO_CONFIG_FILE_PATH, 'r') as f:
+            lines = f.readlines()
+
+        for line in lines:
+            line = line.replace('\n', '')
+            index_of_delimiter = line.index('=')
+            key = line[0:index_of_delimiter]
+            value = line[index_of_delimiter + 1:]
+            if key in geo_config_cache and geo_config_cache[key] != value:
+                print(f'load_geo_config_if_required: {key} updated: {geo_config_cache[key]} => {value}')
+            geo_config_cache[key] = value
+            geo_config_cache[key.replace('GEO_CLI_', '')] = value
+    except Exception as err:
+        print(f'Error running load_geo_config(): {err}')
 

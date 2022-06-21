@@ -20,6 +20,7 @@ from common import geo
 
 APPINDICATOR_ID = 'geo.indicator'
 
+# Check for updates every 10 minutes.
 UPDATE_INTERVAL = 10*60*1000
 
 

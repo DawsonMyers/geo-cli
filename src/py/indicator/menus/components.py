@@ -9,6 +9,7 @@ class PersistentCheckMenuItem(Gtk.CheckMenuItem):
 
     def __init__(self, app: IndicatorApp, label: str, config_id: str, app_state_id: str, default_state=False):
         super().__init__(label=label)
+        self.label = label
         self.default_state = default_state
         self.app_state_id = app_state_id
         self.config_id = config_id
@@ -28,7 +29,7 @@ class PersistentCheckMenuItem(Gtk.CheckMenuItem):
 
     # To be overridden by subclasses.
     def on_state_changed(self, new_state):
-        print(f'on_state_changed: {self.app_state_id} - {new_state}')
+        # print(f'on_state_changed: {self.app_state_id} - {new_state}')
         pass
 
     def bool_to_string(self, state: bool):
@@ -51,7 +52,7 @@ class PersistentCheckMenuItem(Gtk.CheckMenuItem):
         self.app.set_state(self.app_state_id, state)
 
     def handle_toggle(self, src):
-        print('toggle = ' + str(self.get_active()))
+        print(f'{self.label} toggle = ' + str(self.get_active()))
         if self.monitor_update:
             self.monitor_update = False
             return
