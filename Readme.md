@@ -32,6 +32,7 @@ A tool that makes MyGeotab development easier. Specifically, this tool aims to s
       - [Auto-Switch DB](#auto-switch-db)
       - [Auto-Install npm](#auto-install-npm)
       - [Auto-Switch server.config](#auto-switch-serverconfig)
+      - [Auto-Clean GeotabDemo Data](#auto-clean-geotabdemo-data)
   - [Dev Utilities](#dev-utilities)
     - [Run Analyzers](#run-analyzers)
     - [npm install](#npm-install)
@@ -288,12 +289,13 @@ This item opens a terminal and will guide you through creating a new MyGeotab da
 
 The Auto-Switch feature performs certain tasks when the checked out MyGeotab release version changes (i.e., from 8.0 to 9.0).
 This submenu contains the following items:
-  1) `Auto-Switch DB`: Enables/disables auto-switching database containers
-  2) `Auto-Install npm`: Enables/disables auto-installing npm in both the `CheckmateServer/src/wwwroot` and `CheckmateServer/src/wwwroot/drive` directories
-  3) `Auto-Switch server.config`: Enables/disables auto-switching server.config files
-  4) `MYG Release: ...`: Displays the MyGeotab release version of the currently checked out branch
-  5) `Configured DB: ...`: Displays the name of the database container that is linked to the current MyGeotab release version
-  6) `Set DB for MYG Release`: Links the current MyGeotab release version to the running database container
+  1) `Auto-Install npm`: Enables/disables auto-installing npm in both the `CheckmateServer/src/wwwroot` and `CheckmateServer/src/wwwroot/drive` directories
+  2) `Auto-Switch server.config`: Enables/disables auto-switching server.config files
+  3) `Auto-Clean GeotabDemo Data`: Enables/disables auto-clean for geotabdemo data
+  4) `Auto-Switch DB`: Enables/disables auto-switching database containers
+  5) `MYG Release: ...`: Displays the MyGeotab release version of the currently checked out branch
+  6) `Configured DB: ...`: Displays the name of the database container that is linked to the current MyGeotab release version
+  7) `Set DB for MYG Release/Configured DB Running`: Links the current MyGeotab release version to the running database container
 
 
 #### Auto-Switch DB
@@ -329,6 +331,8 @@ This example shows how it works once enabled:
 
 You can now continue switching to different release branches and setting up specific settings in the server.config for each one. Your changes will always be saved/restored when switching to/from a certain MyGeotab release branch.
 
+#### Auto-Clean GeotabDemo Data
+When enabled, the geotabdemo_data directory in `~GEOTAB/Checkmate/` will be removed when the MyGeotab release version changes. The data generated in this directory may not be compatible between releases and can cause errors when starting up geotabdemo. This file will always be recreated when geotabdemo starts up if it is missing.
 
 ## Dev Utilities
 These items provide access to utilities that aim to simplify MyGeotab development.

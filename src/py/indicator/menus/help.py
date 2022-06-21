@@ -1,6 +1,8 @@
 import gi
 import webbrowser
 
+from indicator.menus.components import PersistentCheckMenuItem
+
 gi.require_version('Gtk', '3.0')
 gi.require_version('AppIndicator3', '0.1')
 gi.require_version('Notify', '0.7')
@@ -17,7 +19,7 @@ class HelpMenuItem(Gtk.MenuItem):
         self.set_label('Help')
         submenu = Gtk.Menu()
 
-        item_show_notifications = ShowNotificationsMenuItem(self)
+        item_show_notifications = ShowNotificationsMenuItem(app)
 
         item_disable = Gtk.MenuItem(label='Disable')
         item_disable.connect('activate', self.show_disable_dialog)
@@ -59,28 +61,9 @@ class HelpMenuItem(Gtk.MenuItem):
         self.app.quit(None)
 
 
-class ShowNotificationsMenuItem(Gtk.CheckMenuItem):
+class ShowNotificationsMenuItem(PersistentCheckMenuItem):
     def __init__(self, app):
-        super().__init__(label='Show Notifications')
-        self.app = app
-        self.enabled = geo.get_config('SHOW_NOTIFICATIONS') != 'false'
-        # if not self.enabled:
-        #     self.set_label("Disable DB Auto-Switch")
-        self.set_active(self.enabled)
-        self.connect('toggled', self.handle_toggle)
-        self.show_all()
-        GLib.timeout_add(1000, self.monitor)
-
-    def handle_toggle(self, src):
-        notifications_setting = geo.get_config('SHOW_NOTIFICATIONS') != 'false'
-        new_state = not notifications_setting
-        new_state_str = 'true' if new_state else 'false'
-        geo.set_config('SHOW_NOTIFICATIONS', new_state_str)
-        self.enabled = new_state
-        self.set_active(new_state)
-
-    def monitor(self):
-        notifications_setting = geo.get_config('SHOW_NOTIFICATIONS') != 'false'
-        if self.enabled != notifications_setting:
-            self.enabled = notifications_setting
-            self.set_active(notifications_setting)
+        super().__init__(app,
+                         label='Show Notifications',
+                         config_id='SHOW_NOTIFICATIONS',
+                         app_state_id='show-notification', default_state=True)

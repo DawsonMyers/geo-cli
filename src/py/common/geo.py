@@ -8,6 +8,7 @@ GEO_SRC_DIR = os.path.dirname(BASE_DIR)
 GEO_CMD_BASE = GEO_SRC_DIR + '/geo-cli.sh '
 
 geo_config_file_modified_time = 0
+prev_config_file_str = ''
 GEO_CONFIG_FILE_PATH = os.environ['HOME'] + '/.geo-cli/.geo.conf'
 geo_config_cache = {}
 
@@ -111,18 +112,28 @@ def get_running_db_none_label_text():
 
 def get_geo_db_names():
     cmd = 'docker container ls --filter name="geo_cli_db_"  -a --format="{{ .Names }}"'
-    full_names = subprocess.run(cmd, shell=True, text=True, capture_output=True).stdout[0:-1]
-    names = full_names.replace('geo_cli_db_postgres_', '')
-    full_names_a = full_names.split('\n')
-    names_a = names.split('\n')
-    names_a.sort(reverse=True)
+    names_a = []
+    try:
+        full_names = subprocess.run(cmd, shell=True, text=True, capture_output=True).stdout[0:-1]
+        names = full_names.replace('geo_cli_db_postgres_', '')
+        full_names_a = full_names.split('\n')
+        names_a = names.split('\n')
+        names_a.sort(reverse=True)
+    except Exception as err:
+        print(f'Error running get_geo_db_names(): {err}')
+
     return names_a
 
 
 def get_running_db_name():
     cmd = 'docker container ls --filter name="geo_cli_db_" --filter status=running  -a --format="{{ .Names }}"'
-    full_name = subprocess.run(cmd, shell=True, text=True, capture_output=True).stdout[0:-1]
-    name = full_name.replace('geo_cli_db_postgres_', '')
+    name = ''
+    try:
+        full_name = subprocess.run(cmd, shell=True, text=True, capture_output=True).stdout[0:-1]
+        name = full_name.replace('geo_cli_db_postgres_', '')
+    except Exception as err:
+        print(f'Error running get_running_db_name(): {err}')
+
     return name
 
 
@@ -136,6 +147,7 @@ def run_in_terminal(arg_str, title='geo-cli', stay_open_after=True):
 def db(args):
     geo('db ' + args)
 
+
 def get_geo_config_modified_time():
     try:
         if not os.path.exists(GEO_CONFIG_FILE_PATH):
@@ -148,6 +160,7 @@ def get_geo_config_modified_time():
 def load_geo_config_if_required():
     global geo_config_file_modified_time
     global geo_config_cache
+    global prev_config_file_str
     try:
         if not os.path.exists(GEO_CONFIG_FILE_PATH):
             return
@@ -156,11 +169,19 @@ def load_geo_config_if_required():
             return
 
         loading = 'Loading' if geo_config_file_modified_time == 0 else 'Reloading'
-        print(f'load_geo_config_if_required: {loading} config')
+        seconds_since_last_load = last_modified_time - geo_config_file_modified_time
+        time_since = f'{seconds_since_last_load:.3f} seconds since last load' if geo_config_file_modified_time > 0 else ''
+        print(f'load_geo_config_if_required: {loading} config. {time_since}')
         geo_config_file_modified_time = last_modified_time
 
         with open(GEO_CONFIG_FILE_PATH, 'r') as f:
             lines = f.readlines()
+        if not lines:
+            print(f'load_geo_config_if_required: Config file was empty.')
+            return
+        if prev_config_file_str == lines:
+            print(f'load_geo_config_if_required: No change config file contents')
+        prev_config_file_str = lines
 
         for line in lines:
             line = line.replace('\n', '')

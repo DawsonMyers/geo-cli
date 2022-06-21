@@ -16,6 +16,7 @@ class PersistentCheckMenuItem(Gtk.CheckMenuItem):
         self.app = app
         self.enabled = default_state
         self.set_active(self.enabled)
+        # self.set_draw_as_radio(True)
         self.show_all()
         GLib.timeout_add(50, self.init)
         GLib.timeout_add(1000, self.monitor)
@@ -24,13 +25,17 @@ class PersistentCheckMenuItem(Gtk.CheckMenuItem):
         state = self.get_config_state()
         self.enabled = state
         self.set_app_state(state)
+        # Set the active state before connecting the toggled signal to handle_toggle. This is needed because setting the
+        #  active state causes handle_toggle to be called.
         self.set_active(state)
         self.connect('toggled', self.handle_toggle)
 
     # To be overridden by subclasses.
     def on_state_changed(self, new_state):
-        # print(f'on_state_changed: {self.app_state_id} - {new_state}')
         pass
+
+    def is_enabled(self):
+        return self.enabled
 
     def bool_to_string(self, state: bool):
         return 'true' if state else 'false'
@@ -52,11 +57,11 @@ class PersistentCheckMenuItem(Gtk.CheckMenuItem):
         self.app.set_state(self.app_state_id, state)
 
     def handle_toggle(self, src):
-        print(f'{self.label} toggle = ' + str(self.get_active()))
+        new_state = self.get_active()
+        print(f'{self.label} toggle = ' + str(new_state))
         if self.monitor_update:
             self.monitor_update = False
             return
-        new_state = self.get_active()
         enabled = self.get_config_state()
         if new_state == enabled:
             return

@@ -1855,6 +1855,7 @@ geo_get() {
 
     value=$(cfg_read $GEO_CLI_CONF_FILE $key)
     
+    # Prevent the geo-cli repo dir from being set to ''.
     [[ $key == GEO_CLI_DIR && -z $value && -n $GEO_CLI_DIR ]] && value="$GEO_CLI_DIR"
 
     [[ -z $value ]] && return
@@ -1883,13 +1884,15 @@ geo_rm() {
     local key="${1^^}"
     [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
 
+    ! geo_haskey "$key" && return 1
+    
     (
         # Get an exclusive lock on file descriptor 200, waiting only 5 second before timing out.
         flock -w 5 -e 200
         # Check if the lock was successfully acquired.
         (( $? != 0 )) && Error "'geo rm' failed to lock config file after timeout. Key: $key" && return 1
         # Write to the file atomically.
-        cfg_delete $GEO_CLI_CONF_FILE "$key"
+        cfg_delete "$GEO_CLI_CONF_FILE" "$key"
     # Open up the lock file for writing on file descriptor 200. The lock is release as soon as the subshell exits.
     ) 200> /tmp/.geo.conf.lock
     [[ $? != 0 ]] && return 1
@@ -1898,7 +1901,7 @@ geo_rm() {
 geo_haskey() {
     local key="${1^^}"
     [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
-    cfg_haskey $GEO_CLI_CONF_FILE "$key"
+    cfg_haskey "$GEO_CLI_CONF_FILE" "$key"
 }
 
 ###########################################################
@@ -2932,12 +2935,12 @@ geo_check_for_updates() {
     local cur_branch=$(cd $geo_cli_dir && git rev-parse --abbrev-ref HEAD)
     local v_remote=
 
-    if [[ $cur_branch != master ]]; then
+    if [[ $cur_branch != master && -f $geo_cli_dir/feature-version.txt ]]; then
         geo_set FEATURE true
         # debug "cur_branch = $cur_branch"
         v_remote=$(git archive --remote=git@git.geotab.com:dawsonmyers/geo-cli.git $cur_branch feature-version.txt | tar -xO)
         # debug "v_remote = $v_remote"
-        if [[ -n $v_remote && -f $geo_cli_dir/feature-version.txt ]]; then
+        if [[ -n $v_remote ]]; then
             local feature_version=$(cat $geo_cli_dir/feature-version.txt)
             geo_set FEATURE_VER_LOCAL "${cur_branch}_V$feature_version"
             geo_set FEATURE_VER_REMOTE "${cur_branch}_V$v_remote"
