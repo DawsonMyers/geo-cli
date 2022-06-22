@@ -18,13 +18,17 @@ class UpdateMenuItem(Gtk.MenuItem):
         self.update_available = False
         self.app = app
         self.separator = Gtk.SeparatorMenuItem()
-        self.connect('activate', lambda _: geo.update())
+        self.connect('activate', self.update)
         self.app.menu.append(self.separator)
         self.app.menu.append(self)
 
         # Run once later so that 'Checking for updates' is initially displayed.
         GLib.timeout_add(2000, lambda: not self.set_update_status())
         GLib.timeout_add(update_interval, self.set_update_status)
+
+    def update(self, source):
+        geo.update()
+        self.set_update_status()
 
     def set_update_status(self, source=None):
         self.update_available = geo.is_update_available()
@@ -34,7 +38,7 @@ class UpdateMenuItem(Gtk.MenuItem):
         if not self.added_to_menu:
             self.app.menu.append(self.separator)
             self.app.menu.append(self)
-            self.added_to_menu =True
+            self.added_to_menu = True
         if self.update_available:
             self.set_label('●   Update Now')
             # self.app.menu.append(self.separator)
@@ -46,6 +50,7 @@ class UpdateMenuItem(Gtk.MenuItem):
         elif version:
             self.set_label(f'v{version}')
             self.set_sensitive(False)
+            self.app.icon_manager.set_update_available(False)
             self.show()
         else:
             self.set_label('geo-cli is up-to-date')
