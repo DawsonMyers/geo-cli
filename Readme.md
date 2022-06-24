@@ -243,7 +243,7 @@ Go to https://git.geotab.com/-/profile/personal_access_tokens and create a token
 ```
   docker login git.geotab.com:4567
 ```
-You will then be prompted for your GitLab username and a password. Paste (`Ctrl + Shift + V`) the access token in your clipboard when asked for the password.
+You will then be prompted for your GitLab username and a password. Paste (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd>) the access token in your clipboard when asked for the password.
 
 
 # `geo-ui` (NEW)
@@ -396,7 +396,7 @@ Example:
 geo db help
 ```
 Gives you the following:
-```
+```html
     db
       Database commands.
         Commands:
@@ -482,7 +482,11 @@ While running the following results in all help being printed:
 geo help
 ```
 
-```
+<details>
+<summary>Click to collapse/fold full help output.</summary>
+
+
+```html
 Available commands:
     image
       Commands for working with db images.
@@ -733,6 +737,8 @@ Available commands:
                 Returns a list of all of the geo-cli database container names
 
 ```
+
+</details>
 
 # Troubleshooting
 ## Update issues
