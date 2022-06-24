@@ -49,7 +49,7 @@ A tool that makes MyGeotab development easier. Specifically, this tool aims to s
 
 ## Example
 Lets say that you're developing a new feature on a `2004` branch of MyGeotab, but have to switch to a `2002` branch for a high priority bug fix that requires the use of `geotabdemo` (or any compatible database, for that matter). Switching to a compatible database is as simple as checking out the branch, **building the project** (only required when creating a new db container), and then running the following in a terminal:
-```
+```bash
 geo db start 2002
 ```
 
@@ -65,7 +65,7 @@ The output of this command is shown below:
 Now you may run `geotabdemo` or any tests that require a 2002 database version.
 
 When you're done with the bug fix and want to resume working on your 2004 feature, switch back to your 2004 branch and run the following in a terminal: 
-```
+```bash
 geo db start 2004
 ```
 The output of this command is shown below:
@@ -75,15 +75,15 @@ The output of this command is shown below:
 ## Getting Started with `geo-cli`
 ### Install
 Navigate to your directory of choice in a terminal and clone this repo
-```
+```bash
 git clone git@git.geotab.com:dawsonmyers/geo-cli.git
 ```
 Next, navigate into the repo directory
-```
+```bash
 cd geo-cli
 ```
 And finally, execute the install script
-```
+```bash
 bash install.sh
 ```
 > Docker is required for `geo` to work. You will be prompted to install it during the install process if it is missing. You must completely log out and then back in again after a Docker install for the new permissions to take effect.
@@ -108,7 +108,7 @@ Now that `geo-cli` is installed, you can begin using it for creating and running
 The first thing that you want to do after installing the tool is to create a database. The MyGeotab Postgres database will be created using `CheckmateServer.dll` from the current branch that you have checked out, so you must build MyGeotab before the correct `dll` will be available to `geo-cli`.
 
 Next, we will create, initialize, and start your first database. You will have to give it an alphanumeric name to identify it (the MyGeotab release version is usually the best name to use, e.g., `2004`). So, assuming that you're working on a `2004` branch of MyGeotab, a database could be created by entering the following in a terminal:
-```
+```bash
 geo db start 2004
 ```
 > You will be prompted to stop Postgres if you have it running locally or in a container. This is so that port 5432 can be made available for a `geo-cli` database.
@@ -119,14 +119,14 @@ The output is shown below:
 
 ### List Databases
 You can list your `geo-cli` databases using:
-```
+```bash
 geo db ls
 ```
 ![list dbs 1](res/geo-db-ls-1.png)
 
 ### Removing Databases
 The following command will remove the `2001` database from `geo-cli`:
-```
+```bash
 geo db rm 2001
 ```
 ![rm db](res/geo-db-rm.png)
@@ -150,7 +150,7 @@ If you would like a completely empty Postgres 12 db without any initialization, 
 
 ### Querying the Database
 `geo db psql` can be used to start an interactive psql session with a running database container. If you just want to run a single query, you can use the `-q` option to specify an sql query:
-```
+```bash
 geo db psql -q 'SELECT * FROM deviceshare'
 ```
 
@@ -158,7 +158,7 @@ geo db psql -q 'SELECT * FROM deviceshare'
 
 ### Running Analyzers
 This is a new feature that is still being developed. It can be accessed using:
-```
+```bash
 geo analyze
 ```
 This will output the selection menu and prompt you for which analyzers you want to run:
@@ -204,7 +204,7 @@ Use the `geo id <id>` command to both encode and decode long and guid ids to sim
 #### Examples
 
 Long Encode
-```
+```bash
 geo id 1234
 Encoded long id: 
 b4d2
@@ -212,7 +212,7 @@ copied to clipboard
 ```
 
 Long Decode
-```
+```bash
 geo id b4d2
 Decoded long id: 
 1234
@@ -220,7 +220,7 @@ copied to clipboard
 ```
 
 Guid Encode
-```
+```bash
 geo id 00e74ee1-97e7-4f28-9f5e-2ad222451f6d
 Encoded guid id: 
 aAOdO4ZfnTyifXirSIkUfbQ
@@ -228,7 +228,7 @@ copied to clipboard
 ```
 
 Guid Decode
-```
+```bash
 geo id aAOdO4ZfnTyifXirSIkUfbQ
 Decoded guid id: 
 00e74ee1-97e7-4f28-9f5e-2ad222451f6d
@@ -392,7 +392,7 @@ The `Help` submenu contains the following items:
 Get help for a specific command by entering `geo [command] help`.
 
 Example:
-```
+```bash
 geo db help
 ```
 Gives you the following:
@@ -478,9 +478,10 @@ Gives you the following:
 ```
 
 While running the following results in all help being printed:
-```
+```bash
 geo help
 ```
+
 ```
 Available commands:
     image
