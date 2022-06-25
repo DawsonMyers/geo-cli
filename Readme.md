@@ -123,6 +123,19 @@ You can make a copy of a `geo-cli` database using:
 ```bash
 geo db cp <source> <destination>
 ```
+Example:
+```bash
+$ geo db cp 8.0 8.0-copy
+
+Creating destination database volume '8.0-copy'
+
+Copying data from source database volume '8.0' to '8.0-copy'
+✔️   Done
+
+Creating destination database container '8.0-copy'
+✔️   Done
+
+```
 
 ### List Databases
 You can list your `geo-cli` databases using:
@@ -151,9 +164,9 @@ You can confirm that the `2001` database has been removed by listing your `geo-c
 
 This creates a postgres db with the sql admin as **geotabuser** and the password as **vircom43**.
 
-If you would like a completely empty Postgres 12 db without any initialization, add the **-e** option to the command, e.g., `gei db create -e <name>`. The default user for Postgres is `postgres` and the password is `password`. This username/password can be used to connect to the db (once started) using pgAdmin.
+If you would like a completely empty Postgres 12 db without any initialization, add the **-e** option to the command, e.g., `geo db create -e <name>`. The default user for Postgres is `postgres` and the password is `password`. This username/password can be used to connect to the db (once started) using pgAdmin.
 
->The `geo db create` command does not start the container after creating it. Use `geo db start <name>` to start it.
+> The `geo db create` command does not start the container after creating it. Use `geo db start <name>` to start it.
 
 ### Querying the Database
 `geo db psql` can be used to start an interactive psql session with a running database container. If you just want to run a single query, you can use the `-q` option to specify an sql query:
