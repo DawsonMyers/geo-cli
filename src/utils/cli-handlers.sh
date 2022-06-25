@@ -607,20 +607,46 @@ geo_db_start() {
 }
 
 geo_db_copy() {
+    local interactive=false
+    [[ $1 = -i ]] && interactive=true && shift
+
     local source_db="$1"
     local destination_db="$2"
 
-    [[ -z $source_db ]] && Error "The source database cannot be empty" && return 1
-    [[ -z $destination_db ]] && Error "The destination database name cannot be empty" && return 1
+    db_name_exists() {
+        local name=$(geo_container_name "$1")
+        docker container inspect $name > /dev/null 2>&1
+        # [[ $? == 0 ]]
+    }
 
+    source_db=$(geo_make_alphanumeric "$source_db")
+    # Make sure the source database exists.
+    ! db_name_exists $source_db && Error "The source database container '$source_db' does not exist" && return 1
+
+    [[ -z $source_db ]] && Error "The source database cannot be empty" && return 1
+    if [[ -z $destination_db ]]; then
+        if [[ $interactive == true ]]; then
+            info -b "Source database: '$source_db'"
+            prompt_return=''
+            while [[ -z $prompt_return ]] || db_name_exists "$prompt_return"; do
+                db_name_exists "$prompt_return" && warn "Database container '$prompt_return' already exists"
+                prompt_for_info_n 'Enter a name for the new database container: '
+            done
+            destination_db="$prompt_return"
+        else
+            Error "The destination database name cannot be empty" && return 1
+        fi
+    fi
+
+    [[ -z $destination_db ]] && Error "The destination database name cannot be empty" && return 1
+    
+    destination_db=$(geo_make_alphanumeric "$destination_db")
     local source_db_name=$(geo_container_name "$source_db")
     local destination_db_name=$(geo_container_name "$destination_db")
 
-    # Make sure the source database exists.
-    ! docker volume inspect $source_db_name > /dev/null 2>&1 && Error "The source database does not exist" && return 1
+    
     # Make sure the destination database doesn't exist
-    docker volume inspect $destination_db_name > /dev/null 2>&1 && Error "There is already a volume named '$destination_db'" && return 1
-    docker container inspect $destination_db_name > /dev/null 2>&1 && Error "There is already a container named '$destination_db'" && return 1
+    db_name_exists $destination_db && Error "There is already a container named '$destination_db'" && return 1
 
     status -b "\nCreating destination database volume '$destination_db'"
     docker volume create --name $destination_db_name > /dev/null
@@ -631,7 +657,7 @@ geo_db_copy() {
         -it \
         -v $source_db_name:/from \
         -v $destination_db_name:/to \
-        alpine ash -c "cd /from; cp -av . /to" > /dev/null
+        alpine ash -c "cd /from; cp -av . /to" #> /dev/nullge
     [[ $? -eq 0 ]] && success 'Done' || Error 'Volume creation failed'
 
     status -b "\nCreating destination database container '$destination_db'"
@@ -644,6 +670,7 @@ geo_db_copy() {
         return 1
     fi
 
+    prompt_continue "Would you like to start database container '$destination_db'? (Y/n): " && geo_db_start $destination_db
 }
 
 geo_db_psql() {

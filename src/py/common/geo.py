@@ -23,11 +23,17 @@ def stop_db(arg=None):
     # print('Stopping DB')
 
 
-def run(arg_str):
-    return geo(arg_str)
+def run(arg_str, terminal=False):
+    if terminal:
+        run_in_terminal(arg_str)
+    else:
+        return geo(arg_str)
 
 
-def geo(arg_str, return_error=False, return_all=False):
+def geo(arg_str, return_error=False, return_all=False, terminal=False):
+    if terminal:
+        run_in_terminal(arg_str)
+        return
     geo_path = config.GEO_SRC_DIR + '/geo-cli.sh '
     cmd = geo_path + ' --raw-output ' + ' --no-update-check ' + arg_str
     result = ['', '']
@@ -35,6 +41,8 @@ def geo(arg_str, return_error=False, return_all=False):
         process = subprocess.Popen("bash %s" % (cmd), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable='/bin/bash', text=True)
         process.wait()
         result = process.communicate()
+        if result[1]:
+            print(f'geo: Error running command {arg_str}: {result}')
     except Exception as err:
         print(f'Error running geo("{arg_str}", {return_error}, {return_all}: {err}')
     if return_error: return result[1]
@@ -144,8 +152,12 @@ def run_in_terminal(arg_str, title='geo-cli', stay_open_after=True):
         util.run_in_terminal_then_close(get_geo_cmd(arg_str), title)
 
 
-def db(args):
-    geo('db ' + args)
+def db(args, terminal=False):
+    cmd = 'db ' + args
+    if terminal:
+        run_in_terminal(cmd)
+    else:
+        geo(cmd)
 
 
 def get_geo_config_modified_time():

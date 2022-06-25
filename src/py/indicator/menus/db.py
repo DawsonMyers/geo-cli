@@ -38,12 +38,14 @@ class RunningDbMenuItem(Gtk.MenuItem):
         item_stop_db = Gtk.MenuItem(label='Stop')
         item_ssh = Gtk.MenuItem(label='SSH')
         item_psql = Gtk.MenuItem(label='PSQL')
+        item_copy_db = CopyDatabaseMenuItem(app=app)
         item_stop_db.connect('activate', self.stop_db)
         item_ssh.connect('activate', lambda _: geo.run_in_terminal('db ssh'))
         item_psql.connect('activate', lambda _: geo.run_in_terminal('db psql'))
         self.stop_menu.append(item_stop_db)
         self.stop_menu.append(item_ssh)
         self.stop_menu.append(item_psql)
+        self.stop_menu.append(item_copy_db)
         self.set_submenu(self.stop_menu)
         self.show_all()
         GLib.timeout_add(1000, self.db_monitor)
@@ -189,8 +191,10 @@ class DbMenuItem(Gtk.MenuItem):
         self.submenu = Gtk.Menu()
         self.item_start = Gtk.MenuItem(label='Start')
         self.item_remove = Gtk.MenuItem(label='Remove')
+        self.item_copy_db = CopyDatabaseMenuItem(db_name=name)
         self.submenu.append(self.item_start)
         self.submenu.append(self.item_remove)
+        self.submenu.append(self.item_copy_db)
         self.item_remove.connect('activate', self.remove_geo_db)
         self.item_start.connect('activate', self.start_geo_db)
         self.set_submenu(self.submenu)
@@ -240,3 +244,15 @@ class DbMenuItem(Gtk.MenuItem):
         response = dialog.run()
         dialog.destroy()
         return response == Gtk.ResponseType.OK
+
+
+class CopyDatabaseMenuItem(Gtk.MenuItem):
+    def __init__(self, app: IndicatorApp = None, db_name: str = None):
+        super().__init__(label='Make Copy')
+        self.db_name = db_name
+        self.app = app
+        self.connect('activate', self.on_activate)
+
+    def on_activate(self, widget):
+        db_name = self.db_name if self.db_name else self.app.db
+        geo.db(f'cp -i {db_name}', terminal=True)
