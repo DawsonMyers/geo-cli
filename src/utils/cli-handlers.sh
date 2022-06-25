@@ -138,6 +138,9 @@ geo_db_doc() {
         doc_cmd_sub_option '-y'
             doc_cmd_sub_option_desc 'Accept all prompts.'
 
+    doc_cmd_sub_cmd 'cp <source_db> <destination_db>'
+        doc_cmd_sub_cmd_desc 'Makes a copy of an existing database container.'
+
     doc_cmd_sub_cmd 'rm, remove <version>'
         doc_cmd_sub_cmd_desc 'Removes the container and volume associated with the provided version (e.g. 2004).'
         doc_cmd_sub_options_title
@@ -198,6 +201,7 @@ geo_db_doc() {
     doc_cmd_example 'geo db start -y 2004'
     doc_cmd_example 'geo db create 2004'
     doc_cmd_example 'geo db rm 2004'
+    doc_cmd_example 'geo db cp 9.0 9.1'
     doc_cmd_example 'geo db rm --all'
     doc_cmd_example 'geo db ls'
     doc_cmd_example 'geo db psql'
@@ -252,6 +256,9 @@ geo_db() {
         ;;
     start)
         geo_db_start "${@:2}"
+        ;;
+    cp | copy)
+        geo_db_copy "${@:2}"
         ;;
     psql)
         geo_db_psql "${@:2}"
@@ -599,6 +606,46 @@ geo_db_start() {
     success Done
 }
 
+geo_db_copy() {
+    local source_db="$1"
+    local destination_db="$2"
+
+    [[ -z $source_db ]] && Error "The source database cannot be empty" && return 1
+    [[ -z $destination_db ]] && Error "The destination database name cannot be empty" && return 1
+
+    local source_db_name=$(geo_container_name "$source_db")
+    local destination_db_name=$(geo_container_name "$destination_db")
+
+    # Make sure the source database exists.
+    ! docker volume inspect $source_db_name > /dev/null 2>&1 && Error "The source database does not exist" && return 1
+    # Make sure the destination database doesn't exist
+    docker volume inspect $destination_db_name > /dev/null 2>&1 && Error "There is already a volume named '$destination_db'" && return 1
+    docker container inspect $destination_db_name > /dev/null 2>&1 && Error "There is already a container named '$destination_db'" && return 1
+
+    status -b "\nCreating destination database volume '$destination_db'"
+    docker volume create --name $destination_db_name > /dev/null
+
+    status -b "\nCopying data from source database volume '$source_db' to '$destination_db'"
+    docker run \
+        --rm \
+        -it \
+        -v $source_db_name:/from \
+        -v $destination_db_name:/to \
+        alpine ash -c "cd /from; cp -av . /to" > /dev/null
+    [[ $? -eq 0 ]] && success 'Done' || Error 'Volume creation failed'
+
+    status -b "\nCreating destination database container '$destination_db'"
+    local vol_mount="$destination_db_name:/var/lib/postgresql/12/main"
+    local port=5432:5432
+    if docker create -v $vol_mount -p $port --name=$destination_db_name $IMAGE >/dev/null; then
+        success 'Done'
+    else
+        Error 'Failed to create container'
+        return 1
+    fi
+
+}
+
 geo_db_psql() {
     local sql_user=$(geo_get SQL_USER)
     local sql_password=$(geo_get SQL_PASSWORD)
@@ -886,7 +933,8 @@ geo_db_ls_volumes() {
 }
 
 geo_container_name() {
-    echo "${IMAGE}_${1}"
+    local name=$(geo_make_alphanumeric $1)
+    echo "${IMAGE}_${name}"
 }
 
 geo_get_container_id() {

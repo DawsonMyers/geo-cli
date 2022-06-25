@@ -12,6 +12,7 @@ A tool that makes MyGeotab development easier. Specifically, this tool aims to s
   - [Getting Started with `geo-cli`](#getting-started-with-geo-cli)
     - [Install](#install)
     - [Create a Database](#create-a-database)
+    - [Copying Databases](#copying-databases)
     - [List Databases](#list-databases)
     - [Removing Databases](#removing-databases)
     - [Creating Empty Databases](#creating-empty-databases)
@@ -117,6 +118,12 @@ The output is shown below:
 
 ![geo db start 2004](res/geo-db-start-3.png)
 
+### Copying Databases
+You can make a copy of a `geo-cli` database using:
+```bash
+geo db cp <source> <destination>
+```
+
 ### List Databases
 You can list your `geo-cli` databases using:
 ```bash
@@ -144,7 +151,7 @@ You can confirm that the `2001` database has been removed by listing your `geo-c
 
 This creates a postgres db with the sql admin as **geotabuser** and the password as **vircom43**.
 
-If you would like a completely empty Postgres 12 db without any initialization, add the **-e** option to the command, e.g., `goe db create -e <name>`. The default user for Postgres is `postgres` and the password is `password`. This username/password can be used to connect to the db (once started) using pgAdmin.
+If you would like a completely empty Postgres 12 db without any initialization, add the **-e** option to the command, e.g., `gei db create -e <name>`. The default user for Postgres is `postgres` and the password is `password`. This username/password can be used to connect to the db (once started) using pgAdmin.
 
 >The `geo db create` command does not start the container after creating it. Use `geo db start <name>` to start it.
 
