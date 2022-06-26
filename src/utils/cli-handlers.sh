@@ -141,7 +141,7 @@ geo_db_doc() {
     doc_cmd_sub_cmd 'cp <source_db> <destination_db>'
         doc_cmd_sub_cmd_desc 'Makes a copy of an existing database container.'
 
-    doc_cmd_sub_cmd 'rm, remove <version>'
+    doc_cmd_sub_cmd 'rm, remove [option] <version> [additional version to remove]'
         doc_cmd_sub_cmd_desc 'Removes the container and volume associated with the provided version (e.g. 2004).'
         doc_cmd_sub_options_title
             doc_cmd_sub_option '-a, --all'
@@ -201,6 +201,8 @@ geo_db_doc() {
     doc_cmd_example 'geo db start -y 2004'
     doc_cmd_example 'geo db create 2004'
     doc_cmd_example 'geo db rm 2004'
+    doc_cmd_example 'geo db rm --all'
+    doc_cmd_example 'geo db rm 7.0 8.0 9.0'
     doc_cmd_example 'geo db cp 9.0 9.1'
     doc_cmd_example 'geo db rm --all'
     doc_cmd_example 'geo db ls'
@@ -1197,6 +1199,16 @@ geo_db_rm() {
 
     if [[ -n "$container_id" ]]; then
         docker stop $container_id >/dev/null && success "Container stopped"
+    fi
+
+    # Remove multiple containers if more than one container name was passed in (i.e., geo db rm 8.0 9.0).
+    if [[ -n $1 && -n $2 ]]; then
+        debug 'Removing multiple containers'
+        while [[ -n $1 ]]; do
+            geo_db_rm $1
+            shift
+        done
+        return
     fi
 
     # container_name=bad
@@ -3761,7 +3773,7 @@ _geo_complete()
         # e.g., geo db start
         3)
             case $prevprev in
-                db ) [[ $prev =~ start|rm|cp|copy ]] && COMPREPLY=($(compgen -W "$(geo_dev databases)" -- ${cur})) ;;
+                db ) [[ $prev =~ start|rm|remove|cp|copy ]] && COMPREPLY=($(compgen -W "$(geo_dev databases)" -- ${cur})) ;;
                 env ) [[ $prev =~ ls|get|set|rm ]] && COMPREPLY=($(compgen -W "$(geo_env ls keys)" -- ${cur^^})) ;;
                 # get|set|rm ) COMPREPLY=($(compgen -W "$(geo_env ls keys)" -- ${cur})) ;;
             esac
