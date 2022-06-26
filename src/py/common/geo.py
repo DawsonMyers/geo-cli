@@ -51,7 +51,8 @@ def geo(arg_str, return_error=False, return_all=False, terminal=False):
 
 
 def get_myg_release():
-    return geo('dev release')
+    release = geo('dev release')
+    return release if '\n\n' not in release else ''
 
 
 def try_start_last_db():

@@ -1991,6 +1991,61 @@ geo_haskey() {
     cfg_haskey "$GEO_CLI_CONF_FILE" "$key"
 }
 
+# Save the previous 5 items as a single value in the config file, delimited by the '@' character.
+_geo_push() {
+    local key="$1"
+    local value="$2"
+    [[ -z $key ]] && Error "_geo_push: Key cannot be empty" && return 1
+    [[ -z $value ]] && Error "_geo_push: Value cannot be empty" && return 1
+    local stored_items="$(geo_get $key)"
+
+    if [[ -z $stored_items ]]; then
+        # debug "_geo_push: stored_items was empty"
+        geo_set $key "$value"
+        return
+    fi
+    # Remove duplicates if cmd is already stored.
+    stored_items="${stored_items//$value/}"
+    # Remove any delimiters left over from removed items.
+    # The patterns remove lead and trailing @, as well as replaces 2 or more @ with a single one (3 patterns total).
+    stored_items=$(echo $stored_items | sed -r 's/^@//; s/@$//; s/@{2,}/@/g')
+
+    if [[ -n $stored_items ]]; then
+        # Add the new item to the beginning, delimiting it with the '@' character.
+        stored_items="$value@$stored_items"
+    else
+        stored_items="$value"
+    fi
+    
+    # Get the count of how many items there are.
+    local count=$(echo $stored_items | awk -F '@' '{ print NF }')
+#    debug $count
+    if (( count > 5 )); then
+        # Remove the oldest item, keeping only 5.
+        stored_items=$(echo $stored_items | awk -F '@' '{ print $1"@"$2"@"$3"@"$4"@"$5 }')
+    fi
+#    debug geo_set $key "_geo_push: setting cmds to: $stored_items"
+    geo_set $key "$stored_items"
+}
+
+_geo_push_get_items() {
+    [[ -z $1 ]] && return
+    geo get $1 | tr '@' '\n'
+}
+
+_geo_push_get_item() {
+    local key="$1"
+    local item_number="$2"
+    [[ -z $item_number || $item_number -gt 5 || $item_number -lt 0 ]] && Error "Invalid command number. Expected a value between 0 and 5." && return 1
+    
+    local items=$(geo_get $key)
+    if [[ -z $items ]]; then
+        return
+    fi
+    local awk_cmd='{ print $'$item_number' }'
+    echo $(echo $items | awk -F '@' "$awk_cmd")
+}
+
 ###########################################################
 COMMANDS+=('update')
 geo_update_doc() {
@@ -2764,15 +2819,87 @@ geo_test() {
     local myg_tests_dir_path="${dev_repo}/Checkmate/MyGeotab.Core.Tests/"
     local script_path="${dev_repo}/gitlab-ci/scripts/StartDockerForTests.sh"
     local use_docker=false
-    if [[ $1 == '-d' || $1 == '--docker' ]]; then
+    local interactive=false
+
+    while [[ $1 =~ ^-+ ]]; do
+        case "${1}" in
+            -d | --docker ) 
+                if [[ ! -f $script_path ]]; then
+                    Error "Script to run ci docker environment locally not found in:\n  '${script_path}'."
+                    warn "\nThis option is currently only supported for MyGeotab version 9.0 or later (current version is $(geo_dev release)). Running locally instead.\n"
+                else
+                    use_docker=true
+                fi
+                ;;
+            -i ) interactive=true ;;
+            * ) 
+                Error "Invalid option: '$1'"
+                return 1
+                ;;
+        esac
         shift
-        if [[ ! -f $script_path ]]; then
-            Error "Script to run ci docker environment locally not found in:\n  '${script_path}'."
-            warn "\nThis option is currently only supported for MyGeotab version 9.0 or later (current version is $(geo_dev release)). Running locally instead.\n"
+    done
+
+    local test_filter="$1"
+
+    if [[ $interactive == true ]]; then
+        status -b "Example tests filters:"
+        info "* UserTest.AddDriverScopeTest"
+        local long_example="FullyQualifiedName=Geotab.Checkmate.ObjectModel.Tests.JSONSerializer\n .DisplayDiagnosticSerializerTest.DateRangeTest|FullyQualifiedName=Geotab..."
+        info "* $long_example"
+        echo
+
+        local prev_tests=$(_geo_push_get_items TEST_FILTERS)
+        local prev_tests_array=($prev_tests)
+        if [[ -n $prev_tests ]]; then
+            # select prev_test_filter in $prev_tests; do
+            status -b "Previous test filters:"
+            local i=0
+            for filter in $prev_tests; do
+                info "  ${i}) $filter"
+                ((i++))
+            done
+            echo
+            info "Reuse one of the above test filters by entering -# (where # is the item number of the filter you want to use, e.g. -2)."
+        fi
+        prompt_for_info '\nEnter a test filter: '
+        test_filter="$prompt_return"
+
+        # Check if a previous test filter id was entered (a number prefixed with -, e.g., -1).
+        if [[ $test_filter =~ ^-[0-9] ]]; then
+            # Trip the hyphen off the id.
+            local i=${test_filter:1}
+            # Get the test filter using the id as the index.
+            test_filter=${prev_tests_array[i]}
+            [[ -n $test_filter ]] && status "\nUsing test filter: $test_filter"
+        fi
+        [[ -z $test_filter ]] && Error "Test filter cannot be empty." && return 1
+
+
+        if prompt_continue -n '\nRun tests in docker container\n(requires GitLab api access token, see Readme for setup instructions)?: (y|N) '; then
+            if [[ ! -f $script_path ]]; then
+                Error "Script to run ci docker environment locally not found in:\n  '${script_path}'."
+                warn "\nThis option is currently only supported for MyGeotab version 9.0 or later (current version is $(geo_dev release)). Running locally instead.\n"
+            else
+                status '\nRunning in docker\n'
+                use_docker=true
+            fi
         else
-            use_docker=true
+            status '\nRunning locally\n'
         fi
     fi
+
+    _geo_push TEST_FILTERS "$test_filter"
+
+    # if [[ $1 == '-d' || $1 == '--docker' ]]; then
+    #     shift
+    #     if [[ ! -f $script_path ]]; then
+    #         Error "Script to run ci docker environment locally not found in:\n  '${script_path}'."
+    #         warn "\nThis option is currently only supported for MyGeotab version 9.0 or later (current version is $(geo_dev release)). Running locally instead.\n"
+    #     else
+    #         use_docker=true
+    #     fi
+    # fi
     if [[ $use_docker == true ]]; then
         local test_container_name="ci_test_container"
         $script_path $test_container_name
@@ -3618,13 +3745,20 @@ prompt_continue_or_exit() {
     [[ ! $answer =~ [nN] ]]
 }
 prompt_continue() {
+    # Yes by default, any input other that n/N/no will continue.
+    local regex="[^nN]"
+    # Default to no if the -n option is present. This means that the user is required to enter y/Y/yes to continue,
+    # anything else will decline to continue.
+    [[ $1 == -n ]] && regex="[yY]" && shift
     if [[ -z $1 ]]; then
         prompt_n "Do you want to continue? (Y|n): "
     else
         prompt_n "$1"
     fi
+    
     read answer
-    [[ ! $answer =~ [nN] ]]
+
+    [[ $answer =~ $regex ]]
 }
 prompt_for_info() {
     prompt "$1"

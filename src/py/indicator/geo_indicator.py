@@ -132,9 +132,11 @@ class IndicatorApp(object):
         item_npm.connect('activate', lambda _: geo.run_in_terminal('init npm -c', stay_open_after=False))
         item_id = Gtk.MenuItem(label='Convert Long/Guid Ids')
         item_id_clipboard = Gtk.MenuItem(label='Convert Id From Clipboard')
+        item_run_tests = Gtk.MenuItem(label='Run Tests')
         # Run 'geo id -i' in terminal. This causes geo id to run interactively (-i), first trying to convert the contents of the clipboard.
         item_id.connect('activate', lambda _: geo.run_in_terminal('id -i'))
         item_id_clipboard.connect('activate', lambda _: geo.run_in_terminal('id -c', stay_open_after=False))
+        item_run_tests.connect('activate', lambda _: geo.run_in_terminal('test -i', stay_open_after=True))
         # Configure the id item to be activated when the app indicator is middle clicked on.
         self.indicator.set_secondary_activate_target(item_id_clipboard)
 
@@ -155,6 +157,7 @@ class IndicatorApp(object):
         menu.append(item_id)
         menu.append(item_id_clipboard)
         menu.append(menus.AccessRequestMenuItem(self))
+        menu.append(item_run_tests)
         menu.append(Gtk.SeparatorMenuItem())
 
         menu.append(item_help)
