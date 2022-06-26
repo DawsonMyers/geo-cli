@@ -3729,11 +3729,13 @@ _geo_complete()
     prevprev=${COMP_WORDS[$COMP_CWORD-2]}
     # echo "prev: $prev"  >> bcompletions.txt
     case ${COMP_CWORD} in
+        # e.g., geo 
         1)
             local cmds="${COMMANDS[@]}"
             
             COMPREPLY=($(compgen -W "$cmds" -- ${cur}))
             ;;
+        # e.g., geo db
         2)
             # echo "$words" >> bcompletions.txt
             if [[ -v SUBCOMMAND_COMPLETIONS[$prev] ]]; then
@@ -3756,9 +3758,10 @@ _geo_complete()
             #         ;;
             # esac
             ;;
+        # e.g., geo db start
         3)
             case $prevprev in
-                db ) [[ $prev =~ start|rm ]] && COMPREPLY=($(compgen -W "$(geo_dev databases)" -- ${cur})) ;;
+                db ) [[ $prev =~ start|rm|cp|copy ]] && COMPREPLY=($(compgen -W "$(geo_dev databases)" -- ${cur})) ;;
                 env ) [[ $prev =~ ls|get|set|rm ]] && COMPREPLY=($(compgen -W "$(geo_env ls keys)" -- ${cur^^})) ;;
                 # get|set|rm ) COMPREPLY=($(compgen -W "$(geo_env ls keys)" -- ${cur})) ;;
             esac
