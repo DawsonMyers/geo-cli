@@ -2851,24 +2851,24 @@ geo_test() {
 
         local prev_tests=$(_geo_push_get_items TEST_FILTERS)
         local prev_tests_array=($prev_tests)
+        local i=0
         if [[ -n $prev_tests ]]; then
             # select prev_test_filter in $prev_tests; do
             status -b "Previous test filters:"
-            local i=0
             for filter in $prev_tests; do
                 info "  ${i}) $filter"
                 ((i++))
             done
             echo
-            info "Reuse one of the above test filters by entering -# (where # is the item number of the filter you want to use, e.g. -2)."
+            info "Reuse one of the above test filters by entering its id."
         fi
         prompt_for_info '\nEnter a test filter: '
         test_filter="$prompt_return"
 
         # Check if a previous test filter id was entered (a number prefixed with -, e.g., -1).
-        if [[ $test_filter =~ ^-[0-9] ]]; then
+        if [[ $test_filter =~ ^[0-9] ]]; then
             # Trip the hyphen off the id.
-            local i=${test_filter:1}
+            local i=${test_filter}
             # Get the test filter using the id as the index.
             test_filter=${prev_tests_array[i]}
             [[ -n $test_filter ]] && status "\nUsing test filter: $test_filter"
