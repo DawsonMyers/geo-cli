@@ -897,8 +897,11 @@ geo_db_ls_containers() {
     fi
 
     datediff() {
-        d1=$(date -d "$1" +%s)
-        d2=$(date -d "$2" +%s)
+        number_re='^[0-9]+$'
+        # Parse if a date string was passed in
+        [[ $1 =~ $number_re ]] && d1=$1 || d1=$(date -d "$1" +%s)
+        [[ $2 =~ $number_re ]] && d2=$2 || d2=$(date -d "$2" +%s)
+        # The dates are now in seconds.
         days=$(((d1 - d2) / 86400))
         weeks=$(((d1 - d2) / (86400 * 7)))
         months=$(((d1 - d2) / (86400 * 30)))
@@ -916,8 +919,7 @@ geo_db_ls_containers() {
         ((years > 1)) && msg="$years years ago"
         echo $msg
     }
-    local now="$(date)"
-
+    
     local output=$(docker container ls -a -f name=geo_cli --format '{{.Names}}\t{{.ID}}\t{{.Names}}\t{{.CreatedAt}}')
 
     # local filtered=$(echo "$output" | awk 'printf "%-24s %-16s %-24s\n",$1,$2,$3 } ')
@@ -938,6 +940,9 @@ geo_db_ls_containers() {
 
     local created_date=
     local rest_of_line=
+
+    # Get the date in seconds.
+    local now="$(date +%s)"
 
     while read -r line; do
         _ifs=$IFS
