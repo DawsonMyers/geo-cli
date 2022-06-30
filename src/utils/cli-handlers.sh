@@ -895,31 +895,7 @@ geo_db_ls_containers() {
         docker container ls -a -f name=geo_cli
         return
     fi
-
-    datediff() {
-        number_re='^[0-9]+$'
-        # Parse if a date string was passed in
-        [[ $1 =~ $number_re ]] && d1=$1 || d1=$(date -d "$1" +%s)
-        [[ $2 =~ $number_re ]] && d2=$2 || d2=$(date -d "$2" +%s)
-        # The dates are now in seconds.
-        days=$(((d1 - d2) / 86400))
-        weeks=$(((d1 - d2) / (86400 * 7)))
-        months=$(((d1 - d2) / (86400 * 30)))
-        years=$(((d1 - d2) / (86400 * 365)))
-
-        msg=$days
-        ((days > 1)) && msg="$days days ago"
-        ((days == 1)) && msg="yesterday"
-        ((days == 0)) && msg="today"
-        ((weeks == 1)) && msg="1 week ago"
-        ((weeks > 1)) && msg="$weeks weeks ago"
-        ((months == 1)) && msg="1 month ago"
-        ((months > 1)) && msg="$months months ago"
-        ((years == 1)) && msg="1 year ago"
-        ((years > 1)) && msg="$years years ago"
-        echo $msg
-    }
-    
+      
     local output=$(docker container ls -a -f name=geo_cli --format '{{.Names}}\t{{.ID}}\t{{.Names}}\t{{.CreatedAt}}')
 
     # local filtered=$(echo "$output" | awk 'printf "%-24s %-16s %-24s\n",$1,$2,$3 } ')
@@ -954,17 +930,58 @@ geo_db_ls_containers() {
         # Trim off timezone.
         created_date="${created_date:0:19}"
 
-        days_since_created=$(datediff "$now" "$created_date")
+        days_since_created=$(_geo_datediff "$now" "$created_date")
         new_line="$(echo -e "${line_array[0]}\t${line_array[1]}\t${line_array[2]}\t$days_since")"
         # Remove the geo db prefix from the container name to get the geo-cli name for the db.
         line_array[0]="${line_array[0]#${GEO_DB_PREFIX}_}"
         printf "$line_format" "${line_array[0]}" "${line_array[1]}" "${line_array[2]}" "$days_since_created"
     done <<< "$output"
 }
+
 geo_db_ls_volumes() {
     info Volumes
     docker volume ls -f name=geo_cli
 }
+
+_geo_datediff() {
+        number_re='^[0-9]+$'
+        # Parse if a date string was passed in
+        [[ $1 =~ $number_re ]] && d1=$1 || d1=$(date -d "$1" +%s)
+        [[ $2 =~ $number_re ]] && d2=$2 || d2=$(date -d "$2" +%s)
+        # The dates are now in seconds.
+
+        # The difference in seconds between the two dates.
+        diff_seconds=$((d1 - d2))
+
+        # Some seconds-based constants.
+        minute=60
+        hour=$((minute * 60))
+        day=$((hour * 24))
+
+        seconds=$diff_seconds
+        minutes=$(( diff_seconds / minute ))
+        hours=$(( diff_seconds / hour ))
+        days=$(( diff_seconds / day ))
+        weeks=$(( diff_seconds / (day * 7) ))
+        months=$(( diff_seconds / (day * 30) ))
+        years=$(( diff_seconds / (day * 365) ))
+
+        msg=$days
+        ((seconds > 1)) && msg="seconds ago"
+        ((minutes == 1)) && msg="1 minute ago"
+        ((minutes > 1)) && msg="$minutes minutes ago"
+        ((hours == 1)) && msg="1 hour ago"
+        ((hours > 1)) && msg="$hours hours ago"
+        ((days == 1)) && msg="yesterday"
+        ((days > 1)) && msg="$days days ago"
+        ((weeks == 1)) && msg="1 week ago"
+        ((weeks > 1)) && msg="$weeks weeks ago"
+        ((months == 1)) && msg="1 month ago"
+        ((months > 1)) && msg="$months months ago"
+        ((years == 1)) && msg="1 year ago"
+        ((years > 1)) && msg="$years years ago"
+        echo $msg
+    }
 
 geo_container_name() {
     local name=$(geo_make_alphanumeric $1)
