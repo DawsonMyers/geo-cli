@@ -2831,9 +2831,16 @@ geo_test_doc() {
     doc_cmd_options_title
         doc_cmd_option '-d, --docker'
             doc_cmd_option_desc 'Run tests in a docker environment matching the one used in ci/cd pipelines. Requires docker to be logged into gitlab.'
+        doc_cmd_option '-n <number of iterations>'
+            doc_cmd_option_desc 'Runs the test(s) n times.'
+        doc_cmd_option '-r, --random-n <number of iterations>'
+            doc_cmd_option_desc 'Runs the test(s) n times using random seeds.'
+        doc_cmd_option '--random-seed <seed>'
+            doc_cmd_option_desc 'Runs the test(s) a supplied random seed.'
 
     doc_cmd_examples_title
         doc_cmd_example 'geo test UserTest.AddDriverScopeTest'
+        doc_cmd_example 'geo test -r 3 UserTest.AddDriverScopeTest'
         doc_cmd_example 'geo test "FullyQualifiedName=Geotab.Checkmate.ObjectModel.Tests.JSONSerializer.DisplayDiagnosticSerializerTest.DateRangeTest|FullyQualifiedName=Geotab.Checkmate.ObjectModel.Tests.JSONSerializer.DisplayDiagnosticSerializerTest.NotificationUserModifiedValueInfoTest"'
 }
 geo_test() {
@@ -2842,7 +2849,9 @@ geo_test() {
     local script_path="${dev_repo}/gitlab-ci/scripts/StartDockerForTests.sh"
     local use_docker=false
     local interactive=false
-
+    local seeds=(0)
+    local is_number_re='^[0-9]+$'
+    local find_unreliable='false'
     while [[ $1 =~ ^-+ ]]; do
         case "${1}" in
             -d | --docker ) 
@@ -2853,7 +2862,30 @@ geo_test() {
                     use_docker=true
                 fi
                 ;;
-            -i ) interactive=true ;;
+            -i ) 
+                interactive=true
+                ;;
+            -n )
+                [[ ! $2 =~ $is_number_re ]] && Error "The $1 option requires a number as an argument." && return 1
+                for (( i = 1; i < $2; i++ )); do
+                    seeds+=(0)
+                done
+                find_unreliable='true'
+                shift
+                ;;
+            -r | --random-n )
+                [[ ! $2 =~ $is_number_re ]] && Error "The $1 option requires a number as an argument." && return 1
+                for (( i = 1; i < $2; i++ )); do
+                    seeds+=($((RANDOM * RANDOM)))
+                done
+                find_unreliable='true'
+                shift
+                ;;
+            --random-seeds )
+                [[ ! $2 =~ $is_number_re ]] && Error "The $1 option requires a number as an argument." && return 1
+                seeds=$2
+                find_unreliable='true'
+                ;;
             * ) 
                 Error "Invalid option: '$1'"
                 return 1
@@ -2913,23 +2945,46 @@ geo_test() {
 
     _geo_push TEST_FILTERS "$test_filter"
 
-    # if [[ $1 == '-d' || $1 == '--docker' ]]; then
-    #     shift
-    #     if [[ ! -f $script_path ]]; then
-    #         Error "Script to run ci docker environment locally not found in:\n  '${script_path}'."
-    #         warn "\nThis option is currently only supported for MyGeotab version 9.0 or later (current version is $(geo_dev release)). Running locally instead.\n"
-    #     else
-    #         use_docker=true
-    #     fi
-    # fi
+    local geotab_data_dir="$USER/GEOTAB"
+    if [[ $find_unreliable == true ]]; then
+        (
+            debug "seeds: ${seeds[@]}"
+            cd "$myg_tests_dir_path"
+            seed_count=${#seeds[@]}
+            for i in "${!seeds[@]}"; do
+                seed=${seeds[i]}
+                options="--filter='${test_filter}' --randomseed='$seed' --find-unreliable"
+                echo "RandomSeed [$((i+1))/$seed_count]: ${seed}"
+                if [[ $use_docker == true ]]; then
+                    local test_container_name="ci_test_container"
+                    $script_path $test_container_name
+                    docker exec -it $test_container_name /bin/bash -c "pushd MyGeotabRepository/publish; ./CheckmateServer.Tests $options"
+                else
+                    cmd="dotnet run $options"
+                    # cmd="dotnet run --filter='UserTest.AddDriverScopeTest' --randomseed=2 --find-unreliable"
+                    debug "$cmd"
+                    tester_output=$($cmd)
+                    if [[ $tester_output == *"Failed     | 0"* && $tester_output == *"Unreliable | 0"* ]]; then
+                        echo "$tester_output" | tail -13
+                    else
+                        echo "$tester_output"
+                        mv "$geotab_data_dir/UnitTestRunner" "$geotab_data_dir/UnitTestRunner_${i}_${seed}_`date +%Y-%m-%dT%H-%M-%S`"
+                    fi
+                fi
+            done
+        )
+        return
+    fi
+
     if [[ $use_docker == true ]]; then
         local test_container_name="ci_test_container"
         $script_path $test_container_name
-        docker exec -it $test_container_name /bin/bash -c "pushd MyGeotabRepository/publish; ./CheckmateServer.Tests --filter=\"${1}\""
+        docker exec -it $test_container_name /bin/bash -c "pushd MyGeotabRepository/publish; ./CheckmateServer.Tests --filter='${test_filter}'"
     else
         (
+            debug "dotnet run --filter='${test_filter}' --displayresults"
             cd "$myg_tests_dir_path"
-            if dotnet run --filter="${1}" --displayresults; then
+            if dotnet run --filter="${test_filter}" --displayresults; then
                 success 'OK'
             else
                 Error 'dotnet run failed'
