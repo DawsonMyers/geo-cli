@@ -1429,32 +1429,75 @@ geo_ar() {
 
                 geo_set AR_IAP_CMD "$gcloud_cmd"
                 _geo_ar_push_cmd "$gcloud_cmd"
-                
-                local open_port=$(python -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')
+                local get_open_port_python_code='import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()'
+                local open_port=$(python -c "$get_open_port_python_code")
+                # Try using python3 if open port wasn't found.
+                [[ -z $open_port ]] && open_port=$(python3 -c "$get_open_port_python_code")            
                 [[ -z $open_port ]] && Error 'Open port could not be found' && return 1
 
-                local port_arg='--local-host-port=localhost:'$open_port
-                
-                geo_set AR_PORT "$open_port"
                 status -bu 'Opening IAP tunnel'
-                info "Using port: '$open_port' to open IAP tunnel"
-                info "Note: the port is saved and will be used when you call '$(txt_italic geo ar ssh)'"
-                echo
-                debug $gcloud_cmd $port_arg
-                sleep 1
-                echo
+                if [[ -n $open_port ]]; then
+                    local port_arg='--local-host-port=localhost:'$open_port
+                    
+                    geo_set AR_PORT "$open_port"
+                    info "Using port: '$open_port' to open IAP tunnel"
+                    info "Note: the port is saved and will be used when you call '$(txt_italic geo ar ssh)'"
+                    echo
+                    debug $gcloud_cmd $port_arg
+                    sleep 1
+                    echo
+                fi
 
                 if [[ $start_ssh ]]; then
                     cleanup() {
                         echo
                         # status 'Closing IAP tunnel'
                         kill %1
+                        # Remove the temporary output file if it exists.
+                        [[ -f $tmp_output_file ]] && rm $tmp_output_file
                         exit
                     }
                     # Catch signals and run cleanup function to make sure the IAP tunnel is closed.
                     trap cleanup INT TERM QUIT EXIT
-                    # Start up IAP tunnel in the background.
-                    $gcloud_cmd $port_arg &
+
+                    # Find the port by opening the IAP tunnel without specifying the port, then get the port number from the output of the gcloud command.
+                    if [[ -z $open_port ]]; then
+                        status "Finding open port..."
+                        local tmp_output_file="/tmp/geo-ar-tunnel-$RANDOM.txt"
+                        $gcloud_cmd &> >(tee -a $tmp_output_file) &
+                        local attapts=0
+
+                        # Write the output of the gcloud command to file then periodically scan it for the port number.
+                        while (( ++attempts < 6 )) && [[ -z $open_port ]]; do
+                            sleep 1
+                            # cat $tmp_output_file
+                            # debug $tmp_output_file
+                            local gcloud_output=$(cat $tmp_output_file)
+                            local port_line_regex='unused port \[([[:digit:]]+)\]'
+                            if [[ $gcloud_output =~ $port_line_regex ]]; then
+                                open_port=${BASH_REMATCH[1]}
+                                local is_number_re='^[0-9]+$'
+                                if [[ $is_number_re =~ $open_port ]]; then
+                                    # kill %1
+                                    # sleep 1
+                                    break
+                                fi
+                            fi
+                        done
+                        [[ -z $open_port ]] && Error 'Open port could not be found' && return 1
+                        geo_set AR_PORT "$open_port"
+                        status -bu 'Opening IAP tunnel'
+                        info "Using port: '$open_port' to open IAP tunnel"
+                        info "Note: the port is saved and will be used when you call '$(txt_italic geo ar ssh)'"
+                        echo
+                        debug $gcloud_cmd $port_arg
+                        sleep 1
+                        echo
+                    else
+                        # Start up IAP tunnel in the background.
+                        $gcloud_cmd $port_arg &
+                    fi
+                    
                     # Wait for the tunnel to start.
                     status 'Waiting for tunnel to open before stating SSH session...'
                     echo
@@ -2778,7 +2821,33 @@ geo_indicator() {
             [[ $indicator_enabled == false ]] && detail "Indicator is disabled. Run $(txt_underline geo indicator enable) to enable it.\n" && return
             geo_indicator enable
             ;;
-        *)
+        # Print out the geo-indicator.service file.
+        cat )
+            systemctl --user cat $geo_indicator_service_name
+            ;;
+        # Print out all configuration for the service.
+        show )
+            systemctl --user show $geo_indicator_service_name
+            ;;
+        # Edit the service file.
+        edit )
+            # systemctl --user edit $geo_indicator_service_name
+            nano $indicator_service_path
+            ;;
+        no-service )
+            (
+                cd "$GEO_CLI_SRC_DIR/py/indicator"
+                bash geo-indicator.sh
+            )
+            ;;
+        log | logs )
+            # Show all logs since last boot until now.
+            local option='-b'
+            # Can use -b-2 to get the logs since 2 boots ago or -b-3 to all since 3 boots ago.
+            [[ -n $2 ]] && option="$2"
+            journalctl --user -u $geo_indicator_service_name $option
+            ;;
+        * )
             Error "Unknown argument: '$1'"
             ;;
     esac
@@ -3824,9 +3893,10 @@ prompt_continue_or_exit() {
 prompt_continue() {
     # Yes by default, any input other that n/N/no will continue.
     local regex="[^nN]"
+    local default=yes
     # Default to no if the -n option is present. This means that the user is required to enter y/Y/yes to continue,
     # anything else will decline to continue.
-    [[ $1 == -n ]] && regex="[yY]" && shift
+    [[ $1 == -n ]] && regex="[yY]" && default=no && shift
     if [[ -z $1 ]]; then
         prompt_n "Do you want to continue? (Y|n): "
     else
@@ -3835,7 +3905,7 @@ prompt_continue() {
     
     read answer
 
-    [[ $answer =~ $regex ]]
+    [[ $answer =~ $regex || -z $answer && $default == yes ]]
 }
 prompt_for_info() {
     prompt "$1"

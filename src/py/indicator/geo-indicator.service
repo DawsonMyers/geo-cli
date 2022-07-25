@@ -4,6 +4,8 @@ Description=geo-cli Application Indicator
 [Service]
 ExecStart=bash "$geo_indicator_path"
 Restart=on-failure
+StandardOutput=syslog+console
+StandardError=syslog+console
 
 [Install]
 WantedBy=default.target
