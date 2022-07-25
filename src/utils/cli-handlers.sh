@@ -166,8 +166,8 @@ geo_db_doc() {
             doc_cmd_sub_option_desc 'Accept all prompts.'
 
     doc_cmd_sub_cmd 'psql [options]'
-        doc_cmd_sub_cmd_desc 'Open an interactive psql session to geotabdemo (or a different db, if a db name was provided with the -d option) in 
-                            the running geo-cli db container. You can also use the -q option to execute a query on the 
+        doc_cmd_sub_cmd_desc 'Open an interactive psql session to geotabdemo (or a different db, if a db name was provided with the -d option) in
+                            the running geo-cli db container. You can also use the -q option to execute a query on the
                             database instead of starting an interactive session. The default username and password used to
                             connect is geotabuser and vircom43, respectively.'
         doc_cmd_sub_options_title
@@ -176,7 +176,7 @@ geo_db_doc() {
             doc_cmd_sub_option '-p'
                 doc_cmd_sub_option_desc 'The admin sql password. The default value used is "vircom43"'
             doc_cmd_sub_option '-q'
-                doc_cmd_sub_option_desc 'A query to run with psql in the running container. This option will cause the result of the query to be returned 
+                doc_cmd_sub_option_desc 'A query to run with psql in the running container. This option will cause the result of the query to be returned
                                                 instead of starting an interactive psql terminal.'
             doc_cmd_sub_option '-u'
                 doc_cmd_sub_option_desc 'The admin sql user. The default value used is "geotabuser"'
@@ -346,7 +346,7 @@ geo_db_create() {
             y ) acceptDefaults=true ;;
             n ) no_prompt=true ;;
             e ) empty_db=true && status_bi 'Creating empty Postgres container';;
-            \? ) 
+            \? )
                 Error "Invalid option: -$OPTARG"
                 return 1
                 ;;
@@ -390,6 +390,7 @@ geo_db_create() {
     local image_name=$IMAGE
     local sql_user=postgres
     local sql_password='!@)(vircom44'
+    local hostname=$container_name
 
     if [[ $empty_db == true ]]; then
         image_name=geo_cli_postgres
@@ -403,7 +404,7 @@ geo_db_create() {
         docker build -t $image_name - <<< "$dockerfile"
     fi
 
-    docker create -v $vol_mount -p $port --name=$container_name $image_name >/dev/null &&
+    docker create -v $vol_mount -p $port --name=$container_name --hostname=$hostname $image_name >/dev/null &&
         (echo && success 'OK') || (Error 'Failed to create container' && return 1)
 
     echo
@@ -641,12 +642,12 @@ geo_db_copy() {
     fi
 
     [[ -z $destination_db ]] && Error "The destination database name cannot be empty" && return 1
-    
+
     destination_db=$(geo_make_alphanumeric "$destination_db")
     local source_db_name=$(geo_container_name "$source_db")
     local destination_db_name=$(geo_container_name "$destination_db")
 
-    
+
     # Make sure the destination database doesn't exist
     db_name_exists $destination_db && Error "There is already a container named '$destination_db'" && return 1
 
@@ -895,7 +896,7 @@ geo_db_ls_containers() {
         docker container ls -a -f name=geo_cli
         return
     fi
-      
+
     local output=$(docker container ls -a -f name=geo_cli --format '{{.Names}}\t{{.ID}}\t{{.Names}}\t{{.CreatedAt}}')
 
     # local filtered=$(echo "$output" | awk 'printf "%-24s %-16s %-24s\n",$1,$2,$3 } ')
@@ -1012,7 +1013,7 @@ geo_get_running_container_id() {
 geo_get_running_container_name() {
     # local name=$1
     [[ -z $name ]] && name="$IMAGE*"
-    
+
     local container_name=$(docker ps --filter name="$name" --filter status=running -a --format="{{ .Names }}")
     if [[ $1 == -r ]]; then
         container_name=${container_name#geo_cli_db_postgres_}
@@ -1332,7 +1333,7 @@ geo_check_for_dev_repo_dir() {
     done
 
     [[ "$dev_repo" == -- ]] && return
-    
+
     success "Checkmate directory found"
     geo_set DEV_REPO_DIR "$dev_repo"
 }
@@ -1346,8 +1347,8 @@ geo_ar_doc() {
         doc_cmd_sub_cmd 'create'
             doc_cmd_sub_cmd_desc 'Opens up the My Access Request page on the MyAdmin website in Chrome.'
         doc_cmd_sub_cmd 'tunnel [gcloud start-iap-tunnel cmd]'
-            doc_cmd_sub_cmd_desc "Starts the IAP tunnel (using the gcloud start-iap-tunnel command copied from MyAdmin after opening 
-                            an access request) and then connects to the server over SSH. The port is saved and used when you SSH to the server using $(green 'geo ar ssh'). 
+            doc_cmd_sub_cmd_desc "Starts the IAP tunnel (using the gcloud start-iap-tunnel command copied from MyAdmin after opening
+                            an access request) and then connects to the server over SSH. The port is saved and used when you SSH to the server using $(green 'geo ar ssh').
                             This command will be saved and re-used next time you call the command without any arguments (i.e. $(green geo ar tunnel))"
             doc_cmd_sub_options_title
             doc_cmd_sub_option '-s'
@@ -1388,7 +1389,7 @@ geo_ar() {
                         --prompt ) prompt_for_cmd='true' ;;
                         -l ) list_previous_cmds='true' ;;
                         * ) Error "Unknown option '$1'" && return 1 ;;
-                    esac    
+                    esac
                     shift
                 done
 
@@ -1420,7 +1421,7 @@ geo_ar() {
                 # debug $gcloud_cmd
                 [[ -z $gcloud_cmd ]] && gcloud_cmd="$(geo_get AR_IAP_CMD)"
                 [[ -z $gcloud_cmd ]] && Error 'The gcloud compute start-iap-tunnel command (copied from MyAdmin for your access request) is required.' && return 1
-                
+
                 while [[ ! $gcloud_cmd =~ ^$expected_cmd_start ]]; do
                     warn -b "The command must start with 'gcloud compute start-iap-tunnel'"
                     prompt_for_info "$prompt_txt"
@@ -1432,13 +1433,13 @@ geo_ar() {
                 local get_open_port_python_code='import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()'
                 local open_port=$(python -c "$get_open_port_python_code")
                 # Try using python3 if open port wasn't found.
-                [[ -z $open_port ]] && open_port=$(python3 -c "$get_open_port_python_code")            
+                [[ -z $open_port ]] && open_port=$(python3 -c "$get_open_port_python_code")
                 [[ -z $open_port ]] && Error 'Open port could not be found' && return 1
 
                 status -bu 'Opening IAP tunnel'
                 if [[ -n $open_port ]]; then
                     local port_arg='--local-host-port=localhost:'$open_port
-                    
+
                     geo_set AR_PORT "$open_port"
                     info "Using port: '$open_port' to open IAP tunnel"
                     info "Note: the port is saved and will be used when you call '$(txt_italic geo ar ssh)'"
@@ -1497,7 +1498,7 @@ geo_ar() {
                         # Start up IAP tunnel in the background.
                         $gcloud_cmd $port_arg &
                     fi
-                    
+
                     # Wait for the tunnel to start.
                     status 'Waiting for tunnel to open before stating SSH session...'
                     echo
@@ -1506,7 +1507,7 @@ geo_ar() {
                     # This allows users to easily re-connect to the server after the session times out.
                     # The -n option tells geo ar ssh not to store the port; the -p option specifies the ssh port.
                     geo_ar ssh -n -p $open_port
-                    
+
                     fg
                 else
                     $gcloud_cmd $port_arg
@@ -1527,14 +1528,14 @@ geo_ar() {
                 # Don't save port/user if -n (no save) option supplied. This option is used in geo ar tunnel so that re-opening
                 # an SSH session doesn't overwrite the most recent port (from the newest IAP tunnel, which may be different from this one).
                 [[ $1 == '-n' ]] && save= && shift
-                # The -r option will cause the ssh tunnel to run ('r' for run) once and then return without looping. 
+                # The -r option will cause the ssh tunnel to run ('r' for run) once and then return without looping.
                 [[ $1 == '-r' ]] && loop=false && shift
                 [[ $1 == '-p' ]] && port=$2 && shift 2 && ((option_count++))
                 [[ $1 == '-u' ]] && user=$2 && shift 2 && ((option_count++))
             done
 
             [[ -z $port ]] && Error "No port found. Add a port with the -p <port> option." && return 1
-            
+
             echo
             status -bu 'Opening SSH session'
             info "Using user '$user' and port '$port' to open SSH session."
@@ -1548,7 +1549,7 @@ geo_ar() {
             fi
 
             local cmd="ssh $user@localhost -p $port"
-            
+
             # Run the ssh command once and then return if loop was disabled (with the -r option)
             if [[ $loop == false ]]; then
                 debug "$cmd"
@@ -1556,7 +1557,7 @@ geo_ar() {
                 $cmd
                 return
             fi
-            
+
             # Continuously ask the user to re-open the ssh session (until ctrl + C is pressed, killing the tunnel).
             # This allows users to easily re-connect to the server after the session times out.
             while true; do
@@ -1631,7 +1632,7 @@ _geo_ar_get_cmd_from_tag() {
 _geo_ar_get_cmd() {
     local cmd_number="$1"
     [[ -z $cmd_number || $cmd_number -gt 5 || $cmd_number -lt 0 ]] && Error "Invalid command number. Expected a value between 0 and 5." && return 1
-    
+
     local cmds=$(geo_get AR_IAP_CMDS)
     if [[ -z $cmds ]]; then
         return
@@ -1758,7 +1759,7 @@ geo_init() {
             # debug "fail $fail_count"
             ((fail_count == 0))
         )
-        
+
         if [[ $? != 0 ]]; then
             Error "npm install failed $"
             if [[ $close_delayed == true ]]; then
@@ -1864,7 +1865,7 @@ COMMANDS+=('env')
 geo_env_doc() {
     doc_cmd 'env <cmd> [arg1] [arg2]'
     doc_cmd_desc 'Get, set, or list geo environment variable.'
-    
+
     doc_cmd_sub_cmds_title
         doc_cmd_sub_cmd 'get <env_var>'
             doc_cmd_sub_cmd_desc 'Gets the value for the env var.'
@@ -1969,7 +1970,7 @@ geo_set() {
         ) 200> /tmp/.geo.conf.lock
         [[ $? != 0 ]] && return 1
     fi
-        
+
 
     # local final_line_count=$(wc -l $GEO_CLI_CONF_FILE | awk '{print $1}')
 
@@ -2006,7 +2007,7 @@ geo_get() {
     [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
 
     value=$(cfg_read $GEO_CLI_CONF_FILE $key)
-    
+
     # Prevent the geo-cli repo dir from being set to ''.
     [[ $key == GEO_CLI_DIR && -z $value && -n $GEO_CLI_DIR ]] && value="$GEO_CLI_DIR"
 
@@ -2037,7 +2038,7 @@ geo_rm() {
     [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
 
     ! geo_haskey "$key" && return 1
-    
+
     (
         # Get an exclusive lock on file descriptor 200, waiting only 5 second before timing out.
         flock -w 5 -e 200
@@ -2081,7 +2082,7 @@ _geo_push() {
     else
         stored_items="$value"
     fi
-    
+
     # Get the count of how many items there are.
     local count=$(echo $stored_items | awk -F '@' '{ print NF }')
 #    debug $count
@@ -2102,7 +2103,7 @@ _geo_push_get_item() {
     local key="$1"
     local item_number="$2"
     [[ -z $item_number || $item_number -gt 5 || $item_number -lt 0 ]] && Error "Invalid command number. Expected a value between 0 and 5." && return 1
-    
+
     local items=$(geo_get $key)
     if [[ -z $items ]]; then
         return
@@ -2133,7 +2134,7 @@ geo_update() {
     local geo_cli_dir="$(geo_get GEO_CLI_DIR)"
     local prev_commit="$(geo_get GIT_PREVIOUS_COMMIT)"
     local new_commit=
-    
+
     (
         cd $geo_cli_dir
         [[ -z $prev_commit ]] && prev_commit=$(git rev-parse HEAD)
@@ -2146,7 +2147,7 @@ geo_update() {
         geo_set GIT_PREVIOUS_COMMIT "$new_commit"
     )
     # debug "$prev_commit $new_commit"
-    
+
     # Re-source .bashrc to reload geo in this terminal
     . ~/.bashrc
 }
@@ -2158,7 +2159,7 @@ _geo_check_if_feature_branch_merged() {
     [[ $feature_version != MERGED ]] && return 1
 
     local msg="The feature branch you are on has been merged and is no longer being maintained.\nSwitch back to the main branch now? (Y|n): "
-    
+
     if prompt_continue "$msg"; then
         (
             cd "$GEO_CLI_DIR"
@@ -2261,7 +2262,7 @@ geo_analyze() {
     done
     local dev_repo=$(geo_get DEV_REPO_DIR)
     local prev_ids=$(geo_get ANALYZER_IDS)
-    
+
     status "Valid IDs from 0 to ${max_id}"
     local prompt_txt='Enter the analyzer IDs that you would like to run (separated by spaces): '
 
@@ -2524,7 +2525,7 @@ geo_id() {
     [[ $1 == -i ]] && interactive=true && shift
     [[ $1 == -o ]] && format_output=false && shift
     local arg="$1"
-    
+
     local id=
     # The regex for identifying guids (e.g., 00e74ee1-97e7-4f28-9f5e-2ad222451f6d).
     local guid_re='^[[:alnum:]]+-[[:alnum:]]+-[[:alnum:]]+-[[:alnum:]]+-[[:alnum:]]+$'
@@ -2533,7 +2534,7 @@ geo_id() {
     local encoded_guid_re='^a[a-zA-Z0-9_-]{22,22}$'
     local msg=
     number_re='^[0-9]+$'
-  
+
     convert_id() {
         arg=${1:-$arg}
         local first_char=${arg:0:1}
@@ -2608,7 +2609,7 @@ geo_id() {
             return 1
         fi
     }
-    
+
     if [[ $interactive == true || $use_clipboard == true ]]; then
         clipboard=$(xclip -o)
         # debug "Clip $clipboard"
@@ -2718,7 +2719,7 @@ COMMANDS+=('indicator')
 geo_indicator_doc() {
     doc_cmd 'indicator <command>'
     doc_cmd_desc 'Enables or disables the app indicator.'
-    
+
     doc_cmd_sub_cmds_title
         doc_cmd_sub_cmd 'enable'
             doc_cmd_sub_cmd_desc 'Enable the app indicator.'
@@ -2780,8 +2781,8 @@ geo_indicator() {
             # Replace the environment variables in the script file (with the ones loaded in this context)
             # and then copy the contents to a file at the bin path
             # tmp_file=/tmp/geo_ind_init_script.sh
-            
-            
+
+
             export geo_indicator_path="$init_script_path"
             # export indicator_py_path="$src_dir/indicator/geo-indicator.py"
             envsubst < $service_file_path > $indicator_service_path
@@ -2791,7 +2792,7 @@ geo_indicator() {
             # envsubst < $desktop_file_path > $app_desktop_entry_dir/$geo_indicator_desktop_file_name
             # update-desktop-database $app_desktop_entry_dir
             # sudo chmod 777 $indicator_bin_path
-            
+
             systemctl --user daemon-reload
             systemctl --user enable --now $geo_indicator_service_name
             systemctl --user restart $geo_indicator_service_name
@@ -2923,7 +2924,7 @@ geo_test() {
     local find_unreliable='false'
     while [[ $1 =~ ^-+ ]]; do
         case "${1}" in
-            -d | --docker ) 
+            -d | --docker )
                 if [[ ! -f $script_path ]]; then
                     Error "Script to run ci docker environment locally not found in:\n  '${script_path}'."
                     warn "\nThis option is currently only supported for MyGeotab version 9.0 or later (current version is $(geo_dev release)). Running locally instead.\n"
@@ -2931,7 +2932,7 @@ geo_test() {
                     use_docker=true
                 fi
                 ;;
-            -i ) 
+            -i )
                 interactive=true
                 ;;
             -n )
@@ -2955,7 +2956,7 @@ geo_test() {
                 seeds=$2
                 find_unreliable='true'
                 ;;
-            * ) 
+            * )
                 Error "Invalid option: '$1'"
                 return 1
                 ;;
@@ -3148,7 +3149,7 @@ _geo_auto_switch_server_config() {
     local prev_server_config_path="$server_config_storage_path/server.config_${prev_myg_release}"
     local next_server_config_name="server.config_${cur_myg_release}"
     local next_server_config_path="$server_config_storage_path/${next_server_config_name}"
-    
+
     [[ -e $cur_myg_release || -e $prev_myg_release ]] && Error "cur_myg_release or prev_myg_release missing" && return 1
 
     if [[ ! -f $server_config_path ]]; then
@@ -3218,13 +3219,13 @@ check_docker_installation() {
                 software-properties-common
             sudo apt-get install -y build-essential make gcc g++ python
             curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-            
+
             # Remove old version of docker-compose
             [ -f /usr/local/bin/docker-compose ] && sudo rm /usr/local/bin/docker-compose
             # Get the latest docker-compose version
             COMPOSE_VERSION=`git ls-remote https://github.com/docker/compose | grep refs/tags | grep -oE "[0-9]+\.[0-9][0-9]+\.[0-9]+$" | sort --version-sort | tail -n 1`
             sudo curl -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION:-1.28.6}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-            
+
             sudo apt-key fingerprint 0EBFCD88
             sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
 
@@ -3250,7 +3251,7 @@ _geo_print_messages_between_commits_after_update() {
     local cur_commit=$2
 
     local geo_cli_dir="$(geo_get GEO_CLI_DIR)"
-    
+
     (
         cd $geo_cli_dir
         local commit_msgs=$(git log --oneline --ancestry-path $prev_commit..$cur_commit)
@@ -3487,7 +3488,7 @@ fmt_text() {
     # echo interprets '-e' as a command line switch, so a space is added to it so that it will actually be printed.
     re='^ *-e$'
     [[ $txt =~ $re ]] && txt+=' '
-    
+
     # Replace 2 or more spaces with a single space and \n with a single space.
     [[ $keep_spaces = false ]] && txt=$(echo "$txt" | tr '\n' ' ' | sed -E 's/ {2,}/ /g')
 
@@ -3507,7 +3508,7 @@ fmt_text() {
     # "some-str". printf "%.3s" "some-str" would print 'som' (3 chars).
     sed_pattern+=$(printf "$indent_str%.0s" $(seq 1 $indent))
     sed_pattern+="/g"
-    
+
     # Text is piped into fmt to format the text to the correct width, then
     # indented using the sed substitution.
     echo "$txt" | fmt -w $width | sed "$sed_pattern"
@@ -3520,7 +3521,7 @@ fmt_text() {
 #   1 (long_text):  The long line of text
 #   2 (base_indent): The base indent amount that all of the text will be indented by (the number of spaces to add to prefix each line with)
 #   3 (additional_indent): The number of additional spaces to prefix wrapped lines with
-# Example: 
+# Example:
 #   (Assuming the terminal width is 40)
 #   long_text="A very very very very very very very very very very very very very very very very long line"
 #   base_indent=4
@@ -3740,7 +3741,7 @@ _stacktrace() {
         # debug "_stacktrace: ${FUNCNAME[@]}"
         local stacktrace="${FUNCNAME[@]:start}"
         local stacktrace_reversed=
-        for f in $stacktrace; do 
+        for f in $stacktrace; do
             [[ -z $stacktrace_reversed ]] && stacktrace_reversed=$f && continue
             stacktrace_reversed="$f -> $stacktrace_reversed"
         done
@@ -3902,7 +3903,7 @@ prompt_continue() {
     else
         prompt_n "$1"
     fi
-    
+
     read answer
 
     [[ $answer =~ $regex || -z $answer && $default == yes ]]
@@ -3965,7 +3966,7 @@ doc_handle_subcommand() {
 init_completions() {
     local cmd=
     local completions=
-    
+
     [[ ! -f $GEO_CLI_AUTOCOMPLETE_FILE ]] && touch "$GEO_CLI_AUTOCOMPLETE_FILE"
 
     while read line; do
@@ -4016,16 +4017,16 @@ _geo_complete()
     local cur prev
     # echo "COMP_WORDS: ${COMP_WORDS[@]}" >> bcompletions.txt
     # echo "COMP_CWORD: $COMP_CWORD" >> bcompletions.txt
-    cur=${COMP_WORDS[COMP_CWORD]} 
+    cur=${COMP_WORDS[COMP_CWORD]}
     # echo "cur: ${COMP_WORDS[COMP_CWORD]}"  >> bcompletions.txt
     prev=${COMP_WORDS[$COMP_CWORD-1]}
     prevprev=${COMP_WORDS[$COMP_CWORD-2]}
     # echo "prev: $prev"  >> bcompletions.txt
     case ${COMP_CWORD} in
-        # e.g., geo 
+        # e.g., geo
         1)
             local cmds="${COMMANDS[@]}"
-            
+
             COMPREPLY=($(compgen -W "$cmds" -- ${cur}))
             ;;
         # e.g., geo db
@@ -4039,9 +4040,9 @@ _geo_complete()
                 esac
             else
                 COMPREPLY=()
-                
+
             fi
-            
+
             # case ${prev} in
             #     configure)
             #         COMPREPLY=($(compgen -W "CM DSP NPU" -- ${cur}))
