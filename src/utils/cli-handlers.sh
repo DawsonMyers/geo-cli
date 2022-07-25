@@ -3015,7 +3015,8 @@ geo_test() {
 
     _geo_push TEST_FILTERS "$test_filter"
 
-    local geotab_data_dir="$USER/GEOTAB"
+    local geotab_data_dir="$HOME/GEOTAB/Checkmate/"
+    debug "$geotab_data_dir"
     if [[ $find_unreliable == true ]]; then
         (
             debug "seeds: ${seeds[@]}"
