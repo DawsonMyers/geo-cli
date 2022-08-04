@@ -29,6 +29,14 @@ alias zrc=". ~/.zshrc"
 export GEO_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
 export GEO_CLI_SRC_DIR="${GEO_CLI_DIR}/src"
 
+# Load environment variable files.
+[[ ! -d $GEO_CLI_CONFIG_DIR/env ]] && mkdir -p "$GEO_CLI_CONFIG_DIR/env"
+if [[ $(ls -A $GEO_CLI_CONFIG_DIR/env) ]]; then
+    for file in $GEO_CLI_CONFIG_DIR/env/*.sh ; do
+        . $file
+    done
+fi
+
 # Gives the path of the file that was passed in when the script was executed. Could be relative
 # SOURCE="${BASH_SOURCE[0]}"
 # DIR_NAME=`dirname $SOURCE`

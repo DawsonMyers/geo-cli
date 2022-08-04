@@ -1705,6 +1705,13 @@ geo_init_doc() {
             doc_cmd_sub_cmd_desc 'Init Development repo directory using the current directory.'
         doc_cmd_sub_cmd 'npm'
             doc_cmd_sub_cmd_desc "Runs 'npm install' in both the wwwroot and drive CheckmateServer directories. This is quick way to fix the npm dependencies after Switching to a different MYG release branch."
+        doc_cmd_sub_cmd 'pat'
+            doc_cmd_sub_cmd_desc "Sets up the GitLab Personal Access Token environment variables."
+            doc_cmd_sub_options_title
+                doc_cmd_sub_option '-r'
+                    doc_cmd_sub_option_desc 'Removes the PAT environment variables.'
+                doc_cmd_sub_option '-v'
+                    doc_cmd_sub_option_desc 'View the current PAT environment variable file.'
 
     doc_cmd_examples_title
         doc_cmd_example 'geo init repo'
@@ -1777,7 +1784,47 @@ geo_init() {
             exit 0
         fi
         ;;
+    pat )
+        geo_init_pat $2
+        ;;
     esac
+}
+
+geo_init_pat() {
+    mkdir -p "$GEO_CLI_CONFIG_DIR/env"
+    local pat_env_file_path="$GEO_CLI_CONFIG_DIR/env/gitlab-pat.sh"
+
+    if [[ $1 == -r ]]; then
+        if prompt_continue "Remove geo-cli PAT environment variable initialization? (Y|n)"; then
+            rm "$pat_env_file_path" && success "Done" || Error "Failed to remove file"
+        fi
+        return
+    fi
+
+    if [[ $1 == -v ]]; then
+        [[ ! -f "$pat_env_file_path" ]] && Error "PAT environment variable file doesn't exist" && return 1
+        cat "$pat_env_file_path"
+        return
+    fi
+            
+    status "Note: This feature automates the environment variable setup from the following guide:"
+    info "https://docs.google.com/document/d/13TbaF2icEWqtxg1altUbI0Jn18KxoSPb9eKvKuxcxHg/edit?hl=en&forcehl=1"
+    echo
+    prompt_for_info_n "Enter your GitLab username: "
+    local username="$prompt_return"
+    echo
+    # status "Using '$username' as username"
+    status -b "Create your GitLab Personal Access Token (PAT) at the following link and then past it in below:"
+    info "https://git.geotab.com/-/profile/personal_access_tokens?name=geotab-gitlab-package-repository&scopes=read_api"
+    echo
+    prompt_for_info_n "Enter your GitLab PAT: "
+    local pat="$prompt_return"
+    cat <<-EOF > "$pat_env_file_path"
+export GITLAB_PACKAGE_REGISTRY_USERNAME=$username
+export GITLAB_PACKAGE_REGISTRY_PASSWORD=$pat
+EOF
+    echo
+    success "Done"
 }
 
 ###########################################################
