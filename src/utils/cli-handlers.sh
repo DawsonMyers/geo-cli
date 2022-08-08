@@ -2300,6 +2300,8 @@ geo_analyze_doc() {
             doc_cmd_option_desc 'Run previous analyzers'
         doc_cmd_option -b
             doc_cmd_option_desc 'Run analyzers in batches (reduces runtime, but is only supported in 2104+)'
+        doc_cmd_option -g
+            doc_cmd_option_desc 'Run run GW-Linux-Debug pipeline analyzer.'
     # doc_cmd_option -i
     # doc_cmd_option_desc 'Run analyzers individually (building each time)'
 
@@ -2309,8 +2311,22 @@ geo_analyze_doc() {
         doc_cmd_example 'geo analyze 0 3 6'
 }
 geo_analyze() {
+    local dev_repo=$(geo_get DEV_REPO_DIR)
     MYG_CORE_PROJ='Checkmate/MyGeotab.Core.csproj'
     MYG_TEST_PROJ='Checkmate/MyGeotab.Core.Tests/MyGeotab.Core.Tests.csproj'
+
+    # TODO: Add better support for GW-Linux-Debug pipeline test.
+    # Run with: dotnet build -c Debug -r ubuntu-x64 GatewayServer.Tests.csproj
+    MYG_GATEWAY_TEST_PROJ='Checkmate/GatewayServer/tests/GatewayServer.Tests.csproj'
+    if [[ $1 == -g ]]; then
+        (
+            cd "$dev_repo"
+            pwd
+            dotnet build -c Debug -r ubuntu-x64 $MYG_GATEWAY_TEST_PROJ
+        )
+        return
+    fi
+
     # Analyzer info: an array containing "name project" strings for each analyzer.
     analyzers=(
         "CSharp.CodeStyle $MYG_TEST_PROJ"
@@ -2337,7 +2353,7 @@ geo_analyze() {
 
         printf '%-4d %-38s %-8s\n' $id "${analyzer[$name]}" "$project"
     done
-    local dev_repo=$(geo_get DEV_REPO_DIR)
+    
     local prev_ids=$(geo_get ANALYZER_IDS)
 
     status "Valid IDs from 0 to ${max_id}"
@@ -2477,18 +2493,18 @@ geo_analyze() {
                 local run_core=true
                 local run_test=true
                 case "$run_project_only" in
-                'core' )
-                    run_test='false'
-                    test_analyzers_result='NOT RUN'
-                    echo
-                    status_bi 'Running Core project tests only'
-                    ;;
-                'test' )
-                    run_core='false'
-                    core_analyzers_result='NOT RUN'
-                    echo
-                    status_bi 'Running Core.Tests project tests only'
-                    ;;
+                    'core' )
+                        run_test='false'
+                        test_analyzers_result='NOT RUN'
+                        echo
+                        status_bi 'Running Core project tests only'
+                        ;;
+                    'test' )
+                        run_core='false'
+                        core_analyzers_result='NOT RUN'
+                        echo
+                        status_bi 'Running Core.Tests project tests only'
+                        ;;
                 esac
 
                 if [[ $core_analyzers_count -gt 0 && $run_core == 'true' ]]; then
