@@ -1819,7 +1819,6 @@ geo_init_pat() {
     prompt_for_info_n "Enter your GitLab username (not your email): "
     local username="$prompt_return"
     echo
-    # status "Using '$username' as username"
     status -b "Create your GitLab Personal Access Token (PAT) at the following link and then paste it in below:"
     data "https://git.geotab.com/-/profile/personal_access_tokens?name=geotab-gitlab-package-repository&scopes=read_api"
     
@@ -1849,7 +1848,7 @@ geo_init_pat() {
 export GITLAB_PACKAGE_REGISTRY_USERNAME=$username
 export GITLAB_PACKAGE_REGISTRY_PASSWORD=$pat
 EOF
-    chmod 770 "$pat_env_file_path"
+    chmod 600 "$pat_env_file_path"
 
     # Export the variables here so that they will be available in this terminal.
     export GITLAB_PACKAGE_REGISTRY_USERNAME=$username
