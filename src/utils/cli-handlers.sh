@@ -2337,6 +2337,8 @@ geo_analyze() {
         "Roslynator.Analyzers $MYG_TEST_PROJ"
         "Meziantou.Analyzer $MYG_TEST_PROJ"
         "Microsoft.CodeAnalysis.NetAnalyzers $MYG_TEST_PROJ"
+        "SonarAnalyzer.CSharp $MYG_CORE_PROJ"
+        "GW-Linux-Debug $MYG_GATEWAY_TEST_PROJ"
     )
     local len=${#analyzers[@]}
     local max_id=$((len - 1))
@@ -2350,6 +2352,7 @@ geo_analyze() {
         read -r -a analyzer <<<"${analyzers[$id]}"
         local project="$(info_bi Core)"
         [[ ${analyzer[$proj]} == $MYG_TEST_PROJ ]] && project=$(info 'Test')
+        [[ ${analyzer[$proj]} == $MYG_GATEWAY_TEST_PROJ ]] && project=$(info 'GW')
 
         printf '%-4d %-38s %-8s\n' $id "${analyzer[$name]}" "$project"
     done
@@ -2362,11 +2365,11 @@ geo_analyze() {
     local valid_input=false
     local ids=
 
-    # Default to running individually until cmd test batching is supported in more releases currently only 2104.
-    local run_individually=true
+    # Default to running in batches (much faster).
+    local run_individually=false
 
     local OPTIND
-    while getopts "ab" opt; do
+    while getopts "abi" opt; do
         case "${opt}" in
             # Check if the run all analyzers option (-a) was supplied.
             a )
@@ -2375,13 +2378,13 @@ geo_analyze() {
                 status_bi 'Running all analyzers'
                 ;;
             # Check if the run individually option (-i) was supplied.
-            # -i ) run_individually=true ;;
+            i ) run_individually=true ;;
             # Check if the batch run option (-b) was supplied.
             b )
                 run_individually=false
-                echo
-                status_bi 'Running analyzers in batches'
-                echo
+                # echo
+                # status_bi 'Running analyzers in batches'
+                # echo
                 ;;
             \? )
                 Error "Invalid option: $1"
@@ -2390,6 +2393,8 @@ geo_analyze() {
         esac
     done
     shift $((OPTIND - 1))
+
+    [[ $run_individually == false ]] && status -b "\nRunning analyzers in batches\n"
 
     # Check if the run previous analyzers option (-) was supplied.
     if [[ $1 =~ ^-$ ]]; then
@@ -2464,86 +2469,65 @@ geo_analyze() {
         run_analyzers() {
             echo
             warn "Press 'ctrl + \' to abort analyzers"
+            local stop_requested=false
+            quit() {
+                exit
+            }
+            trap quit INT TERM QUIT EXIT
 
             if [[ $run_individually = false ]]; then
-                local core_analyzers=
-                local core_analyzers_count=0
-                local core_analyzers_result=
-                local test_analyzers=
-                local test_analyzers_count=0
-                local test_analyzers_result=
+                declare -A target_analyzers
+                declare -A target_analyzers_count
+                declare -A target_analyzers_result
+                declare -A target_analyzer_project_name
                 for id in $ids; do
                     # echo $id
                     read -r -a analyzer <<<"${analyzers[$id]}"
                     analyzer_name="${analyzer[$name]}"
                     analyzer_proj="${analyzer[$proj]}"
-                    if [[ $analyzer_proj == $MYG_CORE_PROJ ]]; then
-                        ((core_analyzers_count++))
-                        core_analyzers+="$analyzer_name "
-                    else
-                        ((test_analyzers_count++))
-                        test_analyzers+="$analyzer_name "
-                    fi
+                    target_analyzers[$analyzer_proj]+="$analyzer_name "
+                    ((target_analyzers_count[$analyzer_proj]++))
+                    # Checkmate/MyGeotab.Core.csproj => MyGeotab.Core.csproj
+                    local project_name=${analyzer_proj##*/}
+                    # MyGeotab.Core.csproj => MyGeotab.Core
+                    project_name=${project_name/.csproj/}
+                    target_analyzer_project_name[$analyzer_proj]=$project_name
                 done
 
                 print_analyzers() {
                     for analyzer in $1; do status_i "  * $analyzer"; done
                 }
 
-                local run_core=true
-                local run_test=true
-                case "$run_project_only" in
-                    'core' )
-                        run_test='false'
-                        test_analyzers_result='NOT RUN'
-                        echo
-                        status_bi 'Running Core project tests only'
-                        ;;
-                    'test' )
-                        run_core='false'
-                        core_analyzers_result='NOT RUN'
-                        echo
-                        status_bi 'Running Core.Tests project tests only'
-                        ;;
-                esac
-
-                if [[ $core_analyzers_count -gt 0 && $run_core == 'true' ]]; then
+                for analyzer_project in ${!target_analyzers[@]}; do
+                    [[ ${target_analyzers_count[$analyzer_project]} -eq 0 ]] && continue
+                    # Checkmate/MyGeotab.Core.csproj => MyGeotab.Core
+                    local project_name=${target_analyzer_project_name[$analyzer_project]}
                     echo
-                    status_bi "Running the following $core_analyzers_count analyzer(s) against MyGeotab.Core:"
-                    print_analyzers "$core_analyzers"
+                    status_bi "Running the following ${target_analyzers_count[$analyzer_project]} analyzer(s) against $(txt_underline $project_name):"
+                    print_analyzers "${target_analyzers[$analyzer_project]}"
                     echo
 
-                    if ! dotnet build -p:DebugAnalyzers="${core_analyzers}" -p:TreatWarningsAsErrors=false -p:RunAnalyzersDuringBuild=true ${MYG_CORE_PROJ}; then
+                    [[ $stop_requested == true ]] && break
+
+                    if ! dotnet build -p:DebugAnalyzers="${target_analyzers[$analyzer_project]}" -p:TreatWarningsAsErrors=false -p:RunAnalyzersDuringBuild=true ${MYG_CORE_PROJ}; then
                         echo
-                        Error "Running MyGeotab.Core analyzer(s) failed"
-                        core_analyzers_result=$(red FAIL)
+                        Error "Running $project_name analyzer(s) failed"
+                        target_analyzers_result[$analyzer_project]=$(red FAIL)
                     else
-                        success 'MyGeotab.Core analyzer(s) done'
-                        core_analyzers_result=$(green PASS)
+                        success "$project_name analyzer(s) done"
+                        target_analyzers_result[$analyzer_project]=$(green PASS)
                     fi
-                fi
 
-                if [[ $test_analyzers_count -gt 0 && $run_test == 'true' ]]; then
-                    echo
-                    status_bi "Running the following $test_analyzers_count analyzer(s) against MyGeotab.Core.Tests:"
-                    print_analyzers "$test_analyzers"
-                    echo
-
-                    if ! dotnet build -p:DebugAnalyzers="${test_analyzers}" -p:TreatWarningsAsErrors=false -p:RunAnalyzersDuringBuild=true ${MYG_TEST_PROJ}; then
-                        echo
-                        Error "Running MyGeotab.Core.Tests analyzer(s) failed"
-                        test_analyzers_result=$(red FAIL)
-                    else
-                        success 'MyGeotab.Core.Tests analyzer(s) done'
-                        test_analyzers_result=$(green PASS)
-                    fi
-                fi
+                done;
 
                 echo
                 info -b 'Results'
-                data_header 'Project                     Status'
-                data "MyGeotab.Core               $core_analyzers_result"
-                data "MyGeotab.Core.Tests         $test_analyzers_result"
+                data_header "$(printf '%-32s %-8s' Project Status)"
+                for analyzer_project in ${!target_analyzers_result[@]}; do
+                    name=${target_analyzer_project_name[$analyzer_project]}
+                    result=${target_analyzers_result[$analyzer_project]}
+                    data "$(printf '%-33s %-8s' $name $result)"
+                done
                 echo
                 info_b 'The total time was:'
                 return
