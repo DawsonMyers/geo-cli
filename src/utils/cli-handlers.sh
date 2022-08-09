@@ -1822,28 +1822,34 @@ geo_init_pat() {
     # status "Using '$username' as username"
     status -b "Create your GitLab Personal Access Token (PAT) at the following link and then paste it in below:"
     data "https://git.geotab.com/-/profile/personal_access_tokens?name=geotab-gitlab-package-repository&scopes=read_api"
-    echo
-    prompt_for_info_n "Enter your GitLab PAT: "
-    local pat="$prompt_return"
-    local repo_url='https://git.geotab.com/api/v4/projects/4953/registry/repositories'
-    local curl_command='curl --header "PRIVATE-TOKEN: '$pat'" "'$repo_url'"'
-    local curl_args=(--header "PRIVATE-TOKEN: $pat" "$repo_url")
-    status -b "Testing PAT using the following command:"
-    data $curl_command
+    
+    while true; do
+        echo
+        prompt_for_info_n "Enter your GitLab PAT: "
+        local pat="$prompt_return"
+        local repo_url='https://git.geotab.com/api/v4/projects/4953/registry/repositories'
+        local curl_command='curl --header "PRIVATE-TOKEN: '$pat'" "'$repo_url'"'
+        local curl_args=(--header "PRIVATE-TOKEN: $pat" "$repo_url")
+        status -b "Testing PAT using the following command:"
+        data $curl_command
 
-    local pat_check_result=$(curl "${curl_args[@]}")
+        local pat_check_result=$(curl "${curl_args[@]}")
 
-    if [[ $pat_check_result != '[]' ]]; then
-        warn "The PAT entered could not be validated"
-        warn "The expected return value was '[]' but got this instead: '$pat_check_result'"
-        if ! prompt_continue "Would you like to use this PAT anyways?"; then
-            return 1
+        if [[ $pat_check_result != '[]' ]]; then
+            warn "The PAT entered could not be validated"
+            warn "The expected return value was '[]' but got this instead: '$pat_check_result'"
+            if prompt_continue "Would you like to use this PAT anyways? (Y|n): "; then
+                break
+            fi
+            continue
         fi
-    fi
+        break
+    done
     cat <<-EOF > "$pat_env_file_path"
 export GITLAB_PACKAGE_REGISTRY_USERNAME=$username
 export GITLAB_PACKAGE_REGISTRY_PASSWORD=$pat
 EOF
+    chmod 770 "$pat_env_file_path"
 
     # Export the variables here so that they will be available in this terminal.
     export GITLAB_PACKAGE_REGISTRY_USERNAME=$username
@@ -1851,8 +1857,11 @@ EOF
 
     echo
     info "Evironment variables created:"
-    data "    GITLAB_PACKAGE_REGISTRY_USERNAME=$username"
-    data "    GITLAB_PACKAGE_REGISTRY_PASSWORD=$pat"
+    data "    GITLAB_PACKAGE_REGISTRY_USERNAME=$(detail $username)"
+    data "    GITLAB_PACKAGE_REGISTRY_PASSWORD=$(detail $pat)"
+    echo
+    info "Variable file created at:"
+    data "    $pat_env_file_path"
     echo
     success "Done"
 }

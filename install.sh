@@ -92,6 +92,9 @@ if [[ -z $running_in_headless_ubuntu ]]; then
     echo
 fi
 
+# Ensure GitLab environment variable file has correct permissions.
+PAT_ENV_VAR_FILE_PATH="$GEO_CLI_CONFIG_DIR/env/gitlab-pat.sh"
+[[ -f $PAT_ENV_VAR_FILE_PATH && $(stat -L -c '%a' $PAT_ENV_VAR_FILE_PATH) != 770 ]] && chmod 770 "$PAT_ENV_VAR_FILE_PATH"
 
 geo_check_for_dev_repo_dir
 
