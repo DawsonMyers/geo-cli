@@ -67,7 +67,9 @@ class IndicatorApp(object):
             n.set_urgency(Notify.Urgency.CRITICAL)
             n.show()
         except Exception as e:
-            print("show_quick_notification: exception: " + e)
+            print("show_quick_notification: exception occurred.")
+            print(e)
+            
         # Notification ref has to be held for the action to work.
         return n
 
@@ -92,7 +94,8 @@ class IndicatorApp(object):
                 n.close()
             GLib.timeout_add(1500, close)
         except Exception as e:
-            print("show_quick_notification: exception: " + e)
+            print("show_quick_notification: exception occurred.")
+            print(e)
 
     def show_notification(self, body, title='geo-cli', timeout=1500):
         if not geo.notifications_are_allowed():
@@ -115,7 +118,8 @@ class IndicatorApp(object):
                 n.close()
             GLib.timeout_add(timeout, close)
         except Exception as e:
-            print("show_notification: exception: " + e)
+            print("show_notification: exception occurred.")
+            print(e)
 
     def notification_handler(self, notification=None, action=None, data=None):
         print('notification_handler pressed')
@@ -266,7 +270,8 @@ def main():
             Gtk.main()
             retry = False
         except Exception as e:
-                print(f'main: retry={retry_count}, exception: ' + e)
+                print(f'main: retry={retry_count}')
+                print(e)
                 retry_count += 1
                 retry = True
                 time.sleep(5)
