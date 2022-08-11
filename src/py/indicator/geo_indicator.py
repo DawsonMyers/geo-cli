@@ -58,12 +58,16 @@ class IndicatorApp(object):
     def show_notification_with_action(self, body, title='geo-cli', timeout=1500, urgency=None):
         if not geo.notifications_are_allowed():
             return
-        if self.notification:
-            self.notification.close()
-        n=Notify.Notification.new("New mail", "You have  unread mails", icons.GEO_CLI)
-        n.add_action('action', 'Show Action', self.notification_handler)
-        n.set_urgency(Notify.Urgency.CRITICAL)
-        n.show()
+        n=None
+        try:
+            if self.notification:
+                self.notification.close()
+            n=Notify.Notification.new("New mail", "You have  unread mails", icons.GEO_CLI)
+            n.add_action('action', 'Show Action', self.notification_handler)
+            n.set_urgency(Notify.Urgency.CRITICAL)
+            n.show()
+        except Exception as e:
+            print("show_quick_notification: exception: " + e)
         # Notification ref has to be held for the action to work.
         return n
 
@@ -72,20 +76,23 @@ class IndicatorApp(object):
             return
 
         current_time = util.current_time_ms()
-        # Make sure only one notification is occuring at a time.
-        if current_time - self.last_notification_time < 1500:
-            GLib.timeout_add(1500, lambda: self.show_quick_notification(body, title))
-            return
-        self.last_notification_time = current_time
+        try:
+            # Make sure only one notification is occuring at a time.
+            if current_time - self.last_notification_time < 1500:
+                GLib.timeout_add(1500, lambda: self.show_quick_notification(body, title))
+                return
+            self.last_notification_time = current_time
 
-        n = Notify.Notification.new(title, body, icons.GEO_CLI)
-        n.set_urgency(Notify.Urgency.LOW)
-        n.set_timeout(300)
-        n.show()
+            n = Notify.Notification.new(title, body, icons.GEO_CLI)
+            n.set_urgency(Notify.Urgency.LOW)
+            n.set_timeout(300)
+            n.show()
 
-        def close():
-            n.close()
-        GLib.timeout_add(1500, close)
+            def close():
+                n.close()
+            GLib.timeout_add(1500, close)
+        except Exception as e:
+            print("show_quick_notification: exception: " + e)
 
     def show_notification(self, body, title='geo-cli', timeout=1500):
         if not geo.notifications_are_allowed():
@@ -98,14 +105,17 @@ class IndicatorApp(object):
             return
         self.last_notification_time = current_time
 
-        n = Notify.Notification.new(title, body, icons.GEO_CLI)
-        n.set_urgency(Notify.Urgency.LOW)
-        n.set_timeout(timeout)
-        n.show()
+        try:
+            n = Notify.Notification.new(title, body, icons.GEO_CLI)
+            n.set_urgency(Notify.Urgency.LOW)
+            n.set_timeout(timeout)
+            n.show()
 
-        def close():
-            n.close()
-        GLib.timeout_add(timeout, close)
+            def close():
+                n.close()
+            GLib.timeout_add(timeout, close)
+        except Exception as e:
+            print("show_notification: exception: " + e)
 
     def notification_handler(self, notification=None, action=None, data=None):
         print('notification_handler pressed')
@@ -247,9 +257,20 @@ class DialogExample(Gtk.Dialog):
 
 
 def main():
-    indicator = IndicatorApp()
-    geo.try_start_last_db()
-    Gtk.main()
+    retry_count = 0
+    retry = True
+    while retry and retry_count < 10:
+        try:
+            indicator = IndicatorApp()
+            geo.try_start_last_db()
+            Gtk.main()
+            retry = False
+        except Exception as e:
+                print(f'main: retry={retry_count}, exception: ' + e)
+                retry_count += 1
+                retry = True
+                time.sleep(5)
+    
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal.SIG_DFL)
