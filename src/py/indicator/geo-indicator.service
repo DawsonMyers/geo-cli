@@ -1,5 +1,7 @@
 [Unit]
 Description=geo-cli Application Indicator
+After=graphical-session.target
+Requires=graphical-session.target
 
 [Service]
 ExecStart=bash "$geo_indicator_path"
@@ -8,4 +10,4 @@ StandardOutput=syslog+console
 StandardError=syslog+console
 
 [Install]
-WantedBy=default.target
+WantedBy=graphical-session.target
