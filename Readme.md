@@ -24,6 +24,7 @@ A tool that makes MyGeotab development easier. Specifically, this tool aims to s
       - [Examples](#examples)
     - [Running Tests](#running-tests)
       - [Setting up a GitLab Access Token](#setting-up-a-gitlab-access-token)
+      - [Quarantining Tests](#quarantining-tests)
 - [`geo-ui` (NEW)](#geo-ui-new)
   - [Databases](#databases)
     - [Running DB](#running-db)
@@ -265,6 +266,42 @@ Go to https://git.geotab.com/-/profile/personal_access_tokens and create a token
 ```
 You will then be prompted for your GitLab username and a password. Paste (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd>) the access token in your clipboard when asked for the password.
 
+#### Quarantining Tests
+Use `geo quarantine` to add quarantine annotations to a broken test.
+
+Before running `geo quarantine`:
+```bash
+    [Fact]
+    public void Test()
+    {
+```
+
+After:
+```bash
+    [Fact]
+    [Trait("TestCategory", "Quarantine")]
+    [Trait("QuarantinedTestTicketLink", "")]
+    public void Test()
+    {
+```
+
+```bash
+geo quarantine [options] <FullyQualifiedTestName>
+      Adds quarantine annotations to a broken test and, optionally, commits the test file.
+        Options:
+            -b
+                Only print out the git blame for the test.
+            -c
+                Commit the file after adding the annotations to it.
+            -m <msg>
+                Add a custom commit message. If absent, the default commit
+                message will be "Quarantined test $testclass.$testname".
+        Example:
+            geo quarantine -c
+            CheckmateServer.Tests.Web.DriveApp.Login.ForgotPasswordTest.Test
+            geo quarantine -c -m 'Quarentine test'
+            CheckmateServer.Tests.Web.DriveApp.Login.ForgotPasswordTest.Test
+```
 
 # `geo-ui` (NEW)
 `geo-ui` is a tray menu UI (app indicator) that further simplifies MyGeotab development. It allows users to quickly access most of `geo-cli`'s features, as well as adding some additional ones, with just a couple mouse clicks.
@@ -428,12 +465,14 @@ Gives you the following:
                     -e 
                       Create blank Postgres 12 container.
             start [option] [name]
-                Starts (creating if necessary) a versioned db container and volume. If no name
-                is provided, the most recent db container name is started.
+                Starts (creating if necessary) a versioned db container and volume. If no name is provided, the
+                most recent db container name is started.
                   Options:
                     -y
                       Accept all prompts.
-            rm, remove <version>
+            cp <source_db> <destination_db>
+                Makes a copy of an existing database container.
+            rm, remove [option] <version> [additional version to remove]
                 Removes the container and volume associated with the provided version (e.g. 2004).
                   Options:
                     -a, --all
@@ -448,34 +487,29 @@ Gives you the following:
             ps
                 List running geo-cli db containers.
             init
-                Initialize a running db container with geotabdemo or an empty db with a custom
-                name.
+                Initialize a running db container with geotabdemo or an empty db with a custom name.
                   Options:
                     -y
                       Accept all prompts.
             psql [options]
-                Open an interactive psql session to geotabdemo (or a different db, if a db name
-                was provided with the -d option) in the running geo-cli db container. You can
-                also use the -q option to execute a query on the database instead of starting
-                an interactive session. The default username and password used to connect is
-                geotabuser and vircom43, respectively.
+                Open an interactive psql session to geotabdemo (or a different db, if a db name was provided with
+                the -d option) in the running geo-cli db container. You can also use the -q option to execute a
+                query on the database instead of starting an interactive session. The default username and password
+                used to connect is geotabuser and vircom43, respectively.
                   Options:
                     -d
-                      The name of the postgres database you want to connect to. The default
-                      value used is "geotabdemo"
+                      The name of the postgres database you want to connect to. The default value used is "geotabdemo"
                     -p
                       The admin sql password. The default value used is "vircom43"
                     -q
-                      A query to run with psql in the running container. This option will cause
-                      the result of the query to be returned instead of starting an interactive
-                      psql terminal.
+                      A query to run with psql in the running container. This option will cause the result of the
+                      query to be returned instead of starting an interactive psql terminal.
                     -u
                       The admin sql user. The default value used is "geotabuser"
             bash
                 Open a bash session with the running geo-cli db container.
             script <add|edit|ls|rm> <script_name>
-                Add, edit, list, or remove scripts that can be run with geo db psql -q
-                script_name.
+                Add, edit, list, or remove scripts that can be run with geo db psql -q script_name.
                   Options:
                     add
                       Adds a new script and opens it in a text editor.
@@ -491,6 +525,9 @@ Gives you the following:
             geo db create 2004
             geo db rm 2004
             geo db rm --all
+            geo db rm 7.0 8.0 9.0
+            geo db cp 9.0 9.1
+            geo db rm --all
             geo db ls
             geo db psql
             geo db psql -u mySqlUser -p mySqlPassword -d dbName
@@ -503,10 +540,6 @@ geo help
 ```
 
 <details>
-<summary>Click to collapse/fold full help output.</summary>
-
-
-```html
 Available commands:
     image
       Commands for working with db images.
@@ -530,12 +563,14 @@ Available commands:
                     -e 
                       Create blank Postgres 12 container.
             start [option] [name]
-                Starts (creating if necessary) a versioned db container and volume. If no name is provided,
-                the most recent db container name is started.
+                Starts (creating if necessary) a versioned db container and volume. If no name is provided, the
+                most recent db container name is started.
                   Options:
                     -y
                       Accept all prompts.
-            rm, remove <version>
+            cp <source_db> <destination_db>
+                Makes a copy of an existing database container.
+            rm, remove [option] <version> [additional version to remove]
                 Removes the container and volume associated with the provided version (e.g. 2004).
                   Options:
                     -a, --all
@@ -555,19 +590,18 @@ Available commands:
                     -y
                       Accept all prompts.
             psql [options]
-                Open an interactive psql session to geotabdemo (or a different db, if a db name was provided
-                with the -d option) in the running geo-cli db container. You can also use the -q option
-                to execute a query on the database instead of starting an interactive session. The default
-                username and password used to connect is geotabuser and vircom43, respectively.
+                Open an interactive psql session to geotabdemo (or a different db, if a db name was provided with
+                the -d option) in the running geo-cli db container. You can also use the -q option to execute a
+                query on the database instead of starting an interactive session. The default username and password
+                used to connect is geotabuser and vircom43, respectively.
                   Options:
                     -d
-                      The name of the postgres database you want to connect to. The default value used is
-                      "geotabdemo"
+                      The name of the postgres database you want to connect to. The default value used is "geotabdemo"
                     -p
                       The admin sql password. The default value used is "vircom43"
                     -q
-                      A query to run with psql in the running container. This option will cause the result
-                      of the query to be returned instead of starting an interactive psql terminal.
+                      A query to run with psql in the running container. This option will cause the result of the
+                      query to be returned instead of starting an interactive psql terminal.
                     -u
                       The admin sql user. The default value used is "geotabuser"
             bash
@@ -589,6 +623,9 @@ Available commands:
             geo db create 2004
             geo db rm 2004
             geo db rm --all
+            geo db rm 7.0 8.0 9.0
+            geo db cp 9.0 9.1
+            geo db rm --all
             geo db ls
             geo db psql
             geo db psql -u mySqlUser -p mySqlPassword -d dbName
@@ -599,10 +636,10 @@ Available commands:
             create
                 Opens up the My Access Request page on the MyAdmin website in Chrome.
             tunnel [gcloud start-iap-tunnel cmd]
-                Starts the IAP tunnel (using the gcloud start-iap-tunnel command copied from MyAdmin after
-                opening an access request) and then connects to the server over SSH. The port is saved and
-                used when you SSH to the server using geo ar ssh. This command will be saved and
-                re-used next time you call the command without any arguments (i.e. geo ar tunnel)
+                Starts the IAP tunnel (using the gcloud start-iap-tunnel command copied from MyAdmin after opening
+                an access request) and then connects to the server over SSH. The port is saved and used when you
+                SSH to the server using geo ar ssh. This command will be saved and re-used next time
+                you call the command without any arguments (i.e. geo ar tunnel)
                   Options:
                     -s
                       Only start the IAP tunnel without SSHing into it.
@@ -612,15 +649,15 @@ Available commands:
                 SSH into a server through the IAP tunnel started with geo ar ssh.
                   Options:
                     -p <port>
-                      The port to use when connecting to the server. This value is optional since the port
-                      that the IAP tunnel was opened on using geo ar ssh is used as the default value
+                      The port to use when connecting to the server. This value is optional since the port that
+                      the IAP tunnel was opened on using geo ar ssh is used as the default value
                     -u <user>
                       The user to use when connecting to the server. This value is optional since the username
-                      stored in $USER is used as the default value. The value supplied here will be stored
-                      and reused next time you call the command
+                      stored in $USER is used as the default value. The value supplied here will be stored and
+                      reused next time you call the command
         Example:
-            geo ar tunnel -s gcloud compute start-iap-tunnel gceseropst4-20220109062647 22
-            --project=geotab-serverops --zone=projects/709472407379/zones/northamerica-northeast1-b
+            geo ar tunnel -s gcloud compute start-iap-tunnel gceseropst4-20220109062647 22 --project=geotab-serverops
+            --zone=projects/709472407379/zones/northamerica-northeast1-b
             geo ar ssh
             geo ar ssh -p 12345
             geo ar ssh -u dawsonmyers
@@ -635,8 +672,15 @@ Available commands:
             repo
                 Init Development repo directory using the current directory.
             npm
-                Runs 'npm install' in both the wwwroot and drive CheckmateServer directories. This is quick
-                way to fix the npm dependencies after Switching to a different MYG release branch.
+                Runs 'npm install' in both the wwwroot and drive CheckmateServer directories. This is quick way to
+                fix the npm dependencies after Switching to a different MYG release branch.
+            pat
+                Sets up the GitLab Personal Access Token environment variables.
+                  Options:
+                    -r
+                      Removes the PAT environment variables.
+                    -l, --list
+                      List/display the current PAT environment variable file.
         Example:
             geo init repo
             geo init npm
@@ -679,29 +723,29 @@ Available commands:
             geo update
             geo update --force
     uninstall
-      Remove geo-cli installation. This prevents geo-cli from being loaded into new bash terminals, but does
-      not remove the geo-cli repo directory. Navigate to the geo-cli repo directory and run 'bash install.sh'
-      to reinstall.
+      Remove geo-cli installation. This prevents geo-cli from being loaded into new bash terminals, but does not
+      remove the geo-cli repo directory. Navigate to the geo-cli repo directory and run 'bash install.sh' to reinstall.
         Example:
             geo uninstall
     analyze [option or analyzerIds]
-      Allows you to select and run various pre-build analyzers. You can optionally include the list of
-      analyzers if already known.
+      Allows you to select and run various pre-build analyzers. You can optionally include the list of analyzers
+      if already known.
         Options:
             -a
                 Run all analyzers
             -
                 Run previous analyzers
-            -b
-                Run analyzers in batches (reduces runtime, but is only supported in 2104+)
+            -g
+                Run run GW-Linux-Debug pipeline analyzer.
+            -i
+                Run analyzers individually (building each time)
         Example:
             geo analyze
             geo analyze -a
             geo analyze 0 3 6
     id
-      Both encodes and decodes long and guid ids to simplify working with the MyGeotab API. The result is
-      copied to your clipboard. Guid encoded ids must be prefixed with 'a' and long encoded ids must be
-      prefixed with 'b'
+      Both encodes and decodes long and guid ids to simplify working with the MyGeotab API. The result is copied
+      to your clipboard. Guid encoded ids must be prefixed with 'a' and long encoded ids must be prefixed with 'b'
         Options:
             -o
                 Do not format output.
@@ -739,9 +783,39 @@ Available commands:
                 Restart the app indicator.
             status
                 Gets the systemctl service status for the app indicator.
+            cat
+                Print out the geo-indicator.service file.
+            show
+                Print out all configuration for the service.
+            edit
+                Edit the service file.
+            no-service
+                Runs the indicator directly (using python3).
+            log
+                # Show service logs.
+                  Options:
+                    -b[-#]
+                      Shows logs since the last boot. Can also use -b-n (n is a number) to get logs from n boots ago.
         Example:
             geo indicator enable
             geo indicator disable
+    test <filter>
+      Runs tests on the local build of MyGeotab.
+        Options:
+            -d, --docker
+                Run tests in a docker environment matching the one used in ci/cd pipelines. Requires docker to be
+                logged into gitlab.
+            -n <number of iterations>
+                Runs the test(s) n times.
+            -r, --random-n <number of iterations>
+                Runs the test(s) n times using random seeds.
+            --random-seed <seed>
+                Runs the test(s) a supplied random seed.
+        Example:
+            geo test UserTest.AddDriverScopeTest
+            geo test -r 3 UserTest.AddDriverScopeTest
+            geo test
+            "FullyQualifiedName=Geotab.Checkmate.ObjectModel.Tests.JSONSerializer.DisplayDiagnosticSerializerTest.DateRangeTest|FullyQualifiedName=Geotab.Checkmate.ObjectModel.Tests.JSONSerializer.DisplayDiagnosticSerializerTest.NotificationUserModifiedValueInfoTest"
     help, -h, --help
       Prints out help for all commands.
     dev
@@ -755,7 +829,19 @@ Available commands:
                 Returns the name of the MyGeotab release version of the currently checked out branch
             databases
                 Returns a list of all of the geo-cli database container names
-
+    quarantine [options] <FullyQualifiedTestName>
+      Adds quarantine annotations to a broken test and, optionally, commits the test file.
+        Options:
+            -b
+                Only print out the git blame for the test.
+            -c
+                Commit the file after adding the annotations to it.
+            -m <msg>
+                Add a custom commit message. If absent, the default commit message will be "Quarantined test
+                $testclass.$testname".
+        Example:
+            geo quarantine -c CheckmateServer.Tests.Web.DriveApp.Login.ForgotPasswordTest.Test
+            geo quarantine -c -m 'Quarentine test' CheckmateServer.Tests.Web.DriveApp.Login.ForgotPasswordTest.Test
 ```
 
 </details>

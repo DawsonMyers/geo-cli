@@ -2306,12 +2306,12 @@ geo_analyze_doc() {
             doc_cmd_option_desc 'Run all analyzers'
         doc_cmd_option -
             doc_cmd_option_desc 'Run previous analyzers'
-        doc_cmd_option -b
-            doc_cmd_option_desc 'Run analyzers in batches (reduces runtime, but is only supported in 2104+)'
+        # doc_cmd_option -b
+        #     doc_cmd_option_desc 'Run analyzers in batches (reduces runtime, but is only supported in 2104+)'
         doc_cmd_option -g
             doc_cmd_option_desc 'Run run GW-Linux-Debug pipeline analyzer.'
-    # doc_cmd_option -i
-    # doc_cmd_option_desc 'Run analyzers individually (building each time)'
+        doc_cmd_option -i
+            doc_cmd_option_desc 'Run analyzers individually (building each time)'
 
     doc_cmd_examples_title
         doc_cmd_example 'geo analyze'
@@ -2818,6 +2818,20 @@ geo_indicator_doc() {
             doc_cmd_sub_cmd_desc 'Restart the app indicator.'
         doc_cmd_sub_cmd 'status'
             doc_cmd_sub_cmd_desc 'Gets the systemctl service status for the app indicator.'
+        doc_cmd_sub_cmd 'cat'
+            doc_cmd_sub_cmd_desc 'Print out the geo-indicator.service file.'
+        doc_cmd_sub_cmd 'show'
+            doc_cmd_sub_cmd_desc 'Print out all configuration for the service.'
+        doc_cmd_sub_cmd 'edit'
+            doc_cmd_sub_cmd_desc 'Edit the service file.'
+        doc_cmd_sub_cmd 'no-service'
+            doc_cmd_sub_cmd_desc 'Runs the indicator directly (using python3).'
+        doc_cmd_sub_cmd 'log'
+            doc_cmd_sub_cmd_desc '# Show service logs.'
+            doc_cmd_sub_options_title
+                doc_cmd_sub_option '-b[-#]'
+                    doc_cmd_sub_option_desc 'Shows logs since the last boot. Can also use -b-n (n is a number) to get logs from n boots ago.'
+
     doc_cmd_examples_title
     doc_cmd_example 'geo indicator enable'
     doc_cmd_example 'geo indicator disable'
@@ -3225,6 +3239,91 @@ geo_dev() {
     esac
 }
 
+###########################################################
+COMMANDS+=('quarantine')
+geo_quarantine_doc() {
+    doc_cmd 'quarantine [options] <FullyQualifiedTestName>'
+    doc_cmd_desc 'Adds quarantine annotations to a broken test and, optionally, commits the test file.'
+
+    doc_cmd_options_title
+        doc_cmd_option '-b'
+            doc_cmd_option_desc 'Only print out the git blame for the test.'
+        doc_cmd_option '-c'
+            doc_cmd_option_desc 'Commit the file after adding the annotations to it.'
+        doc_cmd_option '-m <msg>'
+            doc_cmd_option_desc 'Add a custom commit message. If absent, the default commit message will be "Quarantined test $testclass.$testname".'
+    doc_cmd_examples_title
+        doc_cmd_example "geo quarantine -c CheckmateServer.Tests.Web.DriveApp.Login.ForgotPasswordTest.Test"
+        doc_cmd_example "geo quarantine -c -m 'Quarentine test' CheckmateServer.Tests.Web.DriveApp.Login.ForgotPasswordTest.Test"
+}
+geo_quarantine() {
+    local blame=false
+    local commit=false
+    local commit_msg=
+    local OPTIND
+    while getopts "bcm:" opt; do
+        # debug "OPTIND: $OPTIND"
+        # debug "OPTARG: $OPTARG"
+        case "${opt}" in
+            b ) blame=true ;;
+            c ) commit=true ;;
+            m ) commit_msg="$OPTARG" ;;
+            : )
+                Error "Option '${opt}' expects an argument."
+                return 1
+                ;;
+            \? )
+                Error "Invalid option: -${opt}"
+                return 1
+                ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+    # debug "commit: $commit"
+    # debug "commit_msg: $commit_msg"
+    # return
+
+    local full_name=$1
+    [[ -z $full_name ]] && Error "You must specify the fully qualified name of the test to quarantine." && return 1
+    local dev_repo=$(geo_get DEV_REPO_DIR)
+
+    (
+        cd "$dev_repo"
+        namespace=$(echo $full_name | awk 'BEGIN{FS=OFS="."}{NF--;NF--; print}')
+        testclass=$(echo $full_name | awk 'BEGIN{FS=OFS="."}{print $(NF-1)}')
+        testname=$(echo $full_name | awk 'BEGIN{FS=OFS="."}{print $NF}')
+        file=$(grep -l "$testname(" $(grep -l "$testclass" $(grep -r -l --include \*.cs "$namespace" .)))
+        
+        [[ $blame == true ]] && git blame $file -L /$testname\(/ --show-email && return
+        
+        # Prefix with line number.
+        # local match=grep -n -e " $testname(" $file
+        
+        local match=$(grep -e " $testname(" $file)
+        #     [Fact]
+        #     public void Test()
+        # Strip evertything from public onwards to get just the indentation.
+        local padding="${match%public*}"
+
+        local trait_category_annotation='[Trait("TestCategory", "Quarantine")]'
+        # Prepend '\' to the line so that leading spaces won't be removed by sed.
+        local trait_category_annotation_pad='\'"$padding"$trait_category_annotation
+        local trait_ticket_annotation='[Trait("QuarantinedTestTicketLink", "")]'
+        local trait_ticket_annotation_pad="$padding"$trait_ticket_annotation
+
+        local annotations="$trait_category_annotation_pad\n$trait_ticket_annotation_pad"
+        
+        # Add the annotations to the test.
+        sed -i "/ $testname(/i $annotations" "$file"
+
+        if [[ $commit == true ]]; then
+            local msg="Quarantined test $testclass.$testname"
+            commit_msg="${commit_msg:-$msg}"
+            git add "$file"
+            git commit -m "$commit_msg"
+        fi
+    )
+}
 
 _geo_auto_switch_server_config() {
     local cur_myg_release=$1
