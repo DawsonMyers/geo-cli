@@ -3321,16 +3321,21 @@ geo_quarantine() {
         # Strip evertything from public onwards to get just the indentation.
         local padding="${match%public*}"
 
-        local trait_category_annotation='[Trait("TestCategory", "Quarantine")]'
+        local trait_category_attribute='[Trait("TestCategory", "Quarantine")]'
         # Prepend '\' to the line so that leading spaces won't be removed by sed.
-        local trait_category_annotation_pad='\'"$padding"$trait_category_annotation
-        local trait_ticket_annotation='[Trait("QuarantinedTestTicketLink", "")]'
-        local trait_ticket_annotation_pad="$padding"$trait_ticket_annotation
+        local trait_category_attribute_pad='\'"$padding"$trait_category_attribute
+        local trait_ticket_attribute='[Trait("QuarantinedTestTicketLink", "")]'
+        local trait_ticket_attribute_pad="$padding"$trait_ticket_attribute
 
-        local annotations="$trait_category_annotation_pad\n$trait_ticket_annotation_pad"
+        local attributes="$trait_category_attribute_pad\n$trait_ticket_attribute_pad"
         
-        # Add the annotations to the test.
-        sed -i "/ $testname(/i $annotations" "$file"
+        # Add the attributes to the test.
+        if ! sed -i "/ $testname(/i $attributes" "$file"; then
+            Error "Failed to add attributes to test"
+            return 1
+        fi
+
+        status -b "Attributes added to test\n"
 
         if [[ $commit == true ]]; then
             local msg="Quarantined test $testclass.$testname"
@@ -3338,6 +3343,8 @@ geo_quarantine() {
             git add "$file"
             git commit -m "$commit_msg"
         fi
+        echo
+        success "Done"
     )
 }
 
