@@ -1355,6 +1355,8 @@ geo_ar_doc() {
             doc_cmd_sub_option_desc "Only start the IAP tunnel without SSHing into it."
             doc_cmd_sub_option '-l'
             doc_cmd_sub_option_desc "List and choose from previous IAP tunnel commands."
+            doc_cmd_sub_option '-p <port>'
+            doc_cmd_sub_option_desc "Specifies the port to open the IAP tunnel on. This port must be greater than 1024 and not be in use."
             # doc_cmd_sub_option_desc "Starts an SSH session to the server immediately after opening up the IAP tunnel."
         doc_cmd_sub_cmd 'ssh'
             doc_cmd_sub_cmd_desc "SSH into a server through the IAP tunnel started with $(green 'geo ar ssh')."
@@ -1383,11 +1385,13 @@ geo_ar() {
                 local start_ssh='true'
                 local prompt_for_cmd='false'
                 local list_previous_cmds='false'
+                local port=
                 while [[ $1 =~ ^- ]]; do
                     case "$1" in
                         -s ) start_ssh= ;;
                         --prompt ) prompt_for_cmd='true' ;;
                         -l ) list_previous_cmds='true' ;;
+                        -p ) port=$2 && shift ;;
                         * ) Error "Unknown option '$1'" && return 1 ;;
                     esac
                     shift
@@ -1430,8 +1434,20 @@ geo_ar() {
 
                 geo_set AR_IAP_CMD "$gcloud_cmd"
                 _geo_ar_push_cmd "$gcloud_cmd"
+                local open_port=
+                if [[ -n $port ]]; then
+                    local port_open_check_python_code='import socket; s=socket.socket(); s.bind(("", '$port')); s.close()'
+                    # 2>&1 redirects the stderr to stdout so that it can be stored in the variable.
+                    local port_check_result=$(python3 -c "$port_open_check_python_code" 2>&1 )
+                    if [[ $port_check_result =~ 'Address already in use' ]]; then
+                        Error "Port $port is already in use."
+                        return 1
+                    fi
+                    open_port=$port
+                fi
+                
                 local get_open_port_python_code='import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()'
-                local open_port=$(python -c "$get_open_port_python_code")
+                [[ -z $open_port ]] && open_port=$(python -c "$get_open_port_python_code")
                 # Try using python3 if open port wasn't found.
                 [[ -z $open_port ]] && open_port=$(python3 -c "$get_open_port_python_code")
                 [[ -z $open_port ]] && Error 'Open port could not be found' && return 1
@@ -3243,13 +3259,13 @@ geo_dev() {
 COMMANDS+=('quarantine')
 geo_quarantine_doc() {
     doc_cmd 'quarantine [options] <FullyQualifiedTestName>'
-    doc_cmd_desc 'Adds quarantine annotations to a broken test and, optionally, commits the test file.'
+    doc_cmd_desc 'Adds quarantine attributes to a broken test and, optionally, commits the test file.'
 
     doc_cmd_options_title
         doc_cmd_option '-b'
             doc_cmd_option_desc 'Only print out the git blame for the test.'
         doc_cmd_option '-c'
-            doc_cmd_option_desc 'Commit the file after adding the annotations to it.'
+            doc_cmd_option_desc 'Commit the file after adding the attributes to it.'
         doc_cmd_option '-m <msg>'
             doc_cmd_option_desc 'Add a custom commit message. If absent, the default commit message will be "Quarantined test $testclass.$testname".'
     doc_cmd_examples_title
