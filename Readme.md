@@ -267,7 +267,7 @@ Go to https://git.geotab.com/-/profile/personal_access_tokens and create a token
 You will then be prompted for your GitLab username and a password. Paste (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd>) the access token in your clipboard when asked for the password.
 
 #### Quarantining Tests
-Use `geo quarantine` to add quarantine annotations to a broken test.
+Use `geo quarantine` to add quarantine attributes to a broken test.
 
 Before running `geo quarantine`:
 ```bash

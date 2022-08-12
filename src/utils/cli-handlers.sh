@@ -3308,18 +3308,34 @@ geo_quarantine() {
         namespace=$(echo $full_name | awk 'BEGIN{FS=OFS="."}{NF--;NF--; print}')
         testclass=$(echo $full_name | awk 'BEGIN{FS=OFS="."}{print $(NF-1)}')
         testname=$(echo $full_name | awk 'BEGIN{FS=OFS="."}{print $NF}')
-        file=$(grep -l "$testname(" $(grep -l "$testclass" $(grep -r -l --include \*.cs "$namespace" .)))
+        file=$(grep -l " $testname(" $(grep -l "$testclass" $(grep -r -l --include \*.cs "$namespace" .)))
         
         [[ $blame == true ]] && git blame $file -L /$testname\(/ --show-email && return
         
         # Prefix with line number.
         # local match=grep -n -e " $testname(" $file
         
-        local match=$(grep -e " $testname(" $file)
+        # Match the test line and the previous 3 lines.
+        local match=$(grep -B 3 -e " $testname(" $file)
+        [[ -z $match ]] && Error "Could not find test." && return 1
+        # Get the last line, which is the test definition line (i.e. public void Test()).
+        local test_line=$(echo "$match" | tail -1)
+
+        # Check to see if the test already has quarantine attributes.
+        local attribute_text_check='"TestCategory", "Quarantine"|QuarantinedTestTicketLink'
+        if grep -E "$attribute_text_check" <<<"$match" > /dev/null; then
+            warn 'Test definition:'
+            echo ...
+            grep -B 3 -e " $testname(" $file
+            echo ...
+            Error 'Test is already quarantined.'
+            return 1
+        fi
+
         #     [Fact]
         #     public void Test()
         # Strip evertything from public onwards to get just the indentation.
-        local padding="${match%public*}"
+        local padding="${test_line%public*}"
 
         local trait_category_attribute='[Trait("TestCategory", "Quarantine")]'
         # Prepend '\' to the line so that leading spaces won't be removed by sed.
@@ -3335,15 +3351,19 @@ geo_quarantine() {
             return 1
         fi
 
-        status -b "Attributes added to test\n"
-
+        status -b "Attributes added to test"
+        echo ...
+        grep -B 3 -e " $testname(" $file
+        echo ...
+        
         if [[ $commit == true ]]; then
+            echo
             local msg="Quarantined test $testclass.$testname"
             commit_msg="${commit_msg:-$msg}"
             git add "$file"
             git commit -m "$commit_msg"
         fi
-        echo
+        
         success "Done"
     )
 }
