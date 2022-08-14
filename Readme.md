@@ -8,6 +8,7 @@ A tool that makes MyGeotab development easier. Specifically, this tool aims to s
 ## Table of Contents
 - [`geo-cli`](#geo-cli)
   - [Table of Contents](#table-of-contents)
+  - [Tab Completion](#tab-completion)
   - [Example](#example)
   - [Getting Started with `geo-cli`](#getting-started-with-geo-cli)
     - [Install](#install)
@@ -24,7 +25,7 @@ A tool that makes MyGeotab development easier. Specifically, this tool aims to s
       - [Examples](#examples)
     - [Running Tests](#running-tests)
       - [Setting up a GitLab Access Token](#setting-up-a-gitlab-access-token)
-      - [Quarantining Tests](#quarantining-tests)
+    - [Quarantining Tests](#quarantining-tests)
 - [`geo-ui` (NEW)](#geo-ui-new)
   - [Databases](#databases)
     - [Running DB](#running-db)
@@ -49,13 +50,32 @@ A tool that makes MyGeotab development easier. Specifically, this tool aims to s
 
 <!-- Make images > 892 px wide -->
 
+## Tab Completion
+`geo-cli` has extensive support for tab completion (double pressing the <kbd>Tab</kbd> key). It will show you what commands/subcommands are available, as well as possible command arguments for certain commands such as `geo db start/rm`.
+
+Completion for `geo` shows all commands available:
+```
+$ geo 
+analyze     dev         id          quarantine  test        
+ar          env         image       rm          uninstall   
+cd          get         indicator   set         update      
+db          help        init        stop        version
+```
+
+Completion for `geo db start` will show all of your databases (that you created with `geo-cli`) that can be started:
+```
+$ geo db start 
+6_0    7_0    8.0    9.0    91     
+```
+
+
 ## Example
 Lets say that you're developing a new feature on a `2004` branch of MyGeotab, but have to switch to a `2002` branch for a high priority bug fix that requires the use of `geotabdemo` (or any compatible database, for that matter). Switching to a compatible database is as simple as checking out the branch, **building the project** (only required when creating a new db container), and then running the following in a terminal:
 ```bash
 geo db start 2002
 ```
 
-> `2002` in the above command is just a name that you pick for the container and volume that `geo` creates for you; it can be any alphanumeric name you like. If a db container with that name already exists, it will just start that one instead of creating a new one.
+> `2002` in the above command is just a name that you pick for the container and volume that `geo` creates for you; it can be any alphanumeric name (including underscores and hyphens) you like. If a db container with that name already exists, it will just start that one instead of creating a new one.
 
 
 The output of this command is shown below:
@@ -226,7 +246,7 @@ Use the `geo id <id>` command to both encode and decode long and guid ids to sim
 
 Long Encode
 ```bash
-geo id 1234
+$ geo id 1234
 Encoded long id: 
 b4d2
 copied to clipboard
@@ -234,7 +254,7 @@ copied to clipboard
 
 Long Decode
 ```bash
-geo id b4d2
+$ geo id b4d2
 Decoded long id: 
 1234
 copied to clipboard
@@ -242,7 +262,7 @@ copied to clipboard
 
 Guid Encode
 ```bash
-geo id 00e74ee1-97e7-4f28-9f5e-2ad222451f6d
+$ geo id 00e74ee1-97e7-4f28-9f5e-2ad222451f6d
 Encoded guid id: 
 aAOdO4ZfnTyifXirSIkUfbQ
 copied to clipboard
@@ -250,7 +270,7 @@ copied to clipboard
 
 Guid Decode
 ```bash
-geo id aAOdO4ZfnTyifXirSIkUfbQ
+$ geo id aAOdO4ZfnTyifXirSIkUfbQ
 Decoded guid id: 
 00e74ee1-97e7-4f28-9f5e-2ad222451f6d
 copied to clipboard
@@ -266,18 +286,18 @@ Go to https://git.geotab.com/-/profile/personal_access_tokens and create a token
 ```
 You will then be prompted for your GitLab username and a password. Paste (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd>) the access token in your clipboard when asked for the password.
 
-#### Quarantining Tests
+### Quarantining Tests
 Use `geo quarantine` to add quarantine attributes to a broken test.
 
 Before running `geo quarantine`:
-```bash
+```cs
     [Fact]
     public void Test()
     {
 ```
 
 After:
-```bash
+```cs
     [Fact]
     [Trait("TestCategory", "Quarantine")]
     [Trait("QuarantinedTestTicketLink", "")]
@@ -285,9 +305,9 @@ After:
     {
 ```
 
-```bash
+```html
 geo quarantine [options] <FullyQualifiedTestName>
-      Adds quarantine annotations to a broken test and, optionally, commits the test file.
+      Adds quarantine attributes to a broken test and, optionally, commits the test file.
         Options:
             -b
                 Only print out the git blame for the test.
@@ -297,10 +317,8 @@ geo quarantine [options] <FullyQualifiedTestName>
                 Add a custom commit message. If absent, the default commit
                 message will be "Quarantined test $testclass.$testname".
         Example:
-            geo quarantine -c
-            CheckmateServer.Tests.Web.DriveApp.Login.ForgotPasswordTest.Test
-            geo quarantine -c -m 'Quarentine test'
-            CheckmateServer.Tests.Web.DriveApp.Login.ForgotPasswordTest.Test
+            geo quarantine -c CheckmateServer.Tests.Web.DriveApp.Login.ForgotPasswordTest.Test
+            geo quarantine -c -m 'Quarentine test' CheckmateServer.Tests.Web.DriveApp.Login.ForgotPasswordTest.Test
 ```
 
 # `geo-ui` (NEW)

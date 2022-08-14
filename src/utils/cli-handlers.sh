@@ -3273,17 +3273,22 @@ geo_quarantine_doc() {
         doc_cmd_example "geo quarantine -c -m 'Quarentine test' CheckmateServer.Tests.Web.DriveApp.Login.ForgotPasswordTest.Test"
 }
 geo_quarantine() {
+    local interactive=false
     local blame=false
     local commit=false
     local commit_msg=
+
+    [[ $1 == --interactive ]] && interactive=true && shift
+
     local OPTIND
-    while getopts "bcm:" opt; do
+    while getopts "bcim:" opt; do
         # debug "OPTIND: $OPTIND"
         # debug "OPTARG: $OPTARG"
         case "${opt}" in
             b ) blame=true ;;
             c ) commit=true ;;
             m ) commit_msg="$OPTARG" ;;
+            i ) interactive=true ;;
             : )
                 Error "Option '${opt}' expects an argument."
                 return 1
@@ -3300,37 +3305,92 @@ geo_quarantine() {
     # return
 
     local full_name=$1
-    [[ -z $full_name ]] && Error "You must specify the fully qualified name of the test to quarantine." && return 1
+
+    [[ -z $full_name && $interactive == false ]] && Error "You must specify the fully qualified name of the test to quarantine." && return 1
     local dev_repo=$(geo_get DEV_REPO_DIR)
 
     (
         cd "$dev_repo"
-        namespace=$(echo $full_name | awk 'BEGIN{FS=OFS="."}{NF--;NF--; print}')
-        testclass=$(echo $full_name | awk 'BEGIN{FS=OFS="."}{print $(NF-1)}')
-        testname=$(echo $full_name | awk 'BEGIN{FS=OFS="."}{print $NF}')
-        file=$(grep -l " $testname(" $(grep -l "$testclass" $(grep -r -l --include \*.cs "$namespace" .)))
-        
-        [[ $blame == true ]] && git blame $file -L /$testname\(/ --show-email && return
-        
-        # Prefix with line number.
-        # local match=grep -n -e " $testname(" $file
-        
-        # Match the test line and the previous 3 lines.
-        local match=$(grep -B 3 -e " $testname(" $file)
-        [[ -z $match ]] && Error "Could not find test." && return 1
-        # Get the last line, which is the test definition line (i.e. public void Test()).
-        local test_line=$(echo "$match" | tail -1)
+        local match=
+        local test_can_be_quarantined=false
+        local test_line=
+        # Matches a.b.c and beyond (i.e. a.b.c.d, a.b.c.d.e, etc).
+        local valid_test_name_re='\w+(\.\w+){2,}'
 
-        # Check to see if the test already has quarantine attributes.
-        local attribute_text_check='"TestCategory", "Quarantine"|QuarantinedTestTicketLink'
-        if grep -E "$attribute_text_check" <<<"$match" > /dev/null; then
-            warn 'Test definition:'
-            echo ...
-            grep -B 3 -e " $testname(" $file
-            echo ...
-            Error 'Test is already quarantined.'
-            return 1
-        fi
+        while [[ -z $match && $test_can_be_quarantined == false ]]; do
+            if [[ -z $full_name ]]; then
+                prompt_for_info "Enter the fully qualified name of a test to quarantine:"
+                full_name=$prompt_return
+                [[ -z $full_name ]] && continue
+            fi
+
+            if [[ ! $full_name =~ $valid_test_name_re ]]; then
+                Error "The fully qualified name of the test must be of the form:\n namspace.TestClassName.TestName"
+                if [[ $interactive == true ]]; then
+                    full_name=
+                    continue
+                fi
+                return 1
+            fi
+            namespace=$(echo $full_name | awk 'BEGIN{FS=OFS="."}{NF--;NF--; print}')
+            testclass=$(echo $full_name | awk 'BEGIN{FS=OFS="."}{print $(NF-1)}')
+            testname=$(echo $full_name | awk 'BEGIN{FS=OFS="."}{print $NF}')
+            file=$(timeout 5 grep -l -m 1 " $testname(" $(timeout 5 grep -l "$testclass" $(timeout 5 grep -r -l --include \*.cs "$namespace" .)))
+
+            if [[ -z $file ]]; then
+                Error "Couldn't find test file"
+                if [[ $interactive == true ]]; then
+                    full_name=
+                    continue
+                fi
+                return 1
+            fi
+
+            if [[ $(wc -l <<<"$file") -gt 1 ]]; then
+                Error "Multiple files found matching the provided test name"
+                if [[ $interactive == true ]]; then
+                    full_name=
+                    continue
+                fi
+                return 1
+            fi
+
+            [[ $blame == true ]] && git blame $file -L /$testname\(/ --show-email && return
+            
+            # Prefix with line number.
+            # local match=grep -n -e " $testname(" $file
+            
+            # Match the test line and the previous 3 lines.
+            match=$(grep -B 3 -e " $testname(" $file)
+            if [[ -z $match ]]; then 
+                Error "Test not found" 
+                if [[ $interactive == true ]]; then
+                    full_name=
+                    continue
+                fi
+                return 1
+            fi
+
+            # Check to see if the test already has quarantine attributes.
+            local attribute_text_check='"TestCategory", "Quarantine"|QuarantinedTestTicketLink'
+            if grep -E "$attribute_text_check" <<<"$match" > /dev/null; then
+                warn 'Test definition:'
+                echo ...
+                grep -B 3 -e " $testname(" $file
+                echo ...
+                Error 'Test is already quarantined.'
+                if [[ $interactive == true ]]; then
+                    full_name=
+                    match=
+                    continue
+                fi
+                return 1
+            fi
+            test_can_be_quarantined=true
+        done
+
+        # Get the last line, which is the test definition line (i.e. public void Test()).
+        test_line=$(echo "$match" | tail -1)
 
         #     [Fact]
         #     public void Test()
@@ -3355,10 +3415,21 @@ geo_quarantine() {
         echo ...
         grep -B 3 -e " $testname(" $file
         echo ...
-        
+
+        local msg="Quarantined test $testclass.$testname"
+        if [[ $interactive == true ]]; then
+            if prompt_continue -n "Would you like to add a commit for this test? (y|N): "; then
+                commit=true
+                if ! prompt_continue "Use '$(txt_underline $msg)' for the commit message? (Y|n): "; then
+                    prompt_for_info "Enter commit message: "
+                    commit_msg="$prompt_return"
+                    [[ -z $commit_msg ]] && commit_msg="$msg"
+                fi
+            fi
+        fi
+
         if [[ $commit == true ]]; then
             echo
-            local msg="Quarantined test $testclass.$testname"
             commit_msg="${commit_msg:-$msg}"
             git add "$file"
             git commit -m "$commit_msg"
@@ -4123,14 +4194,14 @@ prompt_continue() {
     # Yes by default, any input other that n/N/no will continue.
     local regex="[^nN]"
     local default=yes
+    local prompt_msg="Do you want to continue? (Y|n): "
     # Default to no if the -n option is present. This means that the user is required to enter y/Y/yes to continue,
     # anything else will decline to continue.
     [[ $1 == -n ]] && regex="[yY]" && default=no && shift
-    if [[ -z $1 ]]; then
-        prompt_n "Do you want to continue? (Y|n): "
-    else
-        prompt_n "$1"
+    if [[ -n $1 ]]; then
+        prompt_msg="$1"
     fi
+    prompt_n "$prompt_msg"
 
     read answer
 
