@@ -53,6 +53,7 @@ class IndicatorApp(object):
         return self.state[key] if key in self.state else None
 
     def set_state(self, key, value):
+        if not key: return
         self.state[key] = value
 
     def show_notification_with_action(self, body, title='geo-cli', timeout=1500, urgency=None):

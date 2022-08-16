@@ -27,9 +27,13 @@ class HelpMenuItem(Gtk.MenuItem):
         item_readme = Gtk.MenuItem(label='View Readme')
         item_readme.connect('activate', self.show_readme)
 
+        item_force_update = Gtk.MenuItem(label='Force Update')
+        item_force_update.connect('activate', lambda _: geo.run_in_terminal('update -f', stay_open_after=True))
+        
         submenu.append(item_show_notifications)
         # submenu.append(Gtk.SeparatorMenuItem())
         submenu.append(item_readme)
+        submenu.append(item_force_update)
         submenu.append(item_disable)
         self.set_submenu(submenu)
 

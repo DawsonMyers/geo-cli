@@ -33,6 +33,7 @@ class AutoSwitchDbMenuItem(Gtk.MenuItem):
         item_db_task_toggle = AutoSwitchDbTaskCheckMenuItem(app, self)
         item_cur_myg_release_display = CheckedOutMygReleaseMenuItem(app, self)
         item_db_for_myg_release_display = DbForMygReleaseMenuItem(app, self)
+        item_start_db_for_myg_release = StartDbForMygReleaseMenuItem(app, self)
         item_set_db_for_release = SetDbForMygReleaseMenuItem(app, self)
         submenu.append(item_npm_task_toggle)
         submenu.append(item_server_config_task_toggle)
@@ -41,6 +42,7 @@ class AutoSwitchDbMenuItem(Gtk.MenuItem):
         submenu.append(item_db_task_toggle)
         submenu.append(item_cur_myg_release_display)
         submenu.append(item_db_for_myg_release_display)
+        submenu.append(item_start_db_for_myg_release)
         submenu.append(item_set_db_for_release)
         submenu.append(Gtk.SeparatorMenuItem())
         submenu.append(item_auto_switch_help)
@@ -212,10 +214,46 @@ class DbForMygReleaseMenuItem(Gtk.MenuItem):
         return self.get_db_for_release() is not None
 
     def get_db_for_release(self):
-        if not self.app.myg_release or not self.app.db:
+        if not self.app.myg_release:
+        # if not self.app.myg_release or not self.app.db:
             return ''
         release_key = 'DB_FOR_RELEASE_' + to_key(self.app.myg_release)
-        return geo.get_config(release_key)
+        configured_db_for_myg_release = geo.get_config(release_key)
+        if configured_db_for_myg_release is not None:
+            self.app.set_state('configured_db_for_myg_release', configured_db_for_myg_release)
+        return configured_db_for_myg_release
+
+
+class StartDbForMygReleaseMenuItem(Gtk.MenuItem):
+    db_for_release = ''
+    is_hidden = True
+    def __init__(self, app: IndicatorApp, parent: AutoSwitchDbMenuItem):
+        self.parent = parent
+        self.app = app
+        super().__init__(label='Start Configured DB')
+        self.connect('activate', lambda _: self.start_configured_db())
+        self.set_sensitive(False)
+        self.hide()
+        GLib.timeout_add(2000, self.monitor)
+
+    def start_configured_db(self):
+        configured_db_for_myg_release = self.app.get_state('configured_db_for_myg_release')
+        if configured_db_for_myg_release:
+            geo.start_db(configured_db_for_myg_release)
+
+    def monitor(self):
+        configured_db_for_myg_release = self.app.get_state('configured_db_for_myg_release')
+        if configured_db_for_myg_release and self.app.db != configured_db_for_myg_release:
+            if self.is_hidden:
+                self.set_sensitive(True)
+                self.show()
+                self.is_hidden = False
+        else:
+            if not self.is_hidden:
+                self.set_sensitive(False)
+                self.hide()
+                self.is_hidden = True
+        return True
 
 
 class AutoSwitchDbTaskCheckMenuItem(PersistentCheckMenuItem):
