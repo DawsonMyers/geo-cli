@@ -440,7 +440,7 @@ geo_db_start() {
 
     prompt_for_db_version() {
         prompt_db_name=true
-        prompt_n "Enter an alphanumeric name for the new database version: "
+        prompt "Enter an alphanumeric name (including .-_) for the new database version: "
         read db_version
         # debug $db_version
     }
@@ -3317,9 +3317,10 @@ geo_quarantine() {
         # Matches a.b.c and beyond (i.e. a.b.c.d, a.b.c.d.e, etc).
         local valid_test_name_re='\w+(\.\w+){2,}'
 
+        # Keep asking for the fully qualified test name until a valid one is entered.
         while [[ -z $match && $test_can_be_quarantined == false ]]; do
             if [[ -z $full_name ]]; then
-                prompt_for_info "Enter the fully qualified name of a test to quarantine:"
+                prompt_for_info "Enter the fully qualified name (namespace.TestClass.TestName) of a test to quarantine:"
                 full_name=$prompt_return
                 [[ -z $full_name ]] && continue
             fi
@@ -3437,6 +3438,93 @@ geo_quarantine() {
         
         success "Done"
     )
+}
+
+
+###########################################################
+COMMANDS+=('mydecoder')
+geo_mydecoder_doc() {
+    doc_cmd 'mydecoder <MyDecoderExportedDeviceData.json>'
+    doc_cmd_desc 'Converts device data from MyDecoder (exported as JSON) into a MyGeotab text log file. The output file will be in the same directory, with the same name, but with a .txt file extension (i.e. filename.json => filename.txt).'
+    doc_cmd_desc 'NOTE: This feature is only available for MYG 9.0 and above, so you must have a compatible version of MYG checked out for it to work.'
+
+    # doc_cmd_options_title
+    #     doc_cmd_option '-b'
+    #         doc_cmd_option_desc 'Only print out the git blame for the test.'
+    doc_cmd_examples_title
+        doc_cmd_example "geo mydecoder MyDecoder_554215428_04_07_2022.json"
+}
+geo_mydecoder() {
+    local interactive=false
+    [[ $1 == --interactive ]] && interactive=true && shift
+
+    local input_file_path="$1"
+    local input_file_name=
+    local output_file_path=
+    local output_file_name=
+
+    [[ -z $input_file_path ]] && Error "No input json file specified." && geo_mydecoder_doc && return 1
+    [[ ! -f $input_file_path ]] && Error "Input file name does not exist." && return 1
+    [[ ! $input_file_path =~ \.json$ ]] && Error "Input file must have a .json file extension." && return 1
+    input_file_path=$(realpath $input_file_path)
+    input_file_name="${input_file_path##*/}"
+    output_file_path="${input_file_path%.json}.txt"
+    output_file_name="${output_file_path##*/}"
+
+    # local OPTIND
+    # while getopts "bcim:" opt; do
+    #     # debug "OPTIND: $OPTIND"
+    #     # debug "OPTARG: $OPTARG"
+    #     case "${opt}" in
+    #         b ) blame=true ;;
+    #         c ) commit=true ;;
+    #         m ) commit_msg="$OPTARG" ;;
+    #         i ) interactive=true ;;
+    #         : )
+    #             Error "Option '${opt}' expects an argument."
+    #             return 1
+    #             ;;
+    #         \? )
+    #             Error "Invalid option: -${opt}"
+    #             return 1
+    #             ;;
+    #     esac
+    # done
+    # shift $((OPTIND - 1))
+
+    local dev_repo=$(geo_get DEV_REPO_DIR)
+
+    (
+        cd "$dev_repo"
+        local demo_dir=Checkmate/Geotab.Checkmate.Demonstration
+        cd $demo_dir
+        local mydecoder_dir=src/demoresources/MyDecoder
+        local mydecoder_dir_full=$(realpath $mydecoder_dir)
+        [[ ! -d $mydecoder_dir ]] && Error "Directory '$demo_dir/$mydecoder_dir' does not exist. This feature is only available in MYG 9.0 and above." && return 1
+        
+        status -b "Copying input file to MyDecoder directory"
+        cp "$input_file_path" $mydecoder_dir/
+        cd tests
+
+        status -b 'Generating log file'
+        debug "dotnet test --filter ConvertMyDecoderJsonToTextFileTest"
+        if ! dotnet test --filter ConvertMyDecoderJsonToTextFileTest; then
+            Error "Failed to generate log file."
+            rm "$mydecoder_dir_full/$input_file_name"
+            return 1
+        fi
+
+        [[ ! -f $mydecoder_dir_full/$output_file_name ]] && Error "Output file '$output_file_name' was not found in MyDecoder directory" && return 1
+
+        status -b "Copying output file to destination directory"
+        cp "$mydecoder_dir_full/$output_file_name" "$output_file_path"
+        status -b "Cleaning up MyDecoder directory"
+        rm "$mydecoder_dir_full/$output_file_name"
+        rm "$mydecoder_dir_full/$input_file_name"
+    )
+    [[ $? != 0 ]] && return 1
+
+    success "Done"
 }
 
 _geo_auto_switch_server_config() {
@@ -4102,6 +4190,12 @@ doc_cmd_desc() {
     data_i "$txt"
 }
 
+doc_cmd_desc_note() {
+    local indent=8
+    local txt=$(fmt_text "$@" $indent)
+    data_i "$txt"
+}
+
 doc_cmd_examples_title() {
     local indent=8
     local txt=$(fmt_text "Example:" $indent)
@@ -4208,14 +4302,30 @@ prompt_continue() {
     [[ $answer =~ $regex || -z $answer && $default == yes ]]
 }
 prompt_for_info() {
+    local read_variable=prompt_return
+    # Check if the caller supplied a variable name that they want the result to be stored in.
+    [[ $1 == -v ]] && read_variable="$2" && shift 2
     prompt "$1"
-    read prompt_return
-    # echo $answer
+    # Assign the user input to the variable name stored in read_variable.
+    # This allows the callers to supply the variable name that they want the result stored in.
+    eval "read $read_variable"
+    # echo ${!read_variable}
+    # Assign the value stored in the variable pointed at by read_variable.
+    # This ensures that prompt_return will always have the user input value, even if callers want the result stored to a custom variable.
+    prompt_return="${!read_variable}"
 }
 prompt_for_info_n() {
+    local read_variable=prompt_return
+    # Check if the caller supplied a variable name that they want the result to be stored in.
+    [[ $1 == -v ]] && read_variable="$2" && shift 2
     prompt_n "$1"
-    read prompt_return
-    # echo $answer
+    # Assign the user input to the variable name stored in read_variable.
+    # This allows the callers to supply the variable name that they want the result stored in.
+    eval "read $read_variable"
+    # echo ${!read_variable}
+    # Assign the value stored in the variable pointed at by read_variable.
+    # This ensures that prompt_return will always have the user input value, even if callers want the result stored to a custom variable.
+    prompt_return="${!read_variable}"
 }
 
 geo_logo() {
@@ -4330,7 +4440,9 @@ _geo_complete()
             ;;
         # e.g., geo db
         2)
-            # echo "$words" >> bcompletions.txt
+            # echo "2: $prevprev/$prev/$cur" >> ~/bcompletions.txt
+            # echo "2: SUBCOMMAND_COMPLETIONS[$prev] = ${SUBCOMMAND_COMPLETIONS[$prev]}" >> ~/bcompletions.txt
+            # echo "$prevprev/$prev/$cur"
             if [[ -v SUBCOMMAND_COMPLETIONS[$prev] ]]; then
                 # echo "SUBCOMMANDS[$cur]: ${SUBCOMMANDS[$prev]}" >> bcompletions.txt
                 COMPREPLY=($(compgen -W "${SUBCOMMAND_COMPLETIONS[$prev]}" -- ${cur}))
@@ -4342,6 +4454,11 @@ _geo_complete()
 
             fi
 
+            case $prev in
+                mydecoder ) 
+                    # echo "2:if:case:mydecoder" >> ~/bcompletions.txt
+                    COMPREPLY=($(compgen -W "$(ls -A)" -- ${cur})) ;;
+            esac
             # case ${prev} in
             #     configure)
             #         COMPREPLY=($(compgen -W "CM DSP NPU" -- ${cur}))

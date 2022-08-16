@@ -26,6 +26,7 @@ A tool that makes MyGeotab development easier. Specifically, this tool aims to s
     - [Running Tests](#running-tests)
       - [Setting up a GitLab Access Token](#setting-up-a-gitlab-access-token)
     - [Quarantining Tests](#quarantining-tests)
+    - [Converting MyDecoder JSON Device Data to MyGeotab Log File](#converting-mydecoder-json-device-data-to-mygeotab-log-file)
 - [`geo-ui` (NEW)](#geo-ui-new)
   - [Databases](#databases)
     - [Running DB](#running-db)
@@ -320,6 +321,17 @@ geo quarantine [options] <FullyQualifiedTestName>
             geo quarantine -c CheckmateServer.Tests.Web.DriveApp.Login.ForgotPasswordTest.Test
             geo quarantine -c -m 'Quarentine test' CheckmateServer.Tests.Web.DriveApp.Login.ForgotPasswordTest.Test
 ```
+
+### Converting MyDecoder JSON Device Data to MyGeotab Log File
+`geo mydecoder <MyDecoderExportedJsonFile>` converts device data from MyDecoder (exported as JSON) into a MyGeotab text log file.
+
+To convert device data from MyDecoder into a MyGeotab text log file, export the data from MyDecoder to JSON by clicking on the Export Data button as shown in the image below:
+
+![export-data](res/geo-mydecoder-1.png "export-data")
+
+Then, open up a terminal in the JSON file's directory and run `geo mydecoder <filename.json>`. After the command has run, the output file will be in the same directory, with the same name, but with a .txt file extension. This file can be processed by MyGeotab just like any other log file.
+
+> Note: This feature is only available for MYG 9.0 and above, so you must have a compatible version of MYG checked out for it to work.
 
 # `geo-ui` (NEW)
 `geo-ui` is a tray menu UI (app indicator) that further simplifies MyGeotab development. It allows users to quickly access most of `geo-cli`'s features, as well as adding some additional ones, with just a couple mouse clicks.
@@ -860,6 +872,12 @@ Available commands:
         Example:
             geo quarantine -c CheckmateServer.Tests.Web.DriveApp.Login.ForgotPasswordTest.Test
             geo quarantine -c -m 'Quarentine test' CheckmateServer.Tests.Web.DriveApp.Login.ForgotPasswordTest.Test
+    mydecoder <MyDecoderExportedDeviceData.json>
+      Converts device data from MyDecoder (exported as JSON) into a MyGeotab text log file. The
+      output file will be in the same directory, with the same name, but with a .txt file
+      extension (i.e. filename.json => filename.txt).
+        Example:
+            geo mydecoder MyDecoder_554215428_04_07_2022.json
 ```
 
 </details>
