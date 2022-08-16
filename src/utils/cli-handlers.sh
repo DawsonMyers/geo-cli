@@ -3492,6 +3492,13 @@ geo_mydecoder() {
     # done
     # shift $((OPTIND - 1))
 
+    cleanup() {
+        _geo_mydecoder_converter_check disable
+    }
+    trap cleanup INT TERM QUIT EXIT
+
+    geo_set MYDECODER_CONVERTER_WAS_ENABLED false
+
     local dev_repo=$(geo_get DEV_REPO_DIR)
 
     (
@@ -3502,6 +3509,8 @@ geo_mydecoder() {
         local mydecoder_dir_full=$(realpath $mydecoder_dir)
         [[ ! -d $mydecoder_dir ]] && Error "Directory '$demo_dir/$mydecoder_dir' does not exist. This feature is only available in MYG 9.0 and above." && return 1
         
+        _geo_mydecoder_converter_check || return 1
+
         status -b "Copying input file to MyDecoder directory"
         cp "$input_file_path" $mydecoder_dir/
         cd tests
@@ -3522,9 +3531,34 @@ geo_mydecoder() {
         rm "$mydecoder_dir_full/$output_file_name"
         rm "$mydecoder_dir_full/$input_file_name"
     )
-    [[ $? != 0 ]] && return 1
+    if [[ $? != 0 ]]; then
+        _geo_mydecoder_converter_check disable
+        return 1
+    fi
 
+    _geo_mydecoder_converter_check disable
     success "Done"
+}
+
+_geo_mydecoder_converter_check() {
+    local action=$1
+    local mydecoder_converter_was_enabled=$(geo_get MYDECODER_CONVERTER_WAS_ENABLED)
+    local dev_repo=$(geo_get DEV_REPO_DIR)
+    local converter_path="$dev_repo/Checkmate/Geotab.Checkmate.Demonstration/tests/ConvertMyDecoderJsonToTextLogFileMvp.cs"
+    # debug "wasEnabled: $mydecoder_converter_was_enabled"
+    [[ ! -f $converter_path ]] && Error "This feature is only available in MYG 9.0 and above. Checkout a compatible branch and rerun this command." && return 1
+    if [[ $action == disable ]]; then
+        if ! grep -E '// \[Fact\]' "$converter_path" > /dev/null 2>&1 && [[  $mydecoder_converter_was_enabled == true ]]; then
+            sed -i -E 's_( {2,})\[Fact\]_\1// \[Fact\]_' "$converter_path"
+            mydecoder_converter_was_enabled=false
+        fi
+    else
+        if grep -E '// \[Fact\]' "$converter_path" > /dev/null 2>&1; then
+            sed -i -E 's_// \[Fact\]_\[Fact\]_' "$converter_path"
+            mydecoder_converter_was_enabled=true
+        fi
+    fi
+    geo_set MYDECODER_CONVERTER_WAS_ENABLED $mydecoder_converter_was_enabled
 }
 
 _geo_auto_switch_server_config() {
