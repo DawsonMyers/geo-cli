@@ -44,6 +44,7 @@ fi
 
 # Import cli handlers to get access to all of the geo-cli commands and command names (through the COMMMAND array).
 . "$GEO_CLI_SRC_DIR/utils/cli-handlers.sh"
+. "$GEO_CLI_SRC_DIR/utils/log.sh"
 
 function geo()
 {
@@ -64,8 +65,8 @@ function geo()
 
     # Check if the MyGeotab base repo dir has been set.
     if ! geo_haskey DEV_REPO_DIR && [[ "$1 $2" != "init repo" ]]; then
-        warn 'MyGeotab repo directory not set.'
-        detail 'Fix: Navigate to MyGeotab base repo (Development) directory, then run "geo init repo".'
+        log::warn 'MyGeotab repo directory not set.'
+        log::detail 'Fix: Navigate to MyGeotab base repo (Development) directory, then run "geo init repo".'
     fi
 
     
@@ -74,7 +75,7 @@ function geo()
     # This issue would cause coloured log output to start with '\[\] some log message'.
     if [[ $Green =~ ^'\['.*'\]' ]]; then
         . "$GEO_CLI_SRC_DIR/utils/cli-handlers.sh"
-        # debug 'Colours reloaded'
+        # log::debug 'Colours reloaded'
     fi
 
     # Save the first argument in cmd var, then shift all other args.
@@ -89,7 +90,7 @@ function geo()
     #   geo -h
     #   geo --help
     if [[ $cmd =~ ^-*h(elp)? ]]; then
-        detail -bu 'Available commands:'
+        log::detail -bu 'Available commands:'
         geo_help
         geo_show_msg_if_outdated
         # exit
@@ -120,10 +121,10 @@ function geo()
         # geo_logo
 
         echo
-        verbose 'For help, run the following:'
-        detail '    geo --help'
-        verbose 'or'
-        detail '    geo -h'
+        log::verbose 'For help, run the following:'
+        log::detail '    geo --help'
+        log::verbose 'or'
+        log::detail '    geo -h'
         geo_show_msg_if_outdated
         # exit
         return
@@ -160,12 +161,12 @@ function check_for_docker_group_membership() {
         warn 'You are not a member of the docker group. This is required to be able to use the "docker" command without sudo.'
         if prompt_continue "Add your username to the docker group? (Y|n): "; then
             [[ -z $dockerGroup ]] && sudo groupadd docker
-            sudo usermod -aG docker $USER || (Error "Failed to add '$USER' to the docker group" && return 1)
-            success "Added $USER to the docker group"
-            warn 'You may need to fully log out and then back in again for these changes to take effect.'
+            sudo usermod -aG docker $USER || (log::Error "Failed to add '$USER' to the docker group" && return 1)
+            log::success "Added $USER to the docker group"
+            log::warn 'You may need to fully log out and then back in again for these changes to take effect.'
             newgrp docker
         else
-            warn "geo-cli won't be able to use docker until you're user is added to the docker group"
+            log::warn "geo-cli won't be able to use docker until you're user is added to the docker group"
         fi
     fi
 }

@@ -5,6 +5,7 @@ export GEO_CLI_SRC_DIR="${GEO_CLI_DIR}/src"
 
 # Import config file utils for writing to the geo config file (~/.geo-cli/.geo.conf).
 . $GEO_CLI_SRC_DIR/utils/cli-handlers.sh
+. $GEO_CLI_SRC_DIR/utils/log.sh
 
 export GEO_CLI_CONFIG_DIR="$HOME/.geo-cli"
 export GEO_CLI_CONF_FILE="$GEO_CLI_CONFIG_DIR/.geo.conf"
@@ -60,9 +61,9 @@ geo_logo
 echo
 
 if [[ $previously_installed_version ]]; then
-    verbose_bi "geo-cli updated $previously_installed_version -> $GEO_CLI_VERSION"
+    log::verbose -b "geo-cli updated $previously_installed_version -> $GEO_CLI_VERSION"
 else
-    verbose_bi "geo-cli $GEO_CLI_VERSION installed"
+    log::verbose -b "geo-cli $GEO_CLI_VERSION installed"
 fi
 
 echo
@@ -105,16 +106,16 @@ if [[ $previously_installed_version ]]; then
 else
     installed_msg="Open a new terminal or source .bashrc by running '. ~/.bashrc' in this one to start using geo-cli."
 fi
-success "$(fmt_text_and_indent_after_first_line "$installed_msg" 0 5)"
+log::success "$(log::fmt_text_and_indent_after_first_line "$installed_msg" 0 5)"
 echo
 
-info_bi "Next step: create a database container and start geotabdemo"
+log::info -b "Next step: create a database container and start geotabdemo"
 step1="1. Build MyGeotab.Core in your IDE (required when creating new dbs)"
-step2="2. Run `txt_underline 'geo db start <name>'`, where 'name' is any alphanumeric name you want to give this db version (it could be related to the MyGeotab release, e.g., '2004')."
+step2="2. Run `log::txt_underline 'geo db start <name>'`, where 'name' is any alphanumeric name you want to give this db version (it could be related to the MyGeotab release, e.g., '2004')."
 step3="3. Start MyGeotab.Core in your IDE"
-info "$(fmt_text_and_indent_after_first_line "$step1" 3 3)"
-info "$(fmt_text_and_indent_after_first_line "$step2" 3 3)"
-info "$(fmt_text_and_indent_after_first_line "$step3" 3 3)"
+log::info "$(log::fmt_text_and_indent_after_first_line "$step1" 3 3)"
+log::info "$(log::fmt_text_and_indent_after_first_line "$step2" 3 3)"
+log::info "$(log::fmt_text_and_indent_after_first_line "$step3" 3 3)"
 echo
 
 python3 -m pip install setproctitle &> /dev/null
