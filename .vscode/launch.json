@@ -5,6 +5,22 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python: geo-ui",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/py/indicator/geo_indicator.py",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
             "type": "bashdb",
             "request": "launch",
             "name": "Bash-Debug (simplest configuration)",

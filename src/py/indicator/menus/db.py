@@ -6,6 +6,8 @@
 # gi.require_version('Gio', '2.0')
 # from gi.repository import Gtk, GLib, Gio, Notify, GdkPixbuf
 
+import re
+
 from indicator import *
 from indicator.geo_indicator import IndicatorApp
 # from common import geo
@@ -19,8 +21,6 @@ def get_running_db_label_text(db):
 
 def get_running_db_none_label_text():
     return 'Running DB [None]'
-
-
 
 
 class RunningDbMenuItem(Gtk.MenuItem):
@@ -107,6 +107,8 @@ class RunningDbMenuItem(Gtk.MenuItem):
 
 class DbMenu(Gtk.Menu):
     db_names = set()
+    prev_sort_descending = None
+    prev_sort_by_myg_version = None
 
     def __init__(self, app: IndicatorApp):
         self.app = app
@@ -117,12 +119,16 @@ class DbMenu(Gtk.Menu):
 
     def build_db_items(self):
         dbs = geo.get_geo_db_names()
+        dbs = self.sorted(dbs)
         self.db_names = set(dbs)
         for db in dbs:
             db_item = DbMenuItem(db, self.app)
             self.items[db] = db_item
             self.append(db_item)
         # self.queue_draw()
+        self.append(SortLexicalCheckMenuItem(self.app))
+        self.append(SortMygVersionCheckMenuItem(self.app))
+        self.append(SortDirectionCheckMenuItem(self.app))
         self.show_all()
 
     def remove_items(self):
@@ -139,6 +145,8 @@ class DbMenu(Gtk.Menu):
         new_db_names = set(geo.get_geo_db_names())
         if new_db_names != self.db_names:
             self.update_items(new_db_names)
+        else:
+            self.check_sort()
         self.db_names = new_db_names
         return True
 
@@ -161,14 +169,17 @@ class DbMenu(Gtk.Menu):
             item.set_sensitive(False)
             self.remove(item)
             item.destroy()
-        sorted_items = sorted(self.items, reverse=True)
+        sorted_items = self.sorted(self.items)
+        # sorted_items = sorted(self.items, reverse=True, key=db_name_sorter)
         for db in added:
             if db in self.items: continue
             item = DbMenuItem(db, self.app)
             item.show()
             i = 0
             # Find index to insert the db item so that it is sorted in descending order.
-            while i < len(sorted_items) and db < sorted_items[i]:
+            while i < len(sorted_items) and self.db_compare(db, sorted_items[i]) < 0:
+            # while i < len(sorted_items) and db_name_comparer(db, sorted_items[i]) < 0:
+            # while i < len(sorted_items) and db < sorted_items[i]:
                 i += 1
             self.insert(item, i)
             sorted_items.insert(i, item.name)
@@ -179,8 +190,122 @@ class DbMenu(Gtk.Menu):
 
         self.show_all()
         self.queue_draw()
+        
+    def check_sort(self):
+        sort_by_myg_release = self.app.get_state('sort_myg_version', False)
+        sort_descending = self.app.get_state('sort_direction', True)
+        if sort_descending == self.prev_sort_descending and sort_by_myg_release == self.prev_sort_by_myg_version:
+            return
+        
+        self.prev_sort_descending = sort_descending
+        self.prev_sort_by_myg_version = sort_by_myg_release
+        
+        sorted_dbs = self.sorted(self.items)
+        for db in sorted_dbs:
+            self.remove(self.items[db])
+        db_order = zip(range(len(sorted_dbs)), sorted_dbs)
+        for i, db in db_order:
+            self.insert(self.items[db], i)
+        
+    def sorted(self, items):
+        sort_by_myg_release = self.app.get_state('sort_myg_version', False)
+        sort_descending = self.app.get_state('sort_direction', True)
+        if sort_by_myg_release:
+            return sorted(items, reverse=sort_descending, key=db_name_sorter)
+        return sorted(items, reverse=sort_descending)
+        
+    def db_compare(self, a, b):
+        sort_by_myg_release = self.app.get_state('sort_myg_version')
+        sort_descending = self.app.get_state('sort_direction')
+        sort_by_myg_release = True if sort_by_myg_release else False
+        sort_descending = True if sort_descending else False
+        
+        if sort_by_myg_release:
+            return db_name_comparer(a, b, sort_descending)
+        direction = -1 if sort_descending else 1
+        return 1 * direction if a > b else -1 * direction if a < b else 0
+            
 
 
+class SortLexicalCheckMenuItem(PersistentCheckMenuItem):
+    def __init__(self, app: IndicatorApp):
+        super().__init__(app,
+                         label='Sort: Lexical',
+                         config_id='SORT_LEXICAL',
+                         app_state_id='sort_lexical',
+                         default_state=True)
+        self.app = app
+
+    def on_state_changed(self, new_state):
+        geo.set_config('SORT_MYG_VERSION', self.bool_to_string(False if new_state else True))
+
+
+class SortMygVersionCheckMenuItem(PersistentCheckMenuItem):
+    def __init__(self, app: IndicatorApp):
+        super().__init__(app,
+                         label='Sort: MyG Version',
+                         config_id='SORT_MYG_VERSION',
+                         app_state_id='sort_myg_version',
+                         default_state=False)
+        self.app = app
+
+    def on_state_changed(self, new_state):
+        geo.set_config('SORT_LEXICAL', self.bool_to_string(False if new_state else True))
+            
+
+class SortDirectionCheckMenuItem(PersistentCheckMenuItem):
+    def __init__(self, app: IndicatorApp):
+        super().__init__(app,
+                         label='Sort Direction: Descending',
+                         config_id='SORT_DIRECTION',
+                         app_state_id='sort_direction',
+                         default_state=True,
+                         label_unchecked='Sort Direction: Ascending')
+        self.app = app
+    
+    
+# num_pattern = re.compile(r'^[1-9]\d+\.\d+', re.UNICODE)
+num_pattern = re.compile(r'^[1-9]\d+([.-_]\d+)?', re.UNICODE)
+# num_pattern = re.compile(r'^\d+\.\d+', re.UNICODE)
+# num_pattern = re.compile(r'^\d+(\.\d+)?', re.UNICODE)
+# suffix_pattern = re.compile(r'(?<=[\w-]+$', re.UNICODE)
+
+def db_name_sorter(a):
+    # Remove trailing 0s.
+    a = re.sub('^0+','', a)
+    match = re.search(num_pattern, a)
+    suffix = ''
+    prefix = 0
+    if match:
+        prefix = 1
+        group = match.group()
+        if '.' not in group:
+            n = int(group)
+            if n >= 60 and n < 100 or n < 10 or n >= 1900:
+                prefix = 0    
+    # print((prefix, a))
+    return (prefix, a)
+
+
+def db_name_comparer(a, b, reverse=False):
+    a_comp = db_name_sorter(a)
+    b_comp = db_name_sorter(b)
+    # print(f'{a_comp}:{b_comp}')
+    result = 0
+    if a_comp[0] > b_comp[0]:
+        result = 1
+    elif a_comp[0] < b_comp[0]:
+        result = -1
+    else:
+        if a_comp[1] > b_comp[1]:
+            result = 1
+        elif a_comp[1] < b_comp[1]:
+            result = -1
+        else:
+            result = 0
+    result = result * -1 if reverse else result
+    return result
+        
 class DbMenuItem(Gtk.MenuItem):
     def __init__(self, name, app: IndicatorApp):
         self.app = app

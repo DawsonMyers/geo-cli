@@ -1778,7 +1778,8 @@ geo_init() {
             [[ -z $current_repo_dir ]] && log::Error "MyGeotab repo directory not set." && return 1
 
             cd $current_repo_dir/Checkmate/CheckmateServer/src/wwwroot
-            # echo
+            # Possible error if you switch nodejs version and don't update the symlinks in /usr/bin (node, npm, and npx) to point to the new version. The PATH variable that is available in the non-interactive terminal (used by geo-ui) is different than the one available in the interactive terminal (uses .bash_profile).
+            # log::debug $PATH
             log::status -b '\nInstalling npm packages for CheckmateServer/src/wwwroot\n'
             npm i || ((fail_count++))
             log::status -b '\nInstalling npm packages for CheckmateServer/src/wwwroot/drive\n'
@@ -3618,6 +3619,15 @@ _geo_auto_switch_server_config() {
 #
 # }
 
+##########################################################
+# COMMANDS+=('python-plugin')
+# geo_python-plugin_doc() {
+
+# }
+# geo_python-plugin() {
+#     python $path_to_py_file
+# }
+
 # Util
 ###############################################################################
 
@@ -4014,6 +4024,7 @@ prompt_for_info() {
     # Check if the caller supplied a variable name that they want the result to be stored in.
     [[ $1 == -v ]] && read_variable="$2" && shift 2
     log::prompt "$1"
+    log::prompt_n '> '
     # Assign the user input to the variable name stored in read_variable.
     # This allows the callers to supply the variable name that they want the result stored in.
     eval "read $read_variable"

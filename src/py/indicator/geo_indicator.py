@@ -49,8 +49,8 @@ class IndicatorApp(object):
         self.build_menu(self.menu)
         self.indicator.set_menu(self.menu)
 
-    def get_state(self, key):
-        return self.state[key] if key in self.state else None
+    def get_state(self, key, default=None):
+        return self.state[key] if key in self.state else default
 
     def set_state(self, key, value):
         if not key: return

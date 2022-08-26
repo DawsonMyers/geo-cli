@@ -6,10 +6,14 @@ from indicator.geo_indicator import IndicatorApp
 class PersistentCheckMenuItem(Gtk.CheckMenuItem):
     enabled = True
     monitor_update = False
+    label_checked = None
+    label_unchecked = None
 
-    def __init__(self, app: IndicatorApp, label: str, config_id: str, app_state_id: str, default_state=False):
+    def __init__(self, app: IndicatorApp, label: str, config_id: str, app_state_id: str, default_state=False, label_unchecked:str=''):
         super().__init__(label=label)
         self.label = label
+        self.label_checked = label
+        self.label_unchecked = label_unchecked
         self.default_state = default_state
         self.app_state_id = app_state_id
         self.config_id = config_id
@@ -58,13 +62,15 @@ class PersistentCheckMenuItem(Gtk.CheckMenuItem):
 
     def handle_toggle(self, src):
         new_state = self.get_active()
-        print(f'{self.label} toggle = ' + str(new_state))
+        print(f'{self.get_label()} toggle = ' + str(new_state))
         if self.monitor_update:
             self.monitor_update = False
             return
         enabled = self.get_config_state()
         if new_state == enabled:
             return
+        if self.label_unchecked:
+            self.set_label(self.label_checked if new_state else self.label_unchecked)
         self.enabled = new_state
         self.set_config_state(new_state)
         self.set_app_state(new_state)
