@@ -217,7 +217,7 @@ geo_db_doc() {
 }
 geo_db() {
     # Check to make sure that the current user is added to the docker group. All subcommands in this command need to use docker.
-    if ! geo_check_docker_permissions; then
+    if ! _geo_check_docker_permissions; then
         return 1
     fi
 
@@ -1027,19 +1027,45 @@ geo_get_running_container_name() {
     echo $container_name
 }
 
-geo_check_docker_permissions() {
+_geo_check_docker_permissions() {
     local ps_error_output=$(docker ps 2>&1 | grep docker.sock)
+    local docker_group=$(cat /etc/group | grep 'docker:')
     if [[ -n $ps_error_output ]]; then
+        debug "$ps_error_output"
+        if ! [[ -z $docker_group || ! $docker_group =~ "$USER" ]]; then
+            log::warn 'You ARE a member of the docker group, but are not able to use docker without sudo.'
+            log::info 'Fix: You must completely log out and then back in again to resolve the issue.'
+            return 1
+        fi
+        log::warn 'You are NOT a member of the docker group. This is required to be able to use the "docker" command without sudo.'
         log::Error "The current user does not have permission to use the docker command."
         log::info "Fix: Add the current user to the docker group."
-        if log::prompt_n 'Would you like to fix this now? (Y|n): '; then
-            sudo usermod -a -G docker "$USER"
+        if prompt_continue 'Would you like to fix this now? (Y|n): '; then
+            [[ -z $docker_group ]] && sudo groupadd docker
+            sudo usermod -aG docker $USER || { log::Error "Failed to add '$USER' to the docker group"; return 1; }
             newgrp docker
             log::warn 'You must completely log out of you account and then log back in again for the changes to take effect.'
         fi
         return 1
     fi
 }
+
+# function check_for_docker_group_membership() {
+#     local docker_group=$(cat /etc/group | grep 'docker:')
+#     if [[ -z $docker_group || ! $docker_group =~ "$USER" ]]; then
+#         log::warn 'You are not a member of the docker group. This is required to be able to use the "docker" command without sudo.'
+#         if prompt_continue "Add your username to the docker group? (Y|n): "; then
+#             [[ -z $docker_group ]] && sudo groupadd docker
+#             sudo usermod -aG docker $USER || { log::Error "Failed to add '$USER' to the docker group"; return 1; }
+#             log::success "Added $USER to the docker group"
+#             log::warn 'You may need to fully log out and then back in again for these changes to take effect.'
+#             newgrp docker
+#         else
+#             log::warn "geo-cli won't be able to use docker until you're user is added to the docker group"
+#         fi
+#         return 1
+#     fi
+# }
 
 function geo_db_init() {
     local acceptDefaults=$1
@@ -1089,6 +1115,8 @@ function geo_db_init() {
     local answer=''
 
     # Assign default values for sql user/passord.
+    [[ -z $user ]] && user="$USER@geotab.com"
+    [[ -z $password ]] && password=passwordpassword
     [[ -z $sql_user ]] && sql_user=geotabuser
     [[ -z $sql_password ]] && sql_password=vircom43
 
@@ -1733,6 +1761,8 @@ geo_init_doc() {
                     doc_cmd_sub_option_desc 'Removes the PAT environment variables.'
                 doc_cmd_sub_option '-l, --list'
                     doc_cmd_sub_option_desc 'List/display the current PAT environment variable file.'
+                doc_cmd_sub_option '-v, --valid [PAT]'
+                    doc_cmd_sub_option_desc 'Checks if the current PAT environment variable (or one that is supplied as an argument) is valid.'
 
     doc_cmd_examples_title
         doc_cmd_example 'geo init repo'
@@ -1807,7 +1837,7 @@ geo_init() {
         fi
         ;;
     pat )
-        geo_init_pat $2
+        geo_init_pat "${@:2}"
         ;;
     esac
 }
@@ -1824,8 +1854,21 @@ geo_init_pat() {
             return
             ;;
         -l | --list )
-            [[ ! -f "$pat_env_file_path" ]] && log::Error "PAT environment variable file doesn't exist" && return 1
+            if [[ ! -f "$pat_env_file_path" ]]; then
+                log::Error "PAT environment variable file doesn't exist"
+                [[ -z $GITLAB_PACKAGE_REGISTRY_USERNAME && -z $GITLAB_PACKAGE_REGISTRY_PASSWORD ]] && return 1
+                log::warn "The PAT environment variables are NOT defined by geo-cli, but do exist in the environment:"
+                log::data "    GITLAB_PACKAGE_REGISTRY_USERNAME=$(log::detail $GITLAB_PACKAGE_REGISTRY_USERNAME)"
+                log::data "    GITLAB_PACKAGE_REGISTRY_PASSWORD=$(log::detail $GITLAB_PACKAGE_REGISTRY_PASSWORD)"
+                return
+            fi
             cat "$pat_env_file_path"
+            return
+            ;;
+        -v | --valid )
+            [[ -z $GITLAB_PACKAGE_REGISTRY_PASSWORD && -z $2 ]] && Error "GITLAB_PACKAGE_REGISTRY_PASSWORD is not defined." && return 1
+            local pat=${2:-$GITLAB_PACKAGE_REGISTRY_PASSWORD}
+            _is_pat_valid "$pat" && log::success "PAT is valid" || { log::Error "PAT is not valid. Response: '$pat_check_result'"; return 1; }
             return
             ;;
         -* )
@@ -1848,15 +1891,8 @@ geo_init_pat() {
         echo
         prompt_for_info_n "Enter your GitLab PAT: "
         local pat="$prompt_return"
-        local repo_url='https://git.geotab.com/api/v4/projects/4953/registry/repositories'
-        local curl_command='curl --header "PRIVATE-TOKEN: '$pat'" "'$repo_url'"'
-        local curl_args=(--header "PRIVATE-TOKEN: $pat" "$repo_url")
-        log::status -b "Testing PAT using the following command:"
-        log::data $curl_command
 
-        local pat_check_result=$(curl "${curl_args[@]}")
-
-        if [[ $pat_check_result != '[]' ]]; then
+        if ! _is_pat_valid "$pat"; then
             log::warn "The PAT entered could not be validated"
             log::warn "The expected return value was '[]' but got this instead: '$pat_check_result'"
             if prompt_continue "Would you like to use this PAT anyways? (Y|n): "; then
@@ -1864,6 +1900,7 @@ geo_init_pat() {
             fi
             continue
         fi
+        log::success "PAT is valid"
         break
     done
     cat <<-EOF > "$pat_env_file_path"
@@ -1885,6 +1922,19 @@ EOF
     log::data "    $pat_env_file_path"
     echo
     log::success "Done"
+}
+
+_is_pat_valid() {
+    local pat="$1"
+    local repo_url='https://git.geotab.com/api/v4/projects/4953/registry/repositories'
+    local curl_command='curl --header "PRIVATE-TOKEN: '$pat'" "'$repo_url'"'
+    local curl_args=(--header "PRIVATE-TOKEN: $pat" "$repo_url")
+    log::status -b "Testing PAT using the following command:"
+    log::data $curl_command
+
+    pat_check_result=$(curl "${curl_args[@]}")
+
+    [[ $pat_check_result == '[]' ]]
 }
 
 ###########################################################

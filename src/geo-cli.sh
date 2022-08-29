@@ -147,21 +147,25 @@ function geo()
 
     check_for_docker_group_membership
 
+    local was_successfull=true
+
     # At this point we know that the command is valid and command help isn't being 
     # requested. So run the command.
-    "geo_${cmd}" "$@"
+    "geo_${cmd}" "$@" || was_successfull=false
     
     # Don't show outdated msg if update was just run.
     [[ $cmd != update ]] && geo_show_msg_if_outdated
+
+    [[ $was_successfull == true ]]
 }
 
 function check_for_docker_group_membership() {
-    local dockerGroup=$(cat /etc/group | grep 'docker:')
-    if [[ -z $dockerGroup || ! $dockerGroup =~ "$USER" ]]; then
-        warn 'You are not a member of the docker group. This is required to be able to use the "docker" command without sudo.'
+    local docker_group=$(cat /etc/group | grep 'docker:')
+    if [[ -z $docker_group || ! $docker_group =~ "$USER" ]]; then
+        log::warn 'You are not a member of the docker group. This is required to be able to use the "docker" command without sudo.'
         if prompt_continue "Add your username to the docker group? (Y|n): "; then
-            [[ -z $dockerGroup ]] && sudo groupadd docker
-            sudo usermod -aG docker $USER || (log::Error "Failed to add '$USER' to the docker group" && return 1)
+            [[ -z $docker_group ]] && sudo groupadd docker
+            sudo usermod -aG docker $USER || { log::Error "Failed to add '$USER' to the docker group"; return 1; }
             log::success "Added $USER to the docker group"
             log::warn 'You may need to fully log out and then back in again for these changes to take effect.'
             newgrp docker

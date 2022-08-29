@@ -80,7 +80,7 @@ class IndicatorApp(object):
 
         current_time = util.current_time_ms()
         try:
-            # Make sure only one notification is occuring at a time.
+            # Make sure only one notification is occurring at a time.
             if current_time - self.last_notification_time < 1500:
                 GLib.timeout_add(1500, lambda: self.show_quick_notification(body, title))
                 return
@@ -103,7 +103,7 @@ class IndicatorApp(object):
             return
 
         current_time = util.current_time_ms()
-        # Make sure only one notification is occuring at a time.
+        # Make sure only one notification is occurring at a time.
         if current_time - self.last_notification_time < 1500:
             GLib.timeout_add(1500, lambda: self.show_notification(body, title, timeout))
             return
