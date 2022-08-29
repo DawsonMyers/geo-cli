@@ -341,14 +341,14 @@ geo_db_stop() {
 
 geo_db_create() {
     local silent=false
-    local acceptDefaults=
+    local accept_defaults=
     local no_prompt=
     local empty_db=false
     local OPTIND
     while getopts "sye" opt; do
         case "${opt}" in
             s ) silent=true ;;
-            y ) acceptDefaults=true ;;
+            y ) accept_defaults=true ;;
             n ) no_prompt=true ;;
             e ) empty_db=true && log::status -b 'Creating empty Postgres container';;
             \? )
@@ -379,13 +379,13 @@ geo_db_create() {
         return 1
     fi
 
-    if [[ -z $acceptDefaults && -z $no_prompt ]]; then
+    if [[ -z $accept_defaults && -z $no_prompt ]]; then
         prompt_continue "Create db container with name $(log::txt_underline ${db_version})? (Y|n): " || return
     fi
     log::status -b "Creating volume:"
     log::status "  NAME: $container_name"
     docker volume create "$container_name" >/dev/null &&
-        log::success 'OK' || (log::Error 'Failed to create volume' && return 1)
+        log::success 'OK' || { log::Error 'Failed to create volume' && return 1; }
 
     log::status -b "Creating container:"
     log::status "  NAME: $container_name"
@@ -408,10 +408,14 @@ geo_db_create() {
         sql_password=password
         docker build -t $image_name - <<< "$dockerfile"
     fi
-
-    docker create -v $vol_mount -p $port --name=$container_name --hostname=$hostname $image_name >/dev/null &&
-        (echo && log::success 'OK') || (log::Error 'Failed to create container' && return 1)
-
+   
+    if docker create -v $vol_mount -p $port --name=$container_name --hostname=$hostname $image_name >/dev/null; then
+        echo
+        log::success 'OK'
+    else 
+        log::Error 'Failed to create container'
+        return 1
+    fi
     echo
 
     if [[ $silent == false ]]; then
@@ -428,9 +432,9 @@ geo_db_create() {
 }
 
 geo_db_start() {
-    local acceptDefaults=
+    local accept_defaults=
     if [[ $1 == '-y' ]]; then
-        acceptDefaults=true
+        accept_defaults=true
         shift
     fi
 
@@ -440,36 +444,34 @@ geo_db_start() {
         shift
     fi
     # log::Error "Port error" && return 1
-    db_version="$1"
-    local prompt_db_name=
-
+    
     prompt_for_db_version() {
-        prompt_db_name=true
-        log::prompt "Enter an alphanumeric name (including .-_) for the new database version: "
-        read db_version
+        while [[ -z $db_version ]]; do
+            prompt_for_info -v db_version "Enter an alphanumeric name (including .-_) for the new database version: "
+            db_version=$(geo_make_alphanumeric "$db_version")
+        done
         # log::debug $db_version
     }
 
     if [[ $1 == '-p' ]]; then
         prompt_for_db_version
+        shift
+    else
+        db_version="$1"
     fi
 
     db_version=$(geo_make_alphanumeric "$db_version")
     # log::debug $db_version
     if [ -z "$db_version" ]; then
-        if [[ -n $prompt_db_name ]]; then
-            prompt_for_db_name
-        else
-            db_version=$(geo_get LAST_DB_VERSION)
-            if [[ -z $db_version ]]; then
-                log::Error "No database version provided."
-                return
-            fi
+        db_version=$(geo_get LAST_DB_VERSION)
+        if [[ -z $db_version ]]; then
+            log::Error "No database version provided."
+            return 1
         fi
     fi
 
     if ! geo_check_db_image; then
-        if ! prompt_continue "No database images exist. Would you like to create on (Y|n)?: "; then
+        if ! prompt_continue "No database images exist. Would you like to create on? (Y|n): "; then
             log::Error "Cannot start db without image. Run 'geo image create' to create a db image"
             return 1
         fi
@@ -520,9 +522,6 @@ geo_db_start() {
         fi
     fi
 
-    local container_id=$(geo_get_container_id "$container_name")
-    # local container_id=`docker ps -aqf "name=$container_name"`
-
     local output=''
 
     try_to_start_db() {
@@ -530,8 +529,9 @@ geo_db_start() {
         output="$(docker start $1 2>&1 | grep '0.0.0.0:5432: bind: address already in use')"
     }
 
-    if [[ -n $container_id ]]; then
+    local container_id=
 
+    if geo_get_container_id -v container_id "$container_name"; then
         log::status -b "Starting existing container:"
         log::status "  ID: $container_id"
         log::status "  NAME: $container_name"
@@ -567,15 +567,18 @@ geo_db_start() {
         # db_version="$1"
         # db_version=$(geo_make_alphanumeric "$db_version")
 
-        if [[ -z $acceptDefaults && -z $no_prompt ]]; then
-            prompt_continue "Db container $(log::txt_italic ${db_version}) doesn't exist. Would you like to create it? (Y|n): " || return
+        if [[ -z $accept_defaults && -z $no_prompt ]]; then
+            prompt_continue "Db container $(log::txt_underline ${db_version}) doesn't exist. Would you like to create it? (Y|n): " || return
         fi
+
         local opts=-s
-        [[ $acceptDefaults == true ]] && opts+=y
+        [[ $accept_defaults == true ]] && opts+=y
         [[ $no_prompt == true ]] && opts+=n
 
+        # log::debug "db_version: $db_version"
+
         geo_db_create $opts "$db_version" ||
-            (log::Error 'Failed to create db' && return 1)
+            { log::Error 'Failed to create db'; return 1; }
 
         try_to_start_db $container_name
         container_id=$(docker ps -aqf "name=$container_name")
@@ -605,8 +608,9 @@ geo_db_start() {
         log::status "  NAME: $container_name"
 
         [[ $no_prompt == true ]] && return
-        if [ $acceptDefaults ] || prompt_continue 'Would you like to initialize the db? (Y|n): '; then
-            geo_db_init $acceptDefaults
+        echo
+        if [ $accept_defaults ] || prompt_continue 'Would you like to initialize the db? (Y|n): '; then
+            geo_db_init $accept_defaults
         else
             log::info "Initialize a running db anytime using $(log::txt_underline 'geo db init')"
         fi
@@ -995,18 +999,31 @@ geo_container_name() {
 }
 
 geo_get_container_id() {
+    local variable=
+    # Check if the caller supplied a variable name that they want the result to be stored in.
+    [[ $1 == -v ]] && variable="$2" && shift 2
+
     local name=$1
     # [[ -z $name ]] && name="$IMAGE*"
     # echo `docker container ls -a --filter name="$name" -aq`
     local result=$(docker inspect "$name" --format='{{.ID}}' 2>&1)
-    local container_does_not_exists=$(echo $result | grep "Error:")
-    [[ $container_does_not_exists ]] && return
-    echo $result
+    if [[ -n $variable ]]; then
+        eval "$variable=\"$result\""
+    else
+        echo $result
+    fi
+    local container_does_not_exists=$(echo $result | grep -i "error")
+    [[ -z $container_does_not_exists ]]
 }
 
 geo_container_exists() {
-    local name=$(geo_get_container_id "$1")
-    [[ -n $name ]]
+    local id=
+    local variable=id
+    # Check if the caller supplied a variable name that they want the result to be stored in.
+    [[ $1 == -v ]] && variable="$2" && shift 2
+    geo_get_container_id -v id "$1" && eval "$variable=\"$id\""
+    # local name=$(geo_get_container_id "$1")
+    # [[ -n $name ]]
 }
 
 geo_get_running_container_id() {
@@ -1015,8 +1032,14 @@ geo_get_running_container_id() {
     echo $(docker ps --filter name="$name" --filter status=running -aq)
 }
 
+geo_is_container_running() {
+    local name=$(geo_get_running_container_name)
+    [[ -n $name ]]
+}
+
 geo_get_running_container_name() {
     # local name=$1
+    local name=
     [[ -z $name ]] && name="$IMAGE*"
 
     local container_name=$(docker ps --filter name="$name" --filter status=running -a --format="{{ .Names }}")
@@ -1068,7 +1091,24 @@ _geo_check_docker_permissions() {
 # }
 
 function geo_db_init() {
-    local acceptDefaults=$1
+    local accept_defaults=$1
+
+    [ $accept_defaults ] && log::info 'Waiting for db to start...' && sleep 5
+
+    local wait_count=0
+    local msg_shown=
+    while ! geo_is_container_running; do
+        [[ -z $msg_shown ]] && log::info -n 'Waiting for db to start' && msg_shown=true
+        # Write progress.
+        log::cyan -n '.'
+        sleep 1;
+        if (( wait_count++ > 10 )); then
+            echo
+            log::Error "Timeout. No database container running after waiting 10 seconds."
+            return 1
+        fi
+    done
+    echo
 
     local container_id=$(geo_get_running_container_id)
     if [[ -z $container_id ]]; then
@@ -1078,7 +1118,7 @@ function geo_db_init() {
     fi
     db_name='geotabdemo'
     # log::status 'A db can be initialized with geotabdemo or with a custom db name (just creates an empty database with provided name).'
-    # if ! [ $acceptDefaults ] && ! prompt_continue 'Would you like to initialize the db with geotabdemo? (Y|n): '; then
+    # if ! [ $accept_defaults ] && ! prompt_continue 'Would you like to initialize the db with geotabdemo? (Y|n): '; then
     #     stored_name=`geo_get PREV_DB_NAME`
     #     prompt_txt='Enter the name of the db you would like to create: '
     #     if [[ -n $stored_name ]]; then
@@ -1120,13 +1160,14 @@ function geo_db_init() {
     [[ -z $sql_user ]] && sql_user=geotabuser
     [[ -z $sql_password ]] && sql_password=vircom43
 
+    
     # Make sure there's a running db container to initialize.
     local container_id=$(geo_get_running_container_id)
     if [[ -z $container_id ]]; then
         log::Error "There isn't a running geo-cli db container to initialize with geotabdemo."
         log::info 'Start one of the following db containers and try again:'
         geo_db_ls_containers
-        return
+        return 1
     fi
 
     get_user() {
@@ -1153,20 +1194,20 @@ function geo_db_init() {
         geo_set SQL_PASSWORD "$sql_password"
     }
 
-    if [ ! $acceptDefaults ]; then
+    if [ ! $accept_defaults ]; then
         # Get sql user.
-        log::data "Stored db admin user: $sql_user"
+        log::data "\nStored db admin user: $(log::info $sql_user)"
         prompt_continue "Use stored user? (Y|n): " || get_sql_user
 
         # Get sql password.
-        log::data "Stored db admin password: $sql_password"
+        log::data "\nStored db admin password: $(log::info $sql_password)"
         prompt_continue "Use stored password? (Y|n): " || get_sql_password
 
         # Get db admin user.
         if [[ -z $user ]]; then
             get_user
         else
-            log::data "Stored MyGeotab admin user: $user"
+            log::data "\nStored MyGeotab admin user: $(log::info $user)"
             prompt_continue "Use stored user? (Y|n): " || get_user
         fi
 
@@ -1174,7 +1215,7 @@ function geo_db_init() {
         if [[ -z $password ]]; then
             get_password
         else
-            log::data "Stored MyGeotab admin password: $password"
+            log::data "\nStored MyGeotab admin password: $(log::info $password)"
             prompt_continue "Use stored password? (Y|n): " || get_password
         fi
     fi
@@ -1187,14 +1228,22 @@ function geo_db_init() {
     fi
 
     local path=''
-    geo_get_checkmate_dll_path $acceptDefaults
+    geo_get_checkmate_dll_path $accept_defaults
     path=$prompt_return
 
-    [ $acceptDefaults ] && sleep 5
+    # [ $accept_defaults ] && log::info 'Waiting...' && sleep 5
 
-    log::info 'Waiting for db to start...'
+    # log::info 'Waiting for db to start...'
 
-    sleep 5
+    # local wait_count=0
+    # while ! geo_is_container_running; do
+    #     sleep 1;
+    #     if (( wait_count++ > 10 )); then
+    #         Error "Timeout. No database container running after waiting 10 seconds."
+    #         return 1
+    #     fi
+    # done
+    
 
     if dotnet "${path}" CreateDatabase postgres companyName="$db_name" administratorUser="$user" administratorPassword="$password" sqluser="$sql_user" sqlpassword="$sql_password" useMasterLogin='true'; then
         log::success "$db_name initialized"
@@ -1295,7 +1344,7 @@ geo_db_rm() {
 geo_get_checkmate_dll_path() {
     local dev_repo=$(geo_get DEV_REPO_DIR)
     local output_dir="${dev_repo}/Checkmate/bin/Debug"
-    local acceptDefaults=$1
+    local accept_defaults=$1
     # Get full path of CheckmateServer.dll files, sorted from newest to oldest.
     local files="$(find $output_dir -maxdepth 2 -name "CheckmateServer.dll" -print0 | xargs -r -0 ls -1 -t | tr '\n' ':')"
     local ifs=$IFS
@@ -1318,7 +1367,7 @@ geo_get_checkmate_dll_path() {
             ((i++))
         done
 
-        if [ $acceptDefaults ]; then
+        if [ $accept_defaults ]; then
             log::info 'Using newest'
             path="${paths[0]}"
             prompt_return="$path"
@@ -2058,12 +2107,12 @@ geo_env() {
         ;;
     'get')
         # Show error message if the key doesn't exist.
-        geo_haskey "$2" || (log::Error "Key '$2' does not exist." && return 1)
+        geo_haskey "$2" || { log::Error "Key '$2' does not exist."; return 1; }
         geo_get "$2"
         ;;
     'rm')
         # Show error message if the key doesn't exist.
-        geo_haskey "$2" || (log::Error "Key '$2' does not exist." && return 1)
+        geo_haskey "$2" || { log::Error "Key '$2' does not exist."; return 1; }
         geo_rm "$2"
         ;;
     'ls')
