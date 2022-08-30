@@ -3318,6 +3318,7 @@ geo_dev() {
     local force_update_after_checkout=false
     [[ $1 == -u ]] && force_update_after_checkout=true && shift
     case "$1" in
+        # Checks if an update is available.
         update-available )
             GEO_NO_UPDATE_CHECK=false
             if geo_check_for_updates; then
@@ -3326,6 +3327,7 @@ geo_dev() {
             fi
             log::status false
             ;;
+        # Checks out a geo-cli branch.
         co )
             local branch=
             local checkout_failed=false
@@ -3337,17 +3339,34 @@ geo_dev() {
             [[ $checkout_failed == true ]] && return 1
             [[ $force_update_after_checkout == true ]] && geo_update -f
             ;;
+        # Gets the current MYG release (e.g. 10.0).
         release )
             (
                 cd $myg_dir
-                local current_myg_release=$(git describe --tags --abbrev=0 --match MYG*)
-                # Remove MYG/ prefix (present from 6.0 onwards).
-                [[ $current_myg_release =~ ^MYG/ ]] && current_myg_release=${current_myg_release##*/}
-                # Remove 5.7. prefix (present from 2104 and earlier).
-                [[ $current_myg_release =~ ^5.7. ]] && current_myg_release=${current_myg_release##*.}
-                echo -n $current_myg_release
+                local cur_myg_branch=$(git branch --show-current)
+                local prev_myg_branch=$(geo_get MYG_BRANCH)
+                local prev_myg_release_tag=$(geo_get MYG_RELEASE)
+                local cur_myg_release_tag=$prev_myg_release_tag
+
+                if [[ -z $prev_myg_branch || -z $prev_myg_release_tag || $prev_myg_branch != $cur_myg_branch ]]; then
+                    # The call to git describe is very CPU intensive, so only call it when the branch changes and then
+                    # store the resulting myg release version tag. 
+                    cur_myg_release_tag=$(git describe --tags --abbrev=0 --match MYG*)
+                    
+                    # Remove MYG/ prefix (present from 6.0 onwards).
+                    [[ $cur_myg_release_tag =~ ^MYG/ ]] && cur_myg_release_tag=${cur_myg_release_tag##*/}
+                    # Remove 5.7. prefix (present from 2104 and earlier).
+                    [[ $cur_myg_release_tag =~ ^5.7. ]] && cur_myg_release_tag=${cur_myg_release_tag##*.}
+                    
+                    [[ $prev_myg_release_tag != $cur_myg_release_tag ]] && 
+                        geo_set MYG_RELEASE "$cur_myg_release_tag"
+                    [[ $prev_myg_branch != $cur_myg_branch ]] && 
+                        geo_set MYG_BRANCH "$cur_myg_branch"
+                fi
+                echo -n $cur_myg_release_tag
             )
             ;;
+        # Gets a list of all of the geo-cli databases.
         db|dbs|databases )
             echo $(docker container ls --filter name="geo_cli_db_"  -a --format="{{ .Names }}") | sed -e "s/geo_cli_db_postgres_//g"
             ;;
