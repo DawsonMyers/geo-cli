@@ -2349,7 +2349,11 @@ geo_update() {
             return 1
         fi
         new_commit=$(git rev-parse HEAD)
+    
+        # Pass in the previous and current commit hashes so that the commit messages between them can be displayed under
+        # the "What's new" section during upating. This shows the user what new changes are included in the  update.
         bash $geo_cli_dir/install.sh $prev_commit $new_commit
+
         geo_set GIT_PREVIOUS_COMMIT "$new_commit"
     )
     # log::debug "$prev_commit $new_commit"
@@ -3569,8 +3573,8 @@ geo_quarantine() {
 COMMANDS+=('mydecoder')
 geo_mydecoder_doc() {
     doc_cmd 'mydecoder <MyDecoderExportedDeviceData.json>'
-    doc_cmd_desc 'Converts device data from MyDecoder (exported as JSON) into a MyGeotab text log file. The output file will be in the same directory, with the same name, but with a .txt file extension (i.e. filename.json => filename.txt).'
-    doc_cmd_desc 'NOTE: This feature is only available for MYG 9.0 and above, so you must have a compatible version of MYG checked out for it to work.'
+        doc_cmd_desc 'Converts device data from MyDecoder (exported as JSON) into a MyGeotab text log file. The output file will be in the same directory, with the same name, but with a .txt file extension (i.e. filename.json => filename.txt).'
+        doc_cmd_desc 'NOTE: This feature is only available for MYG 9.0 and above, so you must have a compatible version of MYG checked out for it to work.'
 
     # doc_cmd_options_title
     #     doc_cmd_option '-b'
@@ -3720,13 +3724,17 @@ _geo_auto_switch_server_config() {
     fi
 }
 ###########################################################
-# COMMANDS+=('command')
-# geo_command_doc() {
-#
-# }
-# geo_command() {
-#
-# }
+COMMANDS+=('loc')
+geo_loc_doc() {
+    doc_cmd 'loc <file_extension>'
+        doc_cmd_desc 'Counts the lines in all files in this directory and subdirectories. file_extension is the file type extension to count lines of code for (e.g., py, cs, sh, etc.).'
+    doc_cmd_examples_title
+        doc_cmd_example "geo loc cs # Counts the lines in all *.cs files."
+}
+geo_loc() {
+    local file_type=$1
+    find . -name '*'$file_type | xargs wc -l
+}
 
 ###########################################################
 # COMMANDS+=('command')
