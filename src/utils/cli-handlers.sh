@@ -999,31 +999,32 @@ geo_container_name() {
 }
 
 geo_get_container_id() {
+    local is_by_ref=false
     local variable=
     # Check if the caller supplied a variable name that they want the result to be stored in.
-    [[ $1 == -v ]] && variable="$2" && shift 2
+    [[ $1 == -v ]] && local -n variable="$2" && shift 2 && is_by_ref=true
 
     local name=$1
     # [[ -z $name ]] && name="$IMAGE*"
     # echo `docker container ls -a --filter name="$name" -aq`
     local result=$(docker inspect "$name" --format='{{.ID}}' 2>&1)
-    if [[ -n $variable ]]; then
-        eval "$variable=\"$result\""
+
+    if $is_by_ref; then
+        variable="$result"
     else
         echo $result
     fi
+
     local container_does_not_exists=$(echo $result | grep -i "error")
     [[ -z $container_does_not_exists ]]
 }
 
 geo_container_exists() {
     local id=
-    local variable=id
-    # Check if the caller supplied a variable name that they want the result to be stored in.
-    [[ $1 == -v ]] && variable="$2" && shift 2
-    geo_get_container_id -v id "$1" && eval "$variable=\"$id\""
-    # local name=$(geo_get_container_id "$1")
-    # [[ -n $name ]]
+    local variable=
+    # Check if the caller supplied a variable name that they want the container id to be stored in.
+    [[ $1 == -v ]] && local -n variable="$2" && shift 2 && variable=
+    geo_get_container_id -v id "$1" && variable="$id"
 }
 
 geo_get_running_container_id() {
@@ -4145,32 +4146,46 @@ prompt_continue() {
 
     [[ $answer =~ $regex || -z $answer && $default == yes ]]
 }
+
+# =====================================================================================================================
+# prompt_for_info [-n] [-v <variable_name>] <prompt_text>
+# =====================================================================================================================
+# Prompts the user for information, displaying the prompt text, and then the user input section on the next line.
+# The -n option will prompt the user for information on the same line as the prompt text.
+# The -v option allows for a variable name to be passed in that the user info is to be assigned to. If no variable name
+# is passed in, then the info will be stored in the global variable prompt_return.
 prompt_for_info() {
-    local read_variable=prompt_return
-    # Check if the caller supplied a variable name that they want the result to be stored in.
-    [[ $1 == -v ]] && read_variable="$2" && shift 2
-    log::prompt "$1"
-    log::prompt_n '> '
-    # Assign the user input to the variable name stored in read_variable.
+    local prompt_on_same_line=false
+    [[ $1 == -n ]] && prompt_on_same_line=true && shift
+    
+    local user_info=
+    # Check if the caller supplied a variable name that they want the result to be stored in. If they did, then define
+    # user_info to be a reference (the -n option to local) to the variable name passed in as the second argument ($2).
+    [[ $1 == -v ]] && local -n user_info="$2" && shift 2
+    
+    if $prompt_on_same_line; then
+        log::prompt_n "$1"
+    else
+        log::prompt "$1"
+        log::prompt_n '> '
+    fi
+    # Assign the user input to the variable (or variable reference) user_info.
     # This allows the callers to supply the variable name that they want the result stored in.
-    eval "read $read_variable"
-    # echo ${!read_variable}
-    # Assign the value stored in the variable pointed at by read_variable.
-    # This ensures that prompt_return will always have the user input value, even if callers want the result stored to a custom variable.
-    prompt_return="${!read_variable}"
+    read user_info
+    # Store the user input to the global variable prompt_return to give the caller access to the user info (without 
+    # passing in a variable name to reference).
+    prompt_return="$user_info"
 }
+
+# =====================================================================================================================
+# prompt_for_info_n [-v <variable_name>] <prompt_text>
+# =====================================================================================================================
+# Prompts the user for information, displaying the prompt text, and then the user input section ON THE SAME LINE (_n 
+# suffix for no new line).
+# The -v option allows for a variable name to be passed in that the user info is to be assigned to. If no variable name
+# is passed in, then the info will be stored in the global variable prompt_return.
 prompt_for_info_n() {
-    local read_variable=prompt_return
-    # Check if the caller supplied a variable name that they want the result to be stored in.
-    [[ $1 == -v ]] && read_variable="$2" && shift 2
-    log::prompt_n "$1"
-    # Assign the user input to the variable name stored in read_variable.
-    # This allows the callers to supply the variable name that they want the result stored in.
-    eval "read $read_variable"
-    # echo ${!read_variable}
-    # Assign the value stored in the variable pointed at by read_variable.
-    # This ensures that prompt_return will always have the user input value, even if callers want the result stored to a custom variable.
-    prompt_return="${!read_variable}"
+    prompt_for_info -n "$@"
 }
 
 geo_logo() {
