@@ -61,7 +61,7 @@ function geo()
     done
 
     # Check for updates in background process
-    ( geo_check_for_updates >& /dev/null & )
+    ( _geo_check_for_updates >& /dev/null & )
 
     # Check if the MyGeotab base repo dir has been set.
     if ! geo_haskey DEV_REPO_DIR && [[ "$1 $2" != "init repo" ]]; then
@@ -92,7 +92,7 @@ function geo()
     if [[ $cmd =~ ^-*h(elp)? ]]; then
         log::detail -bu 'Available commands:'
         geo_help
-        geo_show_msg_if_outdated
+        _geo_show_msg_if_outdated
         # exit
         return
     fi
@@ -105,7 +105,7 @@ function geo()
     #   geo --version
     if [[ $cmd =~ ^-*v(ersion)? ]]; then
         geo_version
-        geo_show_msg_if_outdated
+        _geo_show_msg_if_outdated
         return
     fi
 
@@ -113,7 +113,7 @@ function geo()
     [[ $cmd == -f ]] && return
         
     # Quit if the command isn't valid
-    if [[ -z `cmd_exists $cmd` ]]; then
+    if [[ -z `_geo_cmd_exists $cmd` ]]; then
         [[ ${#cmd} == 0 ]] && echo && warn "geo was run without any command"
         [[ ${#cmd} -gt 0 ]] && echo && warn "Unknown command: '$cmd'"
         
@@ -125,7 +125,7 @@ function geo()
         log::detail '    geo --help'
         log::verbose 'or'
         log::detail '    geo -h'
-        geo_show_msg_if_outdated
+        _geo_show_msg_if_outdated
         # exit
         return
     fi
@@ -140,7 +140,7 @@ function geo()
     if [[ $1 =~ ^-*h(elp)? ]]; then
         "geo_${cmd}_doc"
         echo
-        geo_show_msg_if_outdated
+        _geo_show_msg_if_outdated
         # exit
         return
     fi
@@ -154,7 +154,7 @@ function geo()
     "geo_${cmd}" "$@" || was_successfull=false
     
     # Don't show outdated msg if update was just run.
-    [[ $cmd != update ]] && geo_show_msg_if_outdated
+    [[ $cmd != update ]] && _geo_show_msg_if_outdated
 
     [[ $was_successfull == true ]]
 }

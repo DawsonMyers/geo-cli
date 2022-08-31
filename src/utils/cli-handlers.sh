@@ -2,7 +2,7 @@
 
 # This file contains all geo-cli command logic.
 # All geo-cli commands will have at least 2 functions defined that follow the following format: geo_<command_name> and 
-# geo_<command_name>_doc (e.g. geo db has functions called geo_db and geo_db_start). These functions are called from src/geo-cli.sh.
+# geo_<command_name>_doc (e.g. geo db has functions called geo_db and geo_db_doc). These functions are called from src/geo-cli.sh.
 
 # Gets the absolute path of the root geo-cli directory.
 export GEO_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
@@ -45,7 +45,7 @@ export CURRENT_SUBCOMMANDS=()
 
 
 # First argument commands
-###############################################################################
+#######################################################################################################################
 # Each command has three parts:
 #   1. Its name is added to the COMMANDS array
 #   2. Command documentation function (for printing help)
@@ -56,7 +56,7 @@ export CURRENT_SUBCOMMANDS=()
 #   geo_command() {...}
 #
 # Template:
-###########################################################
+#######################################################################################################################
 # COMMANDS+=('command')
 # geo_command_doc() {
 #
@@ -64,9 +64,10 @@ export CURRENT_SUBCOMMANDS=()
 # geo_command() {
 #
 # }
-###############################################################################
+#######################################################################################################################
 
-geo_check_db_image() {
+
+_geo_check_db_image() {
     local image=$(docker image ls | grep "$IMAGE")
     if [[ -z $image ]]; then
         if ! prompt_continue "geo-cli db image not found. Do you want to create one? (Y|n): "; then
@@ -76,7 +77,7 @@ geo_check_db_image() {
     fi
 }
 
-###########################################################
+#######################################################################################################################
 COMMANDS+=('image')
 geo_image_doc() {
     doc_cmd 'image'
@@ -120,7 +121,7 @@ geo_image() {
 
 }
 
-###########################################################
+#######################################################################################################################
 COMMANDS+=('db')
 geo_db_doc() {
     doc_cmd 'db'
@@ -221,7 +222,7 @@ geo_db() {
         return 1
     fi
 
-    geo_db_check_for_old_image_prefix
+    _geo_db_check_for_old_image_prefix
 
     case "$1" in
     init)
@@ -229,13 +230,13 @@ geo_db() {
         return
         ;;
     ls)
-        geo_db_ls_containers
+        _geo_db_ls_containers
 
         if [[ $2 =~ ^-*a(ll)? ]]; then
             echo
-            geo_db_ls_volumes
+            _geo_db_ls_volumes
             echo
-            geo_db_ls_images
+            _geo_db_ls_images
         fi
         return
         ;;
@@ -244,7 +245,7 @@ geo_db() {
         return
         ;;
     stop)
-        geo_db_stop "${@:2}"
+        _geo_db_stop "${@:2}"
         return
         ;;
     rm | remove)
@@ -259,22 +260,22 @@ geo_db() {
         return
         ;;
     create)
-        geo_db_create "${@:2}"
+        _geo_db_create "${@:2}"
         ;;
     start)
-        geo_db_start "${@:2}"
+        _geo_db_start "${@:2}"
         ;;
     cp | copy)
-        geo_db_copy "${@:2}"
+        _geo_db_copy "${@:2}"
         ;;
     psql)
-        geo_db_psql "${@:2}"
+        _geo_db_psql "${@:2}"
         ;;
     script)
-        geo_db_script "${@:2}"
+        _geo_db_script "${@:2}"
         ;;
     bash | ssh)
-        local running_container_id=$(geo_get_running_container_id)
+        local running_container_id=$(_geo_get_running_container_id)
         if [[ -z $running_container_id ]]; then
             log::Error 'No geo-cli containers are running to connect to.'
             log::info "Run $(log::txt_underline 'geo db ls') to view available containers and $(log::txt_underline 'geo db start <name>') to start one."
@@ -289,7 +290,7 @@ geo_db() {
     esac
 }
 
-geo_db_check_for_old_image_prefix() {
+_geo_db_check_for_old_image_prefix() {
     old_container_prefix='geo_cli_db_postgres11_'
     containers=$(docker container ls -a --format '{{.Names}}' | grep $old_container_prefix)
 
@@ -308,22 +309,22 @@ geo_db_check_for_old_image_prefix() {
     docker image tag geo_cli_db_postgres11 $IMAGE 2> /dev/null
 }
 
-geo_db_stop() {
+_geo_db_stop() {
     local silent=false
 
     if [[ $1 =~ -s ]]; then
         silent=true
         shift
     fi
-    local container_name=$(geo_container_name $db_version)
+    local container_name=$(_geo_container_name $db_version)
 
     db_version="$1"
 
     if [[ -z $db_version ]]; then
-        container_id=$(geo_get_running_container_id)
+        container_id=$(_geo_get_running_container_id)
         # container_id=`docker ps --filter name="$IMAGE*" --filter status=running -aq`
     else
-        container_id=$(geo_get_running_container_id "${container_name}")
+        container_id=$(_geo_get_running_container_id "${container_name}")
         # container_id=`docker ps --filter name="${container_name}" --filter status=running -aq`
     fi
 
@@ -339,7 +340,7 @@ geo_db_stop() {
     echo $container_id | xargs docker stop >/dev/null && log::success 'OK'
 }
 
-geo_db_create() {
+_geo_db_create() {
     local silent=false
     local accept_defaults=
     local no_prompt=
@@ -360,21 +361,21 @@ geo_db_create() {
     shift $((OPTIND - 1))
 
     db_version="$1"
-    db_version=$(geo_make_alphanumeric "$db_version")
+    db_version=$(_geo_make_alphanumeric "$db_version")
 
     if [[ -z $db_version ]]; then
         log::Error "No database version provided."
         return
     fi
 
-    local container_name=$(geo_container_name "$db_version")
+    local container_name=$(_geo_container_name "$db_version")
 
-    if geo_container_exists $container_name; then
+    if _geo_container_exists $container_name; then
         log::Error 'Container already exists'
         return 1
     fi
 
-    if ! geo_check_db_image; then
+    if ! _geo_check_db_image; then
         log::Error "Cannot create db without image. Run 'geo image create' to create a db image"
         return 1
     fi
@@ -431,7 +432,7 @@ geo_db_create() {
     fi
 }
 
-geo_db_start() {
+_geo_db_start() {
     local accept_defaults=
     if [[ $1 == '-y' ]]; then
         accept_defaults=true
@@ -448,7 +449,7 @@ geo_db_start() {
     prompt_for_db_version() {
         while [[ -z $db_version ]]; do
             prompt_for_info -v db_version "Enter an alphanumeric name (including .-_) for the new database version: "
-            db_version=$(geo_make_alphanumeric "$db_version")
+            db_version=$(_geo_make_alphanumeric "$db_version")
         done
         # log::debug $db_version
     }
@@ -460,7 +461,7 @@ geo_db_start() {
         db_version="$1"
     fi
 
-    db_version=$(geo_make_alphanumeric "$db_version")
+    db_version=$(_geo_make_alphanumeric "$db_version")
     # log::debug $db_version
     if [ -z "$db_version" ]; then
         db_version=$(geo_get LAST_DB_VERSION)
@@ -470,7 +471,7 @@ geo_db_start() {
         fi
     fi
 
-    if ! geo_check_db_image; then
+    if ! _geo_check_db_image; then
         if ! prompt_continue "No database images exist. Would you like to create on? (Y|n): "; then
             log::Error "Cannot start db without image. Run 'geo image create' to create a db image"
             return 1
@@ -481,7 +482,7 @@ geo_db_start() {
     geo_set LAST_DB_VERSION "$db_version"
 
     # VOL_NAME="geo_cli_db_${db_version}"
-    local container_name=$(geo_container_name $db_version)
+    local container_name=$(_geo_container_name $db_version)
 
     # docker run -v 2002:/var/lib/postgresql/11/main -p 5432:5432 postgres11
 
@@ -531,7 +532,7 @@ geo_db_start() {
 
     local container_id=
 
-    if geo_get_container_id -v container_id "$container_name"; then
+    if _geo_get_container_id -v container_id "$container_name"; then
         log::status -b "Starting existing container:"
         log::status "  ID: $container_id"
         log::status "  NAME: $container_name"
@@ -565,7 +566,7 @@ geo_db_start() {
         # db_version was getting overwritten somehow, so get its value from the config file.
         db_version=$(geo_get LAST_DB_VERSION)
         # db_version="$1"
-        # db_version=$(geo_make_alphanumeric "$db_version")
+        # db_version=$(_geo_make_alphanumeric "$db_version")
 
         if [[ -z $accept_defaults && -z $no_prompt ]]; then
             prompt_continue "Db container $(log::txt_underline ${db_version}) doesn't exist. Would you like to create it? (Y|n): " || return
@@ -577,7 +578,7 @@ geo_db_start() {
 
         # log::debug "db_version: $db_version"
 
-        geo_db_create $opts "$db_version" ||
+        _geo_db_create $opts "$db_version" ||
             { log::Error 'Failed to create db'; return 1; }
 
         try_to_start_db $container_name
@@ -618,7 +619,7 @@ geo_db_start() {
     log::success Done
 }
 
-geo_db_copy() {
+_geo_db_copy() {
     local interactive=false
     [[ $1 = -i ]] && interactive=true && shift
 
@@ -626,12 +627,12 @@ geo_db_copy() {
     local destination_db="$2"
 
     db_name_exists() {
-        local name=$(geo_container_name "$1")
+        local name=$(_geo_container_name "$1")
         docker container inspect $name > /dev/null 2>&1
         # [[ $? == 0 ]]
     }
 
-    source_db=$(geo_make_alphanumeric "$source_db")
+    source_db=$(_geo_make_alphanumeric "$source_db")
     # Make sure the source database exists.
     ! db_name_exists $source_db && log::Error "The source database container '$source_db' does not exist" && return 1
 
@@ -652,9 +653,9 @@ geo_db_copy() {
 
     [[ -z $destination_db ]] && log::Error "The destination database name cannot be empty" && return 1
 
-    destination_db=$(geo_make_alphanumeric "$destination_db")
-    local source_db_name=$(geo_container_name "$source_db")
-    local destination_db_name=$(geo_container_name "$destination_db")
+    destination_db=$(_geo_make_alphanumeric "$destination_db")
+    local source_db_name=$(_geo_container_name "$source_db")
+    local destination_db_name=$(_geo_container_name "$destination_db")
 
 
     # Make sure the destination database doesn't exist
@@ -682,10 +683,10 @@ geo_db_copy() {
         return 1
     fi
 
-    prompt_continue "Would you like to start database container '$destination_db'? (Y/n): " && geo_db_start $destination_db
+    prompt_continue "Would you like to start database container '$destination_db'? (Y/n): " && _geo_db_start $destination_db
 }
 
-geo_db_psql() {
+_geo_db_psql() {
     local sql_user=$(geo_get SQL_USER)
     local sql_password=$(geo_get SQL_PASSWORD)
     local db_name=geotabdemo
@@ -817,7 +818,7 @@ geo_db_psql() {
     [[ -z $sql_user ]] && sql_user=geotabuser
     [[ -z $sql_password ]] && sql_password=vircom43
 
-    local running_container_id=$(geo_get_running_container_id)
+    local running_container_id=$(_geo_get_running_container_id)
     # log::debug $sql_user $sql_password $db_name $running_container_id
 
     if [[ -z $running_container_id ]]; then
@@ -834,13 +835,13 @@ geo_db_psql() {
     fi
 }
 
-geo_db_script() {
+_geo_db_script() {
     [[ -z $GEO_CLI_SCRIPT_DIR ]] && log::Error "GEO_CLI_SCRIPT_DIR doesn't have a value" && return 1
     [[ ! -d $GEO_CLI_SCRIPT_DIR ]] && mkdir -p $GEO_CLI_SCRIPT_DIR
     [[ -z $EDITOR ]] && EDITOR=nano
 
     local command="$1"
-    local script_name=$(geo_make_alphanumeric $2)
+    local script_name=$(_geo_make_alphanumeric $2)
     local script_path="$GEO_CLI_SCRIPT_DIR/$script_name".sql
 
     check_for_script() {
@@ -888,17 +889,17 @@ geo_db_script() {
     esac
 }
 
-geo_make_alphanumeric() {
+_geo_make_alphanumeric() {
     # Replace any non-alphanumeric characters with '_', then replace 2 or more occurrences with a singe '_'.
     # Ex: some>bad()name -> some_bad__name -> some_bad_name
     echo "$@" | sed 's/[^0-9a-zA-Z_.-]/_/g' | sed -e 's/_\{2,\}/_/g'
 }
 
-geo_db_ls_images() {
+_geo_db_ls_images() {
     log::info Images
     docker image ls geo_cli* #--format 'table {{.Names}}\t{{.ID}}\t{{.Image}}'
 }
-geo_db_ls_containers() {
+_geo_db_ls_containers() {
     log::info 'DB Containers'
     # docker container ls -a -f name=geo_cli
     if [[ $1 = -a ]]; then
@@ -948,7 +949,7 @@ geo_db_ls_containers() {
     done <<< "$output"
 }
 
-geo_db_ls_volumes() {
+_geo_db_ls_volumes() {
     log::info Volumes
     docker volume ls -f name=geo_cli
 }
@@ -993,12 +994,12 @@ _geo_datediff() {
         echo $msg
     }
 
-geo_container_name() {
-    local name=$(geo_make_alphanumeric $1)
+_geo_container_name() {
+    local name=$(_geo_make_alphanumeric $1)
     echo "${IMAGE}_${name}"
 }
 
-geo_get_container_id() {
+_geo_get_container_id() {
     local is_by_ref=false
     local variable=
     # Check if the caller supplied a variable name that they want the result to be stored in.
@@ -1019,26 +1020,26 @@ geo_get_container_id() {
     [[ -z $container_does_not_exists ]]
 }
 
-geo_container_exists() {
+_geo_container_exists() {
     local id=
     local variable=
     # Check if the caller supplied a variable name that they want the container id to be stored in.
     [[ $1 == -v ]] && local -n variable="$2" && shift 2 && variable=
-    geo_get_container_id -v id "$1" && variable="$id"
+    _geo_get_container_id -v id "$1" && variable="$id"
 }
 
-geo_get_running_container_id() {
+_geo_get_running_container_id() {
     local name=$1
     [[ -z $name ]] && name="$IMAGE*"
     echo $(docker ps --filter name="$name" --filter status=running -aq)
 }
 
-geo_is_container_running() {
-    local name=$(geo_get_running_container_name)
+_geo_is_container_running() {
+    local name=$(_geo_get_running_container_name)
     [[ -n $name ]]
 }
 
-geo_get_running_container_name() {
+_geo_get_running_container_name() {
     # local name=$1
     local name=
     [[ -z $name ]] && name="$IMAGE*"
@@ -1098,7 +1099,7 @@ function geo_db_init() {
 
     local wait_count=0
     local msg_shown=
-    while ! geo_is_container_running; do
+    while ! _geo_is_container_running; do
         [[ -z $msg_shown ]] && log::info -n 'Waiting for db to start' && msg_shown=true
         # Write progress.
         log::cyan -n '.'
@@ -1111,7 +1112,7 @@ function geo_db_init() {
     done
     echo
 
-    local container_id=$(geo_get_running_container_id)
+    local container_id=$(_geo_get_running_container_id)
     if [[ -z $container_id ]]; then
         log::Error 'No geo-cli containers are running to initialize.'
         log::info "Run $(log::txt_underline 'geo db ls') to view available containers and $(log::txt_underline 'geo db start <name>') to start one."
@@ -1163,11 +1164,11 @@ function geo_db_init() {
 
     
     # Make sure there's a running db container to initialize.
-    local container_id=$(geo_get_running_container_id)
+    local container_id=$(_geo_get_running_container_id)
     if [[ -z $container_id ]]; then
         log::Error "There isn't a running geo-cli db container to initialize with geotabdemo."
         log::info 'Start one of the following db containers and try again:'
-        geo_db_ls_containers
+        _geo_db_ls_containers
         return 1
     fi
 
@@ -1223,13 +1224,13 @@ function geo_db_init() {
 
     # path=$HOME/repos/MyGeotab/Checkmate/bin/Debug/netcoreapp3.1
 
-    if ! geo_check_for_dev_repo_dir; then
+    if ! _geo_check_for_dev_repo_dir; then
         log::Error "Unable to init db: can't find CheckmateServer.dll. Run 'geo db init' to try again on a running db container."
         return 1
     fi
 
     local path=''
-    geo_get_checkmate_dll_path $accept_defaults
+    _geo_get_checkmate_dll_path $accept_defaults
     path=$prompt_return
 
     # [ $accept_defaults ] && log::info 'Waiting...' && sleep 5
@@ -1237,7 +1238,7 @@ function geo_db_init() {
     # log::info 'Waiting for db to start...'
 
     # local wait_count=0
-    # while ! geo_is_container_running; do
+    # while ! _geo_is_container_running; do
     #     sleep 1;
     #     if (( wait_count++ > 10 )); then
     #         Error "Timeout. No database container running after waiting 10 seconds."
@@ -1291,17 +1292,17 @@ geo_db_rm() {
     fi
 
     local container_name
-    local db_name="$(geo_make_alphanumeric $1)"
+    local db_name="$(_geo_make_alphanumeric $1)"
     # If the -n option is present, the full container name is passed in as an argument (e.g. geo_cli_db_postgres11_2101). Otherwise, the db name is passed in (e.g., 2101)
     if [[ $1 == -n ]]; then
         container_name="$2"
         db_name="${2#${IMAGE}_}"
         shift
     else
-        container_name=$(geo_container_name "$db_name")
+        container_name=$(_geo_container_name "$db_name")
     fi
 
-    local container_id=$(geo_get_running_container_id "$container_name")
+    local container_id=$(_geo_get_running_container_id "$container_name")
 
     if [[ -n "$container_id" ]]; then
         docker stop $container_id >/dev/null && log::success "Container stopped"
@@ -1342,7 +1343,7 @@ geo_db_rm() {
 
 }
 
-geo_get_checkmate_dll_path() {
+_geo_get_checkmate_dll_path() {
     local dev_repo=$(geo_get DEV_REPO_DIR)
     local output_dir="${dev_repo}/Checkmate/bin/Debug"
     local accept_defaults=$1
@@ -1387,7 +1388,7 @@ geo_get_checkmate_dll_path() {
     prompt_return="$path"
 }
 
-geo_check_for_dev_repo_dir() {
+_geo_check_for_dev_repo_dir() {
     local dev_repo=$(geo_get DEV_REPO_DIR)
 
     is_valid_repo_dir() {
@@ -1421,7 +1422,7 @@ geo_check_for_dev_repo_dir() {
     geo_set DEV_REPO_DIR "$dev_repo"
 }
 
-##########################################################
+#######################################################################################################################
 COMMANDS+=('ar')
 geo_ar_doc() {
     doc_cmd 'ar'
@@ -1530,7 +1531,7 @@ geo_ar() {
                 fi
                 
                 local get_open_port_python_code='import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()'
-                [[ -z $open_port ]] && open_port=$(python -c "$get_open_port_python_code")
+                [[ -z $open_port ]] && which python > /dev/null && open_port=$(python -c "$get_open_port_python_code")
                 # Try using python3 if open port wasn't found.
                 [[ -z $open_port ]] && open_port=$(python3 -c "$get_open_port_python_code")
                 [[ -z $open_port ]] && log::Error 'Open port could not be found' && return 1
@@ -1692,7 +1693,7 @@ _geo_ar_push_cmd() {
     local prev_commands="$(geo_get AR_IAP_CMDS)"
 
     if [[ -z $prev_commands ]]; then
-        log::debug "_geo_ar_push_cmd: cmds was empty"
+        # log::debug "_geo_ar_push_cmd[$LINENO]: cmds was empty"
         geo_set AR_IAP_CMDS "$cmd"
         return
     fi
@@ -1703,7 +1704,8 @@ _geo_ar_push_cmd() {
     prev_commands=$(echo $prev_commands | sed -r 's/^@//; s/@$//; s/@{2,}/@/g')
 
     if [[ -z $prev_commands ]]; then
-        log::Error "_geo_ar_push_cmd[$LINENO]: cmds was empty"
+        # Can happen when there is only one item stored and the new item being added is a duplicate.
+        # log::Error "_geo_ar_push_cmd[$LINENO]: cmds was empty"
         return
     fi
     # Add the new command to the beginning, delimiting it with the '@' character.
@@ -1777,7 +1779,7 @@ _geo_ar_get_cmd_count() {
 # }
 #  pa -p 234 -u dawson
 
-###########################################################
+#######################################################################################################################
 COMMANDS+=('stop')
 geo_stop_doc() {
     doc_cmd 'stop'
@@ -1793,7 +1795,7 @@ geo_is_valid_repo_dir() {
     test -d "${1}/Checkmate"
 }
 
-###########################################################
+#######################################################################################################################
 COMMANDS+=('init')
 geo_init_doc() {
     doc_cmd 'init'
@@ -1987,7 +1989,7 @@ _is_pat_valid() {
     [[ $pat_check_result == '[]' ]]
 }
 
-###########################################################
+#######################################################################################################################
 # COMMANDS+=('start')
 # geo_start_doc() {
 #     doc_cmd 'start <service>'
@@ -2010,7 +2012,7 @@ _is_pat_valid() {
 #     fi
 # }
 
-# ###########################################################
+# #######################################################################################################################
 # COMMANDS+=('stop')
 # geo_stop_doc() {
 #     doc_cmd 'stop <service>'
@@ -2035,7 +2037,7 @@ _is_pat_valid() {
 #     fi
 # }
 
-###########################################################
+#######################################################################################################################
 # COMMANDS+=('restart')
 # geo_restart_doc() {
 #     doc_cmd 'restart [service]'
@@ -2067,7 +2069,7 @@ _is_pat_valid() {
 #     fi
 # }
 
-##########################################################
+#######################################################################################################################
 COMMANDS+=('env')
 geo_env_doc() {
     doc_cmd 'env <cmd> [arg1] [arg2]'
@@ -2132,7 +2134,7 @@ geo_env() {
     esac
 }
 
-###########################################################
+#######################################################################################################################
 COMMANDS+=('set')
 geo_set_doc() {
     doc_cmd 'set <env_var> <value>'
@@ -2199,7 +2201,7 @@ geo_set() {
     fi
 }
 
-###########################################################
+#######################################################################################################################
 COMMANDS+=('get')
 geo_get_doc() {
     doc_cmd 'get <env_var>'
@@ -2230,7 +2232,7 @@ geo_haskey() {
     cfg_haskey $GEO_CLI_CONF_FILE "$key"
 }
 
-###########################################################
+#######################################################################################################################
 COMMANDS+=('rm')
 geo_rm_doc() {
     doc_cmd 'rm <env_var>'
@@ -2319,7 +2321,7 @@ _geo_push_get_item() {
     echo $(echo $items | awk -F '@' "$awk_cmd")
 }
 
-###########################################################
+#######################################################################################################################
 COMMANDS+=('update')
 geo_update_doc() {
     doc_cmd 'update'
@@ -2333,7 +2335,7 @@ geo_update_doc() {
 }
 geo_update() {
     # Don't install if already at latest version unless the force flag is present (-f or --force)
-    if ! geo_check_for_updates && [[ $1 != '-f' && $1 != '--force' ]]; then
+    if ! _geo_check_for_updates && [[ $1 != '-f' && $1 != '--force' ]]; then
         log::Error 'The latest version of geo-cli is already installed'
         return 1
     fi
@@ -2390,7 +2392,7 @@ _geo_check_if_feature_branch_merged() {
     return 1
 }
 
-###########################################################
+#######################################################################################################################
 COMMANDS+=('uninstall')
 geo_uninstall_doc() {
     doc_cmd 'uninstall'
@@ -2401,7 +2403,6 @@ geo_uninstall_doc() {
         doc_cmd_example 'geo uninstall'
 }
 geo_uninstall() {
-
     if ! prompt_continue "Are you sure that you want to remove geo-cli? (Y|n)"; then
         return
     fi
@@ -2421,7 +2422,7 @@ geo_uninstall() {
     log::info "Navigate to the geo-cli repo directory and run 'bash install.sh' to reinstall it."
 }
 
-###########################################################
+#######################################################################################################################
 COMMANDS+=('analyze')
 geo_analyze_doc() {
     doc_cmd 'analyze [option or analyzerIds]'
@@ -2714,7 +2715,7 @@ geo_analyze() {
     )
 }
 
-###########################################################
+#######################################################################################################################
 COMMANDS+=('id')
 geo_id_doc() {
     doc_cmd 'id'
@@ -2871,7 +2872,7 @@ geo_id() {
     [[ $format_output == true ]] && log::info "copied to clipboard"
 }
 
-###########################################################
+#######################################################################################################################
 COMMANDS+=('version')
 geo_version_doc() {
     doc_cmd 'version, -v, --version'
@@ -2884,7 +2885,7 @@ geo_version() {
     log::verbose $(geo_get VERSION)
 }
 
-###########################################################
+#######################################################################################################################
 COMMANDS+=('cd')
 geo_cd_doc() {
     doc_cmd 'cd <dir>'
@@ -2925,7 +2926,7 @@ geo_cd() {
     esac
 }
 
-###########################################################
+#######################################################################################################################
 COMMANDS+=('indicator')
 geo_indicator_doc() {
     doc_cmd 'indicator <command>'
@@ -3117,7 +3118,7 @@ _geo_indicator_check_dependencies() {
     _geo_install_apt_package_if_missing 'xclip'
 }
 
-###########################################################
+#######################################################################################################################
 COMMANDS+=('test')
 geo_test_doc() {
     doc_cmd 'test <filter>'
@@ -3289,7 +3290,7 @@ geo_test() {
     fi
 }
 
-###########################################################
+#######################################################################################################################
 COMMANDS+=('help')
 geo_help_doc() {
     doc_cmd 'help, -h, --help'
@@ -3301,7 +3302,7 @@ geo_help() {
     done
 }
 
-###########################################################
+#######################################################################################################################
 COMMANDS+=('dev')
 geo_dev_doc() {
     doc_cmd 'dev'
@@ -3326,7 +3327,7 @@ geo_dev() {
         # Checks if an update is available.
         update-available )
             GEO_NO_UPDATE_CHECK=false
-            if geo_check_for_updates; then
+            if _geo_check_for_updates; then
                 log::status true
                 return
             fi
@@ -3384,7 +3385,7 @@ geo_dev() {
     esac
 }
 
-###########################################################
+#######################################################################################################################
 COMMANDS+=('quarantine')
 geo_quarantine_doc() {
     doc_cmd 'quarantine [options] <FullyQualifiedTestName>'
@@ -3569,8 +3570,7 @@ geo_quarantine() {
     )
 }
 
-
-###########################################################
+#######################################################################################################################
 COMMANDS+=('mydecoder')
 geo_mydecoder_doc() {
     doc_cmd 'mydecoder <MyDecoderExportedDeviceData.json>'
@@ -3724,7 +3724,8 @@ _geo_auto_switch_server_config() {
         log::status "server.config replaced with '$next_server_config_path'"
     fi
 }
-###########################################################
+
+#######################################################################################################################
 COMMANDS+=('loc')
 geo_loc_doc() {
     doc_cmd 'loc <file_extension>'
@@ -3737,7 +3738,7 @@ geo_loc() {
     find . -name '*'$file_type | xargs wc -l
 }
 
-###########################################################
+#######################################################################################################################
 # COMMANDS+=('command')
 # geo_command_doc() {
 #
@@ -3746,7 +3747,7 @@ geo_loc() {
 #
 # }
 
-##########################################################
+#######################################################################################################################
 # COMMANDS+=('python-plugin')
 # geo_python-plugin_doc() {
 
@@ -3756,16 +3757,16 @@ geo_loc() {
 # }
 
 # Util
-###############################################################################
+###########################################################################################################################################
 
-cmd_exists() {
+_geo_cmd_exists() {
     cmd=$(echo "${COMMANDS[@]}" | tr ' ' '\n' | grep -E "$(echo ^$1$)")
     echo $cmd
     [[ -n $cmd ]]
 }
 
 # Install Docker and Docker Compose if needed.
-check_docker_installation() {
+_geo_check_docker_installation() {
     if ! type docker > /dev/null; then
         log::warn 'Docker is not installed'
         log::info -bn 'Install Docker and Docker Compose? (Y|n): '
@@ -3853,7 +3854,7 @@ _geo_print_messages_between_commits_after_update() {
 # }
 
 # Check for updates. Return true (0 return value) if updates are available.
-geo_check_for_updates() {
+_geo_check_for_updates() {
     [[ $GEO_NO_UPDATE_CHECK == true ]] && return 1
     local geo_cli_dir="$(geo_get GEO_CLI_DIR)"
     local cur_branch=$(cd $geo_cli_dir && git rev-parse --abbrev-ref HEAD)
@@ -3910,7 +3911,7 @@ geo_check_for_updates() {
     fi
 }
 
-geo_is_outdated() {
+_geo_is_outdated() {
     outdated=$(geo_get OUTDATED)
     [[ $outdated =~ true ]]
 }
@@ -3954,10 +3955,10 @@ _geo_show_notification() {
 # work in bash, but when reading from a file if doesn't. This was remedied
 # using a regex in the if (i.e., if [[ $outdated =~ true ]]) which was the only
 # way it would work.
-geo_show_msg_if_outdated() {
+_geo_show_msg_if_outdated() {
     [[ $GEO_RAW_OUTPUT == true ]] && return
     # outdated=`geo_get OUTDATED`
-    if geo_is_outdated; then
+    if _geo_is_outdated; then
         # if [[ $outdated =~ true ]]; then
         log::warn -b "New version of geo-cli is available. Run $(log::txt_underline 'geo update') to get it."
     fi
@@ -4017,7 +4018,7 @@ ord() {
 }
 
 # Documentation helpers
-###########################################################
+#######################################################################################################################
 
 # The name of a command
 doc_cmd() {

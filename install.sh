@@ -54,7 +54,8 @@ envsubst < $GEO_CLI_DIR/src/init/bashrc.sh >> ~/.bashrc
 # Add geo to the .zshrc file if it exists.
 [[ -f $HOME/.zshrc ]] && sed "s+GEO_CLI_SRC_DIR+$GEO_CLI_SRC_DIR+" $GEO_CLI_SRC_DIR/init/zshrc.sh >> ~/.zshrc
 
-check_docker_installation
+_geo_check_docker_installation
+_geo_install_apt_package_if_missing 'jq'
 
 geotab_logo
 geo_logo
@@ -97,7 +98,7 @@ fi
 PAT_ENV_VAR_FILE_PATH="$GEO_CLI_CONFIG_DIR/env/gitlab-pat.sh"
 [[ -f $PAT_ENV_VAR_FILE_PATH && $(stat -L -c '%a' $PAT_ENV_VAR_FILE_PATH) != 600 ]] && chmod 600 "$PAT_ENV_VAR_FILE_PATH"
 
-geo_check_for_dev_repo_dir
+_geo_check_for_dev_repo_dir
 
 installed_msg=''
 if [[ $previously_installed_version ]]; then
@@ -125,8 +126,8 @@ python3 -m pip install setproctitle &> /dev/null
 #     check_for_updates_with_cron_job=$(geo_get CHECK_FOR_UPDATES_WITH_CRON_JOB)
 #     # Add the CHECK_FOR_UPDATES_WITH_CRON_JOB setting if it doesn't exist; enabling it by default.
 #     [[ -z $check_for_updates_with_cron_job ]] && geo_set CHECK_FOR_UPDATES_WITH_CRON_JOB true && check_for_updates_with_cron_job=true
-#     cron_function=geo_check_for_updates
-#     # Run the geo_check_for_updates function every weekday at 9am.
+#     cron_function=_geo_check_for_updates
+#     # Run the _geo_check_for_updates function every weekday at 9am.
 #     cronjob="0 9 * * 1-5 $cron_function"
 
 #     if [[ $check_for_updates_with_cron_job == true ]]; then
