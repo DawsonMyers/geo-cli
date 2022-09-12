@@ -58,7 +58,7 @@ _geo_check_docker_installation
 _geo_install_apt_package_if_missing 'jq'
 
 # Init submodules.
-git submodule update --init --recursive --remote
+git submodule update --init --recursive
 
 geotab_logo
 geo_logo

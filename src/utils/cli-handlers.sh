@@ -3573,7 +3573,7 @@ geo_quarantine() {
 #######################################################################################################################
 COMMANDS+=('mydecoder')
 geo_mydecoder_doc() {
-    doc_cmd 'mydecoder <MyDecoderExportedDeviceData.json>'
+    doc_cmd 'mydecoder [options] <MyDecoderExportedDeviceData.json>'
         doc_cmd_desc 'Converts device data from MyDecoder (exported as JSON) into a MyGeotab text log file. The output file will be in the same directory, with the same name, but with a .txt file extension (i.e. filename.json => filename.txt).'
         doc_cmd_desc 'An HOS unit test can also be created for the data by using the -u option. When using this option, you can pass in the name of a log file (with a .txt extension) instead of a json one.'
         doc_cmd_desc 'NOTE: This feature is only available for MYG 9.0 and above, so you must have a compatible version of MYG checked out for it to work.'
