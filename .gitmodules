@@ -1,0 +1,3 @@
+[submodule "modules/BugHunter"]
+	path = modules/BugHunter
+	url = git@git.geotab.com:mehrdadkamelzadeh/bughunter.git

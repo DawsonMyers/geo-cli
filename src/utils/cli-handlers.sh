@@ -3575,17 +3575,49 @@ COMMANDS+=('mydecoder')
 geo_mydecoder_doc() {
     doc_cmd 'mydecoder <MyDecoderExportedDeviceData.json>'
         doc_cmd_desc 'Converts device data from MyDecoder (exported as JSON) into a MyGeotab text log file. The output file will be in the same directory, with the same name, but with a .txt file extension (i.e. filename.json => filename.txt).'
+        doc_cmd_desc 'An HOS unit test can also be created for the data by using the -u option. When using this option, you can pass in the name of a log file (with a .txt extension) instead of a json one.'
         doc_cmd_desc 'NOTE: This feature is only available for MYG 9.0 and above, so you must have a compatible version of MYG checked out for it to work.'
 
-    # doc_cmd_options_title
-    #     doc_cmd_option '-b'
-    #         doc_cmd_option_desc 'Only print out the git blame for the test.'
+    doc_cmd_options_title
+        doc_cmd_option '-u'
+            doc_cmd_option_desc 'Create an HOS unit test for the converted data.'
+        doc_cmd_option '-d <database>'
+            doc_cmd_option_desc 'The database to get data from when creating a unit test.'
+        doc_cmd_option '-n <username>'
+            doc_cmd_option_desc 'The geotab email to use when logging into the database creating a unit test. If this option is not specified, then $USER@geotab.com will be used.'
     doc_cmd_examples_title
         doc_cmd_example "geo mydecoder MyDecoder_554215428_04_07_2022.json"
+        doc_cmd_example "geo mydecoder -u -d g560 MyDecoder_554215428_04_07_2022.json"
+        doc_cmd_example "geo mydecoder -u -d g560 MyDecoder_554215428_04_07_2022.txt"
 }
 geo_mydecoder() {
     local interactive=false
-    [[ $1 == --interactive ]] && interactive=true && shift
+    local make_unit_test=false
+    local database=
+    local username="$USER@geotab.com"
+    local password=
+
+    local OPTIND
+    while getopts "uid:n:p:" opt; do
+        # log::debug "OPTIND: $OPTIND"
+        # log::debug "OPTARG: $OPTARG"
+        case "${opt}" in
+            u ) make_unit_test=true ;;
+            d ) database="$OPTARG" ;;
+            n ) username="$OPTARG" ;;
+            p ) password="$OPTARG" ;;
+            i ) interactive=true ;;
+            : )
+                log::Error "Option '${opt}' expects an argument."
+                return 1
+                ;;
+            \? )
+                log::Error "Invalid option: -${opt}"
+                return 1
+                ;;
+        esac
+    done
+    shift $((OPTIND - 1))
 
     local input_file_path="$1"
     local input_file_name=
@@ -3594,8 +3626,17 @@ geo_mydecoder() {
 
     [[ -z $input_file_path ]] && log::Error "No input json file specified." && geo_mydecoder_doc && return 1
     [[ ! -f $input_file_path ]] && log::Error "Input file name does not exist." && return 1
-    [[ ! $input_file_path =~ \.json$ ]] && log::Error "Input file must have a .json file extension." && return 1
     input_file_path=$(realpath $input_file_path)
+
+    # debug "input: $input_file_path"
+    # debug "make_unit_test: $make_unit_test"
+    if $make_unit_test && [[ $input_file_path =~ \.txt$ ]]; then
+        _geo_mydecoder_generate_unit_test "$input_file_path" "$database" "$username" "$password" && log::success "Done"
+        return
+    fi
+
+    [[ ! $input_file_path =~ \.json$ ]] && log::Error "Input file must have a .json file extension." && return 1
+
     input_file_name="${input_file_path##*/}"
     output_file_path="${input_file_path%.json}.txt"
     output_file_name="${output_file_path##*/}"
@@ -3666,6 +3707,13 @@ geo_mydecoder() {
     fi
 
     _geo_mydecoder_converter_check disable
+
+    # Make a unit test for log file if the -u option was passed in.
+    $make_unit_test && _geo_mydecoder_generate_unit_test "$output_file_path" "$database" "$username" "$password"
+
+    log::info "\nConverted log file path:"
+    log::detail "$output_file_path\n"
+
     log::success "Done"
 }
 
@@ -3688,6 +3736,32 @@ _geo_mydecoder_converter_check() {
         fi
     fi
     geo_set MYDECODER_CONVERTER_WAS_ENABLED $mydecoder_converter_was_enabled
+}
+
+_geo_mydecoder_generate_unit_test() {
+    local output_file_path="$1"
+    local database="$2"
+    local username="$3"
+    local password="$4"
+
+    local bug_hunter_path="$GEO_CLI_DIR/modules/BugHunter/HosProcessorBugHunter"
+    [[ ! -d $bug_hunter_path ]] && log::Error "BugHunter not found at path:\n$bug_hunter_path" && return 1
+
+    local cmd="dotnet run --log-path '$output_file_path'"
+    [[ -n $database ]] && cmd+=" --database $database"
+    [[ -n $username ]] && cmd+=" --username $username"
+    [[ -n $password ]] && cmd+=" --password $password"
+    log::debug $cmd
+    (
+        cd "$bug_hunter_path"
+        eval $cmd
+    )
+    [[ $? != 0 ]] && log::Error "Failed to create unit test" && return 1
+
+    local test_file="${output_file_path%.*}.test"
+    [[ -f $test_file ]] && cat "$test_file" | xclip -selection c && log::info -b "\nTest copied to clipboard\n"
+    log::info "Unit test file path:"
+    log::detail "$test_file"
 }
 
 _geo_auto_switch_server_config() {
@@ -4291,6 +4365,7 @@ _geo_complete()
     # echo "cur: ${COMP_WORDS[COMP_CWORD]}"  >> bcompletions.txt
     prev=${COMP_WORDS[$COMP_CWORD-1]}
     prevprev=${COMP_WORDS[$COMP_CWORD-2]}
+    local full_cmd="${COMP_WORDS[@]}"
     # echo "prev: $prev"  >> bcompletions.txt
     case ${COMP_CWORD} in
         # e.g., geo
@@ -4328,6 +4403,7 @@ _geo_complete()
             #         COMPREPLY=($(compgen -W "some other args" -- ${cur}))
             #         ;;
             # esac
+            _geo_autocomplete_filename
             ;;
         # e.g., geo db start
         3)
@@ -4340,11 +4416,21 @@ _geo_complete()
             # if [[ $prevprev == db && $prev =~ start|rm ]]; then
             #     COMPREPLY=($(compgen -W "$(geo_dev databases)" -- ${cur}))
             # fi
+            _geo_autocomplete_filename
             ;;
         *)
+            # echo "star: $prevprev/$prev/$cur" >> ~/bcompletions.txt
             COMPREPLY=()
+            _geo_autocomplete_filename
+            # Autocomplete file namse in current directory if the current word doesn't start with '-' (an option).
+            # [[ $full_cmd =~ mydecoder && ! $cur =~ ^- ]] && COMPREPLY=($(compgen -W "$(ls -A)" -- ${cur}))
+            # echo ${cur}
             ;;
     esac
+}
+
+_geo_autocomplete_filename() {
+    [[ $full_cmd =~ mydecoder && ! $cur =~ ^- ]] && COMPREPLY=($(compgen -W "$(ls -A)" -- ${cur}))
 }
 
 complete -F _geo_complete geo

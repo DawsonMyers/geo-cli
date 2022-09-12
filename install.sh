@@ -57,6 +57,9 @@ envsubst < $GEO_CLI_DIR/src/init/bashrc.sh >> ~/.bashrc
 _geo_check_docker_installation
 _geo_install_apt_package_if_missing 'jq'
 
+# Init submodules.
+git submodule update --init --recursive
+
 geotab_logo
 geo_logo
 echo
