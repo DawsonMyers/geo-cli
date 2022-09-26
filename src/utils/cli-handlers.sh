@@ -345,13 +345,16 @@ _geo_db_create() {
     local accept_defaults=
     local no_prompt=
     local empty_db=false
+    local build=false
     local OPTIND
-    while getopts "sye" opt; do
+
+    while getopts "syenb" opt; do
         case "${opt}" in
             s ) silent=true ;;
             y ) accept_defaults=true ;;
             n ) no_prompt=true ;;
             e ) empty_db=true && log::status -b 'Creating empty Postgres container';;
+            b ) build=true ;;
             \? )
                 log::Error "Invalid option: -$OPTARG"
                 return 1
@@ -359,6 +362,17 @@ _geo_db_create() {
         esac
     done
     shift $((OPTIND - 1))
+
+    if $build; then
+        log::status -b 'Building MyGeotab'
+        local dev_repo=$(geo_get DEV_REPO_DIR)
+        myg_core_proj="$dev_repo/Checkmate/MyGeotab.Core.csproj"
+        [[ ! -f $myg_core_proj ]] && Error "Build failed. Cannot find csproj file at: $myg_core_proj" && return 1;
+        if ! dotnet build "${myg_core_proj}"; then
+            Error "Building MyGeotab failed"
+            return 1;
+        fi
+    fi
 
     db_version="$1"
     db_version=$(_geo_make_alphanumeric "$db_version")
@@ -434,16 +448,31 @@ _geo_db_create() {
 
 _geo_db_start() {
     local accept_defaults=
-    if [[ $1 == '-y' ]]; then
-        accept_defaults=true
-        shift
-    fi
-
     local no_prompt=
-    if [[ $1 == '-n' ]]; then
-        no_prompt=true
-        shift
-    fi
+    local build=
+    local prompt_for_db=
+    local db_version=
+    local OPTIND
+
+    while getopts "ynbp" opt; do
+        case "${opt}" in
+            y ) accept_defaults=true ;;
+            n ) no_prompt=true ;;
+            b ) build=true ;;
+            p ) prompt_for_db=true ;;
+            # d ) database="$OPTARG" ;;
+            : )
+                log::Error "Option '${opt}' expects an argument."
+                return 1
+                ;;
+            \? )
+                log::Error "Invalid option: -${opt}"
+                return 1
+                ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+
     # log::Error "Port error" && return 1
     
     prompt_for_db_version() {
@@ -454,7 +483,7 @@ _geo_db_start() {
         # log::debug $db_version
     }
 
-    if [[ $1 == '-p' ]]; then
+    if [[ $prompt_for_db == true ]]; then
         prompt_for_db_version
         shift
     else
@@ -575,6 +604,7 @@ _geo_db_start() {
         local opts=-s
         [[ $accept_defaults == true ]] && opts+=y
         [[ $no_prompt == true ]] && opts+=n
+        [[ $build == true ]] && opts+=b
 
         # log::debug "db_version: $db_version"
 
