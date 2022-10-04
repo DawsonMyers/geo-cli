@@ -2504,6 +2504,7 @@ geo_analyze() {
         "Microsoft.CodeAnalysis.NetAnalyzers $MYG_TEST_PROJ"
         "SonarAnalyzer.CSharp $MYG_CORE_PROJ"
         "GW-Linux-Debug $MYG_GATEWAY_TEST_PROJ"
+        "Build-All.sln $dev_repo"
     )
     local len=${#analyzers[@]}
     local max_id=$((len - 1))
@@ -2518,6 +2519,7 @@ geo_analyze() {
         local project="$(log::info -b Core)"
         [[ ${analyzer[$proj]} == $MYG_TEST_PROJ ]] && project=$(log::info 'Test')
         [[ ${analyzer[$proj]} == $MYG_GATEWAY_TEST_PROJ ]] && project=$(log::info 'GW')
+        [[ ${analyzer[$proj]} == $dev_repo ]] && project=$(log::info 'All')
 
         printf '%-4d %-38s %-8s\n' $id "${analyzer[$name]}" "$project"
     done
@@ -2528,13 +2530,14 @@ geo_analyze() {
     local prompt_txt='Enter the analyzer IDs that you would like to run (separated by spaces): '
 
     local valid_input=false
+    local include_long_running=true
     local ids=
 
     # Default to running in batches (much faster).
     local run_individually=false
 
     local OPTIND
-    while getopts "abi" opt; do
+    while getopts "abids" opt; do
         case "${opt}" in
             # Check if the run all analyzers option (-a) was supplied.
             a )
@@ -2550,6 +2553,29 @@ geo_analyze() {
                 # echo
                 # log::status -b 'Running analyzers in batches'
                 # echo
+                ;;
+            # Skip long running analyzers.
+            s )
+                include_long_running=false
+                echo
+                log::status -b 'Skip long running analyzers'
+                echo
+                ;;
+            g )
+                (
+                    cd "$dev_repo"
+                    pwd
+                    dotnet build -c Debug -r ubuntu-x64 $MYG_GATEWAY_TEST_PROJ
+                )
+                return
+                ;;
+            d )
+                (
+                    cd "$dev_repo"
+                    pwd
+                    dotnet build All.sln
+                )
+                return
                 ;;
             \? )
                 log::Error "Invalid option: $1"
@@ -2666,15 +2692,47 @@ geo_analyze() {
                 for analyzer_project in ${!target_analyzers[@]}; do
                     [[ ${target_analyzers_count[$analyzer_project]} -eq 0 ]] && continue
                     # Checkmate/MyGeotab.Core.csproj => MyGeotab.Core
-                    local project_name=${target_analyzer_project_name[$analyzer_project]}
+                    local project_name="${target_analyzer_project_name[$analyzer_project]}"
+                    local target_analyzer="${target_analyzers[$analyzer_project]}"
+                    target_analyzer="${target_analyzer% }"
                     echo
                     log::status -b "Running the following ${target_analyzers_count[$analyzer_project]} analyzer(s) against $(log::txt_underline $project_name):"
-                    print_analyzers "${target_analyzers[$analyzer_project]}"
+                    print_analyzers "$target_analyzer"
                     echo
 
                     [[ $stop_requested == true ]] && break
 
-                    if ! dotnet build -p:DebugAnalyzers="${target_analyzers[$analyzer_project]}" -p:TreatWarningsAsErrors=false -p:RunAnalyzersDuringBuild=true ${MYG_CORE_PROJ}; then
+                    dotnet_build() {
+                        debug "dotnet build -p:DebugAnalyzers=\"$target_analyzer\" -p:TreatWarningsAsErrors=false -p:RunAnalyzersDuringBuild=true ${MYG_CORE_PROJ}"
+                        dotnet build -p:DebugAnalyzers="$target_analyzer" -p:TreatWarningsAsErrors=false -p:RunAnalyzersDuringBuild=true ${MYG_CORE_PROJ}
+                    }
+                    
+                    local cmd=dotnet_build
+
+                    if [[ $target_analyzer =~ Build-All.sln ]]; then
+                        ! $include_long_running && log::status "Skipping $target_analyzer" && continue 
+                        cmd="dotnet build All.sln" 
+                    elif [[ $target_analyzer =~ GW-Linux-Debug ]]; then
+                        ! $include_long_running && log::status "Skipping $target_analyzer" && continue
+                        cmd="dotnet build $MYG_GATEWAY_TEST_PROJ"
+                    fi
+
+                    # case "$target_analyzer" in
+                    #     Build-All.sln )
+                    #         ! $include_long_running && continue
+                    #         cmd="dotnet build All.sln"
+                    #         ;;
+                    #     GW-Linux-Debug )
+                    #         ! $include_long_running && continue
+                    #         cmd="dotnet build $MYG_GATEWAY_TEST_PROJ"
+                    #         ;;
+                    # esac
+                    # debug "$project_name"
+                    # debug "$target_analyzer"
+
+                    [[ $cmd != dotnet_build ]] && debug "$cmd"
+
+                    if ! $cmd; then
                         echo
                         log::Error "Running $project_name analyzer(s) failed"
                         target_analyzers_result[$analyzer_project]=$(log::red FAIL)
