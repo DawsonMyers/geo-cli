@@ -2459,20 +2459,25 @@ geo_analyze_doc() {
     doc_cmd_desc 'Allows you to select and run various pre-build analyzers. You can optionally include the list of analyzers if already known.'
 
     doc_cmd_options_title
-        doc_cmd_option -a
-            doc_cmd_option_desc 'Run all analyzers'
         doc_cmd_option -
             doc_cmd_option_desc 'Run previous analyzers'
+        doc_cmd_option -a
+            doc_cmd_option_desc 'Run all analyzers'
+        doc_cmd_option -s
+            doc_cmd_option_desc 'Skip long-running analyzers'
         # doc_cmd_option -b
         #     doc_cmd_option_desc 'Run analyzers in batches (reduces runtime, but is only supported in 2104+)'
         doc_cmd_option -g
             doc_cmd_option_desc 'Run run GW-Linux-Debug pipeline analyzer.'
+        doc_cmd_option -d
+            doc_cmd_option_desc "Run 'dotnet build All.sln' in the development repo directory"
         doc_cmd_option -i
             doc_cmd_option_desc 'Run analyzers individually (building each time)'
 
     doc_cmd_examples_title
         doc_cmd_example 'geo analyze'
         doc_cmd_example 'geo analyze -a'
+        doc_cmd_example 'geo analyze -as # Run all analyzers, but skip the long-running ones'
         doc_cmd_example 'geo analyze 0 3 6'
 }
 geo_analyze() {
@@ -2559,7 +2564,6 @@ geo_analyze() {
                 include_long_running=false
                 echo
                 log::status -b 'Skip long running analyzers'
-                echo
                 ;;
             g )
                 (
@@ -2585,12 +2589,12 @@ geo_analyze() {
     done
     shift $((OPTIND - 1))
 
-    [[ $run_individually == false ]] && log::status -b "\nRunning analyzers in batches\n"
+    [[ $run_individually == false ]] && log::status -b "\nRunning analyzers in batches"
 
     # Check if the run previous analyzers option (-) was supplied.
     if [[ $1 =~ ^-$ ]]; then
         ids=$(geo_get ANALYZER_IDS)
-        [[ -n $ids ]] && echo && log::status "Using previous analyzer id(s): $ids"
+        [[ -n $ids ]] && echo && log::status "\nUsing previous analyzer id(s): $ids"
         shift
     fi
 
@@ -2609,7 +2613,7 @@ geo_analyze() {
         # Make sure the numbers are valid ids between 0 and max_id.
         for id in $ids; do
             if ((id < 0 | id > max_id)); then
-                log::error "Invalid ID: ${id}. Only IDs from 0 to ${max_id} are valid"
+                log::error "\nInvalid ID: ${id}. Only IDs from 0 to ${max_id} are valid"
                 # Set valid_input = false and break out of this for loop, causing the outer until loop to run again.
                 valid_input=false
                 break
