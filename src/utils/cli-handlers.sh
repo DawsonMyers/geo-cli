@@ -2529,9 +2529,10 @@ geo_analyze() {
         printf '%-4d %-38s %-8s\n' $id "${analyzer[$name]}" "$project"
     done
     
+    log::hint "\nHint: When running all analyzers with the -a option, you can also add the -s option to skip long-running analyzers (GW-Linux-Debug and Build-All.sln). Example $(txt_underline geo analyze -as)."
     local prev_ids=$(geo_get ANALYZER_IDS)
 
-    log::status "Valid IDs from 0 to ${max_id}"
+    log::status "\nValid IDs from 0 to ${max_id}"
     local prompt_txt='Enter the analyzer IDs that you would like to run (separated by spaces): '
 
     local valid_input=false

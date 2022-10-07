@@ -230,6 +230,10 @@ make_logger_function white White
 log::white() {
     _log_white "$@"
 }
+make_logger_function_vte hint VTE_COLOR_135 # purple
+log::hint() {
+    _log_hint "$@"
+}
 
 log::stacktrace() {
 # _stacktrace() {
