@@ -569,7 +569,11 @@ While running the following results in all help being printed:
 geo help
 ```
 
+Click below to expand help output.
+
 <details>
+
+```
 Available commands:
     image
       Commands for working with db images.
