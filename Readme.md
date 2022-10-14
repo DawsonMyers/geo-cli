@@ -21,6 +21,7 @@ A tool that makes MyGeotab development easier. Specifically, this tool aims to s
     - [Running Analyzers](#running-analyzers)
     - [Options](#options)
     - [Connecting to Servers Using IAP Tunnels](#connecting-to-servers-using-iap-tunnels)
+      - [Connect to Remote Database using pgAdmin](#connect-to-remote-database-using-pgadmin)
     - [Encode/Decode MyGeotab Long and Guid Ids](#encodedecode-mygeotab-long-and-guid-ids)
       - [Examples](#examples)
     - [Running Tests](#running-tests)
@@ -240,6 +241,15 @@ Now you can open another terminal and run the `geo ar ssh` command to ssh into t
 
 > By default, the username stored in th $USER environment variable is used when connecting to the server with `geo ar ssh`. You can set the default username by supplying it with the `-u <username>` option. You can also use a different port using the `-p <port>` option.
 
+#### Connect to Remote Database using pgAdmin
+You can add the -L option to either `geo ar tunnel` or `geo ar ssh` to bind local port 5433 to 5432 on remote host (through IAP tunnel). You can connect to the remote Postgres database using this port (5433) in pgAdmin. Note: you can also open up an ssh session to this server by opening another terminal and running `geo ar ssh`.
+
+Now you can connect to the Postgres database in pgAdmin by creating a server via Objects > Register > Server. Then enter in the following information:
+- Host: localhost
+- Port: 5433
+- username: <your username (what comes before @geotab.com in you email)>
+- Password: <the password you got from MyAdmin when you created the Access Request>
+
 ### Encode/Decode MyGeotab Long and Guid Ids
 Use the `geo id <id>` command to both encode and decode long and guid ids to simplify working with the MyGeotab api. The result is copied to your clipboard (if you have xclip installed). Guid encoded ids must be prefixed with 'a' and long encoded ids must be prefixed with 'b'"
 
@@ -457,7 +467,7 @@ This submenu provides access to utilities for working with access requests. It c
 ![geo ui iap 1](res/ui/geo-ui-iap-1.png) ![geo ui iap 2](res/ui/geo-ui-iap-2.png) ![geo ui iap 3](res/ui/geo-ui-iap-3.png)
 
 > If your SSH session is closed (e.g. via timeout), you may press Enter in the terminal to restart it.
-
+ 
 ## Help
 The `Help` submenu contains the following items:
 

@@ -1472,6 +1472,10 @@ geo_ar_doc() {
             doc_cmd_sub_option_desc "List and choose from previous IAP tunnel commands."
             doc_cmd_sub_option '-p <port>'
             doc_cmd_sub_option_desc "Specifies the port to open the IAP tunnel on. This port must be greater than 1024 and not be in use."
+            doc_cmd_sub_option '-L'
+            doc_cmd_sub_option_desc "Bind local port 5433 to 5432 on remote host (through IAP tunnel). You can connect to the remote Postgres database 
+                    using this port (5433) in pgAdmin. Note: you can also open up an ssh session to this server by opening another terminal and running
+                     $(txt_underline geo ar ssh)"
             # doc_cmd_sub_option_desc "Starts an SSH session to the server immediately after opening up the IAP tunnel."
         doc_cmd_sub_cmd 'ssh'
             doc_cmd_sub_cmd_desc "SSH into a server through the IAP tunnel started with $(log::green 'geo ar ssh')."
@@ -1480,6 +1484,10 @@ geo_ar_doc() {
             doc_cmd_sub_option_desc "The port to use when connecting to the server. This value is optional since the port that the IAP tunnel was opened on using $(log::green 'geo ar ssh') is used as the default value"
             doc_cmd_sub_option '-u <user>'
             doc_cmd_sub_option_desc "The user to use when connecting to the server. This value is optional since the username stored in \$USER is used as the default value. The value supplied here will be stored and reused next time you call the command"
+            doc_cmd_sub_option '-L'
+            doc_cmd_sub_option_desc "Bind local port 5433 to 5432 on remote host (through IAP tunnel). You can connect to the remote Postgres database 
+                    using this port (5433) in pgAdmin. Note: you can also open up an ssh session to this server by opening another terminal and running
+                     $(txt_underline geo ar ssh)"
     doc_cmd_examples_title
         doc_cmd_example 'geo ar tunnel -s gcloud compute start-iap-tunnel gceseropst4-20220109062647 22 --project=geotab-serverops --zone=projects/709472407379/zones/northamerica-northeast1-b'
         doc_cmd_example 'geo ar ssh'
@@ -1488,6 +1496,7 @@ geo_ar_doc() {
         doc_cmd_example 'geo ar ssh -u dawsonmyers -p 12345'
 }
 geo_ar() {
+    # ssh -L 127.0.0.1:5433:localhost:5432 -N <username>@127.0.0.1 -p <port from IAP>
     case "$1" in
         create )
             google-chrome https://myadmin.geotab.com/accessrequest/requests
@@ -1500,17 +1509,41 @@ geo_ar() {
                 local start_ssh='true'
                 local prompt_for_cmd='false'
                 local list_previous_cmds='false'
+                local bind_myadmin_port='false'
                 local port=
-                while [[ $1 =~ ^- ]]; do
-                    case "$1" in
-                        -s ) start_ssh= ;;
-                        --prompt ) prompt_for_cmd='true' ;;
-                        -l ) list_previous_cmds='true' ;;
-                        -p ) port=$2 && shift ;;
-                        * ) log::Error "Unknown option '$1'" && return 1 ;;
+                
+                [[ $@ =~ --prompt ]] && prompt_for_cmd=true
+
+                # while [[ $1 =~ ^- ]]; do
+                #     case "$1" in
+                #         -s ) start_ssh= ;;
+                #         --prompt ) prompt_for_cmd=true ;;
+                #         -l ) list_previous_cmds=true ;;
+                #         -p ) port=$2 && shift ;;
+                #         -L ) bind_myadmin_port=true ;;
+                #         * ) log::Error "Unknown option '$1'" && return 1 ;;
+                #     esac
+                #     shift
+                # done
+
+                local OPTIND
+                while getopts "nrLp:u:" opt; do
+                    case "${opt}" in
+                        s ) start_ssh=  ;;
+                        l ) list_previous_cmds=true ;;
+                        p ) port="$OPTARG" ;;
+                        L ) bind_myadmin_port=true ;;
+                        : )
+                            log::Error "Option '${opt}' expects an argument."
+                            return 1
+                            ;;
+                        \? )
+                            log::Error "Invalid option: ${opt}"
+                            return 1
+                            ;;
                     esac
-                    shift
                 done
+                shift $((OPTIND - 1))
 
                 local gcloud_cmd="$*"
                 local expected_cmd_start='gcloud compute start-iap-tunnel'
@@ -1633,11 +1666,12 @@ geo_ar() {
                     # Wait for the tunnel to start.
                     log::status 'Waiting for tunnel to open before stating SSH session...'
                     echo
-                    sleep 4
+                    sleep 5
+                    
                     # Continuously ask the user to re-open the ssh session (until ctrl + C is pressed, killing the tunnel).
                     # This allows users to easily re-connect to the server after the session times out.
                     # The -n option tells geo ar ssh not to store the port; the -p option specifies the ssh port.
-                    geo_ar ssh -n -p $open_port
+                    geo_ar ssh -Ln -p $open_port
 
                     fg
                 else
@@ -1653,17 +1687,41 @@ geo_ar() {
             local option_count=0
             local save='true'
             local loop=true
+            local bind_myadmin_port=false
 
-            while [[ ${1:0:1} == - ]]; do
-                # log::debug "option $1"
-                # Don't save port/user if -n (no save) option supplied. This option is used in geo ar tunnel so that re-opening
-                # an SSH session doesn't overwrite the most recent port (from the newest IAP tunnel, which may be different from this one).
-                [[ $1 == '-n' ]] && save= && shift
-                # The -r option will cause the ssh tunnel to run ('r' for run) once and then return without looping.
-                [[ $1 == '-r' ]] && loop=false && shift
-                [[ $1 == '-p' ]] && port=$2 && shift 2 && ((option_count++))
-                [[ $1 == '-u' ]] && user=$2 && shift 2 && ((option_count++))
+            # while [[ ${1:0:1} == - ]]; do
+            #     # log::debug "option $1"
+            #     # Don't save port/user if -n (no save) option supplied. This option is used in geo ar tunnel so that re-opening
+            #     # an SSH session doesn't overwrite the most recent port (from the newest IAP tunnel, which may be different from this one).
+            #     [[ $1 == '-n' ]] && save= && shift
+            #     # The -r option will cause the ssh tunnel to run ('r' for run) once and then return without looping.
+            #     [[ $1 == '-r' ]] && loop=false && shift
+            #     [[ $1 == '-p' ]] && port=$2 && shift 2 && ((option_count++))
+            #     [[ $1 == '-u' ]] && user=$2 && shift 2 && ((option_count++))
+            # done
+
+            local OPTIND
+            while getopts "nrLp:u:" opt; do
+                case "${opt}" in
+                    # Don't save port/user if -n (no save) option supplied. This option is used in geo ar tunnel so that re-opening
+                    # an SSH session doesn't overwrite the most recent port (from the newest IAP tunnel, which may be different from this one).
+                    n ) save=  ;;
+                    # The -r option will cause the ssh tunnel to run ('r' for run) once and then return without looping.
+                    r ) loop=false ;;
+                    p ) port="$OPTARG" ;;
+                    u ) user="$OPTARG" ;;
+                    L ) bind_myadmin_port=true ;;
+                    : )
+                        log::Error "Option '${opt}' expects an argument."
+                        return 1
+                        ;;
+                    \? )
+                        log::Error "Invalid option: ${opt}"
+                        return 1
+                        ;;
+                esac
             done
+            shift $((OPTIND - 1))
 
             [[ -z $port ]] && log::Error "No port found. Add a port with the -p <port> option." && return 1
 
@@ -1679,7 +1737,19 @@ geo_ar() {
                 geo_set AR_PORT "$port"
             fi
 
+            local bind_cmd="ssh -L 127.0.0.1:5433:localhost:5432 -N $user@127.0.0.1 -p $port"
             local cmd="ssh $user@localhost -p $port"
+
+            if $bind_myadmin_port; then
+                log::status -b "\nBinding local port 5433 to 5432 on remote host (through IAP tunnel)"
+                log::info -b "You can connect to the Postgres database in pgAdmin by creating a server via Objects > Register > Server. Then enter in the following information:"
+                log::info "    Host: localhost"
+                log::info "    Port: 5433"
+                log::info "    username: <your username (what comes before @geotab.com in you email)>"
+                log::info "    Password: <the password you got from MyAdmin when you created the Access Request>"
+                log::hint "You can also open another terminal and start an ssh session with ther server using $(txt_underline geo ar ssh)"
+                cmd="$bind_cmd"
+            fi
 
             # Run the ssh command once and then return if loop was disabled (with the -r option)
             if [[ $loop == false ]]; then
@@ -1688,6 +1758,7 @@ geo_ar() {
                 $cmd
                 return
             fi
+            
 
             # Continuously ask the user to re-open the ssh session (until ctrl + C is pressed, killing the tunnel).
             # This allows users to easily re-connect to the server after the session times out.
