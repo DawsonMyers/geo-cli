@@ -454,19 +454,20 @@ _geo_db_start() {
     local db_version=
     local OPTIND
 
-    while getopts "ynbp" opt; do
+    while getopts "ynbph" opt; do
         case "${opt}" in
             y ) accept_defaults=true ;;
             n ) no_prompt=true ;;
             b ) build=true ;;
             p ) prompt_for_db=true ;;
+            h ) geo_db_doc && return ;;
             # d ) database="$OPTARG" ;;
             : )
                 log::Error "Option '${opt}' expects an argument."
                 return 1
                 ;;
             \? )
-                log::Error "Invalid option: -${opt}"
+                log::Error "Invalid option: ${opt}"
                 return 1
                 ;;
         esac
