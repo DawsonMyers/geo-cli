@@ -1613,6 +1613,14 @@ geo_ar() {
                     echo
                 fi
 
+                local geo_config_dir="$(geo_get CONFIG_DIR)"
+                local geo_tmp_ar_dir="$geo_config_dir/tmp/ar"
+                [[ ! -d $geo_tmp_ar_dir ]] && mkdir -p "$geo_tmp_ar_dir"
+                local ar_request_name="${gcloud_cmd#gcloud compute start-iap-tunnel }"
+                ar_request_name="${ar_request_name% 22 --project*}"
+                local connection_file=""
+                [[ -n $open_port ]] && connection_file="$geo_tmp_ar_dir/${ar_request_name}__${open_port}"
+
                 if [[ $start_ssh ]]; then
                     cleanup() {
                         echo
@@ -1660,7 +1668,13 @@ geo_ar() {
                         echo
                     else
                         # Start up IAP tunnel in the background.
-                        $gcloud_cmd $port_arg &
+                        if [[ -n $connection_file ]]; then
+                            # log::debug 'running in loc'
+                            run_command_with_lock_file "$connection_file" "$open_port" $gcloud_cmd $port_arg || { log::Error "failed to start IAP tunnel"; return 1; } &
+                        else
+                            # log::debug 'NOT running in loc'
+                            $gcloud_cmd $port_arg &
+                        fi
                     fi
 
                     # Wait for the tunnel to start.
@@ -1668,14 +1682,20 @@ geo_ar() {
                     echo
                     sleep 5
                     
+                    local opts='-n'
+                    $bind_myadmin_port && opts+='L'
                     # Continuously ask the user to re-open the ssh session (until ctrl + C is pressed, killing the tunnel).
                     # This allows users to easily re-connect to the server after the session times out.
                     # The -n option tells geo ar ssh not to store the port; the -p option specifies the ssh port.
-                    geo_ar ssh -Ln -p $open_port
+                    geo_ar ssh $opts -p $open_port
 
                     fg
                 else
-                    $gcloud_cmd $port_arg
+                    if [[ -n $connection_file ]]; then
+                        run_command_with_lock_file "$connection_file" "$open_port" $gcloud_cmd $port_arg 
+                    else
+                        $gcloud_cmd $port_arg 
+                    fi
                 fi
             )
             ;;
@@ -1786,6 +1806,31 @@ geo_ar() {
             log::Error "Unknown subcommand '$1'"
             ;;
     esac
+}
+
+run_command_with_lock_file() {
+    local lock_file="$1"
+    local lock_file_content="$2"
+    local cmd="${@:3}"
+    echo "$lock_file_content" > "$lock_file"
+
+    exec {FD}<>$lock_file
+    # debug "FD = ${FD}"
+    # Get an exclusive lock on file descriptor 200, waiting only 5 second before timing out.
+    if ! flock -x -w 5 $FD; then
+        log::Error "run_command_with_lock_file: failed to lock port info file at: $lock_file."
+        return 1
+    fi
+
+    # debug "Running command: $cmd"
+    # Run command.
+    $cmd
+    
+    # Unlock file descriptor.
+    flock -u "$FD"
+
+    # Remove lock file.
+    rm "$lock_file" || log::Error "Failed to remove lock file"
 }
 
 # Save the previous 5 gcloud commands as a single value in the config file, delimited by the '@' character.
@@ -3544,7 +3589,29 @@ geo_dev() {
         auto-switch )
             _geo_auto_switch_server_config "$2" "$3"
             ;;
-        *)
+        open-iap-tunnels )
+            local geo_config_dir="$(geo_get CONFIG_DIR)"
+            local geo_tmp_ar_dir="$geo_config_dir/tmp/ar"
+            [[ ! -d $geo_tmp_ar_dir ]] && return
+
+            (
+                local open_tunnels=
+                cd "$geo_tmp_ar_dir"
+                # Files sorted from newest to oldest.
+                local files="$(ls -lr | awk '{print $9}')"
+                local regex='(.+)__(.+)'
+                for file in $files; do
+                    # AR request name = port of open IAP tunnel
+                    [[ ! $file =~ $regex ]] && continue
+                    local ar_name="${BASH_REMATCH[1]}"
+                    local iap_port="${BASH_REMATCH[2]}"
+                    open_tunnels+="$ar_name=$iap_port|"
+                done
+                # Trim off the trailing '|' and echo result
+                echo -n "${open_tunnels:0:-1}"
+            )
+            ;;
+        * )
             log::Error "Unknown argument: '$1'"
             ;;
     esac
