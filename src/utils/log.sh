@@ -235,6 +235,15 @@ log::hint() {
     _log_hint "$@"
 }
 
+log::keyvalue() {
+    key="$(log::info -n "$1 ")"
+    key_length=${#key}
+    value="$(log::data "$2")"
+    msg="$key $value"
+    # log::data " $2"
+    log::fmt_text_and_indent_after_first_line "$msg" 4 10
+}
+
 log::stacktrace() {
 # _stacktrace() {
     local start=1
@@ -345,10 +354,12 @@ log::fmt_text() {
 
 # Takes a long string and wraps it according to the terminal width (like left justifying text in Word or Goggle Doc),
 # but it allows wrapped lines to be indented more than the first line. The all lines created can also have a base indent.
+# 
 # Parameters:
 #   1 (long_text):  The long line of text
 #   2 (base_indent): The base indent amount that all of the text will be indented by (the number of spaces to add to prefix each line with)
 #   3 (additional_indent): The number of additional spaces to prefix wrapped lines with
+# 
 # Example:
 #   (Assuming the terminal width is 40)
 #   long_text="A very very very very very very very very very very very very very very very very long line"

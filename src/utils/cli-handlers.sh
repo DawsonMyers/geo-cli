@@ -1512,7 +1512,7 @@ geo_ar() {
                 local bind_myadmin_port='false'
                 local port=
                 
-                [[ $@ =~ --prompt ]] && prompt_for_cmd=true
+                [[ $@ =~ --prompt ]] && prompt_for_cmd=true && shift
 
                 # while [[ $1 =~ ^- ]]; do
                 #     case "$1" in
@@ -1761,19 +1761,23 @@ geo_ar() {
             local cmd="ssh $user@localhost -p $port"
 
             if $bind_myadmin_port; then
-                log::status -b "\nBinding local port 5433 to 5432 on remote host (through IAP tunnel)"
-                log::info -b "You can connect to the Postgres database in pgAdmin by creating a server via Objects > Register > Server. Then enter in the following information:"
-                log::info "    Host: localhost"
-                log::info "    Port: 5433"
-                log::info "    username: <your username (what comes before @geotab.com in you email)>"
-                log::info "    Password: <the password you got from MyAdmin when you created the Access Request>"
-                log::hint "You can also open another terminal and start an ssh session with ther server using $(txt_underline geo ar ssh)"
+                log::status -b "Binding local port 5433 to 5432 on remote host (through IAP tunnel)"
+                log::info -b "\nYou can connect to the Postgres database in pgAdmin by creating a server via $(txt_underline 'Objects > Register > Server'). Then enter in the following information:"
+                log::keyvalue "Host:" "localhost"
+                log::keyvalue "Port:" "5433"
+                log::keyvalue "username:" "$user"
+                log::keyvalue "Password:" "the password you got from MyAdmin when you created the Access Request"
+                # log::info "    Host: localhost"
+                # log::info "    Port: 5433"
+                # log::info "    username: $user"
+                # log::info "    Password: <the password you got from MyAdmin when you created the Access Request>"
+                log::hint "\nYou can also open another terminal and start an ssh session with ther server using $(txt_underline geo ar ssh)"
                 cmd="$bind_cmd"
             fi
 
             # Run the ssh command once and then return if loop was disabled (with the -r option)
             if [[ $loop == false ]]; then
-                log::debug "$cmd"
+                log::debug "\n$cmd"
                 echo
                 $cmd
                 return
@@ -1783,11 +1787,11 @@ geo_ar() {
             # Continuously ask the user to re-open the ssh session (until ctrl + C is pressed, killing the tunnel).
             # This allows users to easily re-connect to the server after the session times out.
             while true; do
-                log::debug "$cmd"
+                log::debug "\n$cmd"
                 echo
                 sleep 1
                 # Run ssh command.
-                $cmd
+                $cmd 
                 echo
                 sleep 1
                 log::status -bu 'SSH closed'
@@ -1812,25 +1816,40 @@ run_command_with_lock_file() {
     local lock_file="$1"
     local lock_file_content="$2"
     local cmd="${@:3}"
-    echo "$lock_file_content" > "$lock_file"
+    touch "$lock_file"
 
-    exec {FD}<>$lock_file
-    # debug "FD = ${FD}"
-    # Get an exclusive lock on file descriptor 200, waiting only 5 second before timing out.
-    if ! flock -x -w 5 $FD; then
-        log::Error "run_command_with_lock_file: failed to lock port info file at: $lock_file."
-        return 1
-    fi
+    trap '' EXIT
+    (
+        cleanup() {
+            flock -u "$FD"
+            [[ -f $lock_file ]] && { rm "$lock_file" || log::Error "Failed to remove lock file"; }
+            # log::warn "run_command_with_lock_file: cleaned up successfully after interrupt"
+            exit
+        }
 
-    # debug "Running command: $cmd"
-    # Run command.
-    $cmd
+        trap cleanup SIGINT SIGTERM ERR EXIT
+        # Create file descriptor for the lock file.
+        exec {FD}<>$lock_file
+        echo "$lock_file_content" > "$lock_file"
+        # trap all interrupts and remove the lock file
+
+        # Get an exclusive lock on file descriptor 200, waiting only 5 second before timing out.
+        if ! flock -x -w 5 $FD; then
+            log::Error "run_command_with_lock_file: failed to lock port info file at: $lock_file."
+            return 1
+        fi
+
+        # debug "Running command: $cmd"
+        # Run command.
+        $cmd
+        
+        # Unlock file descriptor.
+        flock -u "$FD"
+
+        # Remove lock file.
+        [[ -f $lock_file ]] && rm "$lock_file" || log::Error "Failed to remove lock file"
+    )
     
-    # Unlock file descriptor.
-    flock -u "$FD"
-
-    # Remove lock file.
-    rm "$lock_file" || log::Error "Failed to remove lock file"
 }
 
 # Save the previous 5 gcloud commands as a single value in the config file, delimited by the '@' character.
@@ -3595,10 +3614,14 @@ geo_dev() {
             [[ ! -d $geo_tmp_ar_dir ]] && return
 
             (
-                local open_tunnels=
+                local open_tunnels=''
                 cd "$geo_tmp_ar_dir"
+
+                # First remove all files that no longer have locks on them
+                remove_unused_lock_files_in_current_directory
+
                 # Files sorted from newest to oldest.
-                local files="$(ls -lr | awk '{print $9}')"
+                local files="$(ls -lt | awk '{print $9}')"
                 local regex='(.+)__(.+)'
                 for file in $files; do
                     # AR request name = port of open IAP tunnel
@@ -3607,6 +3630,7 @@ geo_dev() {
                     local iap_port="${BASH_REMATCH[2]}"
                     open_tunnels+="$ar_name=$iap_port|"
                 done
+                [[ -z $open_tunnels ]] && return
                 # Trim off the trailing '|' and echo result
                 echo -n "${open_tunnels:0:-1}"
             )
@@ -3615,6 +3639,21 @@ geo_dev() {
             log::Error "Unknown argument: '$1'"
             ;;
     esac
+}
+
+remove_unused_lock_files_in_current_directory() {
+    for file in *; do
+        exec {fd}>$file
+        if flock -w 0 $fd; then
+            # log::debug "Removing unused lock file $file"
+            # Unlock the file.
+            flock -u $fd
+            # Close the file descriptor.
+            eval "exec $fd>&-"
+            # Remove the unused lock file.
+            rm "$file"
+        fi
+    done
 }
 
 #######################################################################################################################
