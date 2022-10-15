@@ -118,7 +118,7 @@ class OpenIapTunnelMenu(Gtk.MenuItem):
     items = set()
     init_rebuild = False
     def __init__(self):
-        super().__init__(label='Open Iap Tunnels')
+        super().__init__(label='Open IAP Tunnels')
         self.open_tunnels = {}
         self.prev_tunnel_str = ''
         self.prev_tunnels = set()
