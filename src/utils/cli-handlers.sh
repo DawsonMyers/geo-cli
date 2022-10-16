@@ -4260,6 +4260,45 @@ geo_loc() {
 }
 
 #######################################################################################################################
+COMMANDS+=('myg')
+geo_myg_doc() {
+    doc_cmd 'myg [subcommand | options]'
+        doc_cmd_desc 'Performs various tasks related to building and running MyGeotab.'
+    doc_cmd_sub_cmds_title
+        doc_cmd_sub_cmd "start"
+        doc_cmd_sub_cmd_desc "Starts MyGeotab"
+
+    doc_cmd_examples_title
+        doc_cmd_example "geo loc cs # Counts the lines in all *.cs files."
+}
+geo_myg() {
+    local cmd="$1"
+    local dev_repo=$(geo_get DEV_REPO_DIR)
+    myg_core_proj="$dev_repo/Checkmate/MyGeotab.Core.csproj"
+    [[ ! -f $myg_core_proj ]] && Error "Cannot find csproj file at: $myg_core_proj" && return 1
+
+    case "$cmd" in
+        build )
+            log::status -b 'Building MyGeotab'
+            
+            if ! dotnet build "${myg_core_proj}"; then
+                log::Error "Building MyGeotab failed"
+                return 1;
+            fi
+            ;;
+        start )
+            log::status -b 'Starting MyGeotab'
+            if ! dotnet run -v n --project "${myg_core_proj}" -- login; then
+                    log::Error "Running MyGeotab failed"
+                return 1;
+            fi
+            # # Output to the console (/dev/tty) and store build output to a variable.
+            # local build_output=$(geo_myg build | tee /dev/tty || return 1)
+            ;;
+    esac
+}
+
+#######################################################################################################################
 # COMMANDS+=('command')
 # geo_command_doc() {
 #

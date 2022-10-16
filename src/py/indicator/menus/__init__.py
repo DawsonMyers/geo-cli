@@ -3,5 +3,7 @@ from .auto_switch import AutoSwitchDbMenuItem
 from .update import UpdateMenuItem
 from .help import HelpMenuItem
 from .access_request import AccessRequestMenuItem
+from .mygeotab import MyGeotabMenuItem
+
 
 
