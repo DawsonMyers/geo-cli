@@ -435,15 +435,48 @@ _geo_db_create() {
 
     if [[ $silent == false ]]; then
         log::info "Start your new db with $(log::txt_underline geo db start $db_version)"
-        log::info "Initialize it with $(log::txt_underline geo db init $db_version)"
+        log::info "Initialize it with geotabdemo using $(log::txt_underline geo db init $db_version)"
         echo
         log::info -b "Connect with pgAdmin (after starting with $(log::txt_underline geo db start $db_version))"
         log::info 'Create a new server and entering the following information:'
-        log::info "  Name: db (or whatever you want)"
-        log::info "  Host: 127.0.0.1"
-        log::info "  Username: $sql_user"
-        log::info "  Password: $sql_password"
+        log::info "  Name: Postgres (or whatever you want)"
+        log::info "  Connection tab"
+        log::info "    Host: localhost"
+        log::info "    Port: 5432"
+        log::info "    Maintenance database: postgres"
+        log::info "    Username: $sql_user"
+        log::info "    Password: $sql_password"
     fi
+}
+
+_geo_copy_pgAdmin_server_config() {
+    local iap=false
+    local file_pattern=demo
+    if [[ $1 == --iap ]]; then
+        [[ -z $2 ]] && return
+        iap=true
+        file_pattern=iap
+        # Replace : with \: to escape it (required format for passfiles).
+        export iap_password="${2//:/\\:}"
+        # export iap_database="$3"
+        shift 3
+        # shift 2
+    fi
+    export geotab_username=${1:-$USER}
+    local config_file_dir="$GEO_CLI_SRC_DIR/includes/db"
+    local destination_config_dir="$GEO_CLI_CONFIG_DIR/data/db"
+    export passfile="$destination_config_dir/$file_pattern.passfile"
+    mkdir -p "$destination_config_dir"
+
+    (
+        cd "$config_file_dir"
+        for file in *$file_pattern*; do
+            # Substitute in any environment variables and copy config files to the geo-cli config directory.
+            envsubst < "$file" > "$destination_config_dir/$file"
+        done
+        # Required for pgAdmin to use it.
+        [[ -f $passfile ]] && chmod 600 $passfile
+    )
 }
 
 _geo_db_start() {
@@ -1280,12 +1313,26 @@ function geo_db_init() {
 
     if dotnet "${path}" CreateDatabase postgres companyName="$db_name" administratorUser="$user" administratorPassword="$password" sqluser="$sql_user" sqlpassword="$sql_password" useMasterLogin='true'; then
         log::success "$db_name initialized"
+        
+        _geo_copy_pgAdmin_server_config
+        
         log::info -b 'Connect with pgAdmin (if not already set up)'
-        log::info 'Create a new server and entering the following information:'
-        log::info "  Name: db (or whatever you want)"
-        log::info "  Host: 127.0.0.1"
-        log::info "  Username: $sql_user"
-        log::info "  Password: $sql_password"
+        log::info "  1. Open pgAdmin"
+        log::info "  2. From the toolbar, click $(txt_underline 'Tools > Import/Export Servers')"
+        log::info "  3. Paste the following path into the 'Filename' input box and then click $(txt_underline 'Next'):"
+        log::data "$GEO_CLI_CONFIG_DIR/data/db/demo-pgAdmin.json"
+        log::info "  4. Click on the Servers checkbox and then click $(txt_underline 'Next')"
+        log::info "  5. Click $(txt_underline 'Finish') to complete the import process"
+        echo
+        log::info -b "\nAlternatively, you can create a server manually:"
+        log::info 'Create a new server in pgAdmin via $(txt_underline 'Objects > Register > Server') and enter the following information:'
+        log::info "  Name: MyGeotab (or whatever you want)"
+        log::info "  Connection tab"
+        log::info "    Host: localhost"
+        log::info "    Port: 5432"
+        log::info "    Maintenance database: geotabdemo"
+        log::info "    Username: $sql_user"
+        log::info "    Password: $sql_password"
         echo
         log::info -b "Use geotabdemo"
         log::info "1. Run MyGeotab.Core in your IDE"
@@ -1453,6 +1500,20 @@ _geo_check_for_dev_repo_dir() {
     geo_set DEV_REPO_DIR "$dev_repo"
 }
 
+populate_prev_value_if_requested() {
+    local key="$1"
+    local -n value_ref="$2"
+    [[ -z $value_ref ]] && return
+    if [[ $value_ref == - ]]; then
+        local saved_value=$(geo_get $key)
+        [[ -z $saved_value ]] && log::Error "There is no value saved for key '$key'" && return 1
+        value_ref="$saved_value"
+        log::data "Using saved value: $(log::detail $value_ref)"
+        return
+    fi
+    geo_set $key "$value_ref"
+}
+
 #######################################################################################################################
 COMMANDS+=('ar')
 geo_ar_doc() {
@@ -1497,6 +1558,43 @@ geo_ar_doc() {
 }
 geo_ar() {
     # ssh -L 127.0.0.1:5433:localhost:5432 -N <username>@127.0.0.1 -p <port from IAP>
+    show_iap_password_prompt_message() {
+        log::status -b "Binding local port 5433 to 5432 on remote host (through IAP tunnel)"
+        echo
+        log::info "$(txt_underline geo-cli) can configure pgAmin to connect to Postgres over the IAP tunnel."
+        log::info "Enter your Access Request password below to update the password file for the $(txt_underline MyGeotab Over IAP) server in pgAdmin, $(txt_underline OR) leave it blank if you already have a server in pgAdmin and plan to update its password manually."
+        echo
+        log::hint "The $(txt_underline MyGeotab Over IAP) server needs to be imported once into pgAdmin."
+        log::hint "The instructions will be shown after you enter your password."
+        log::hint "After the server is added, you only need to paste in your password below to have its passfile updated."
+        echo
+        log::hint "Leave the password and database empty if you will be manually updating an existing server in pgAdmin."
+        log::detail "Enter '-' in any of the following inputs to re-use the last value used."
+        iap_password_prompt="Access Request password:\n> "
+        iap_db_prompt="Database:\n> "
+
+        prompt_for_info_n -v iap_password "$iap_password_prompt"
+        while ! populate_prev_value_if_requested AR_PASSWORD iap_password; do
+            prompt_for_info_n -v iap_password "$iap_password_prompt"
+        done
+        # prompt_for_info_n -v iap_db "$iap_db_prompt"
+        # populate_prev_value_if_requested AR_DATABASE iap_db
+        # while ! populate_prev_value_if_requested AR_DATABASE iap_db; do
+        #     prompt_for_info_n -v iap_db "$iap_db_prompt"
+        # done
+        
+        iap_skip_password=true
+        reuse_msg_shown=true
+        if [[ -n $iap_password ]]; then
+            _geo_copy_pgAdmin_server_config --iap "$iap_password" "$user"
+            # _geo_copy_pgAdmin_server_config --iap "$iap_password" "$iap_db" "$user"
+        fi
+    }
+    local iap_password=
+    local iap_db=
+    local iap_skip_password=false
+    local reuse_msg_shown=false
+
     case "$1" in
         create )
             google-chrome https://myadmin.geotab.com/accessrequest/requests
@@ -1545,12 +1643,33 @@ geo_ar() {
                 done
                 shift $((OPTIND - 1))
 
+                if $bind_myadmin_port; then
+                    show_iap_password_prompt_message
+                    # echo
+                    # log::hint "Leave the password and database empty if you will be manually updating an existing server in pgAdmin."
+                    # log::detail "Enter - in any of the following inputs to re-use the last value used."
+                    # local iap_password_prompt="Access Request password:\n> "
+                    # local iap_db_prompt="Database:\n> "
+
+                    # prompt_for_info_n -v iap_password "$iap_password_prompt"
+                    # prompt_for_info_n -v iap_db "$iap_db_prompt"
+                    # populate_prev_value_if_requested AR_PASSWORD iap_password
+                    # populate_prev_value_if_requested AR_DATABASE iap_db
+
+                    # iap_skip_password=true
+                    # if [[ -n $iap_password ]]; then
+                    #     _geo_copy_pgAdmin_server_config --iap "$iap_password" "$iap_db" "$user"
+                    # fi
+                fi
+
                 local gcloud_cmd="$*"
                 local expected_cmd_start='gcloud compute start-iap-tunnel'
                 local prompt_txt='Enter the gcloud IAP command that was copied from your MyAdmin access request:'
                 if [[ $prompt_for_cmd == true ]]; then
-                    prompt_for_info "$prompt_txt"
-                    gcloud_cmd="$prompt_return"
+                    ! $reuse_msg_shown && log::detail "Enter '-' below to re-use the last gcloud command used."
+                    prompt_for_info -v gcloud_cmd "$prompt_txt"
+                    populate_prev_value_if_requested AR_IAP_CMD gcloud_cmd
+                    # gcloud_cmd="$prompt_return"
                 fi
 
                 if [[ $list_previous_cmds == true ]]; then
@@ -1574,10 +1693,12 @@ geo_ar() {
                 [[ -z $gcloud_cmd ]] && gcloud_cmd="$(geo_get AR_IAP_CMD)"
                 [[ -z $gcloud_cmd ]] && log::Error 'The gcloud compute start-iap-tunnel command (copied from MyAdmin for your access request) is required.' && return 1
 
+                
                 while [[ ! $gcloud_cmd =~ ^$expected_cmd_start ]]; do
-                    log::warn -b "The command must start with 'gcloud compute start-iap-tunnel'"
-                    prompt_for_info "$prompt_txt"
-                    gcloud_cmd="$prompt_return"
+                    ! $reuse_msg_shown && log::warn -b "The command must start with 'gcloud compute start-iap-tunnel'" && reuse_msg_shown=true
+                    prompt_for_info -v gcloud_cmd "$prompt_txt"
+                    populate_prev_value_if_requested AR_IAP_CMD gcloud_cmd
+                    # gcloud_cmd="$prompt_return"
                 done
 
                 geo_set AR_IAP_CMD "$gcloud_cmd"
@@ -1659,7 +1780,7 @@ geo_ar() {
                         done
                         [[ -z $open_port ]] && log::Error 'Open port could not be found' && return 1
                         geo_set AR_PORT "$open_port"
-                        log::status -bu 'Opening IAP tunnel'
+                        log::status -bu '\nOpening IAP tunnel'
                         log::info "Using port: '$open_port' to open IAP tunnel"
                         log::info "Note: the port is saved and will be used when you call '$(log::txt_italic geo ar ssh)'"
                         echo
@@ -1667,6 +1788,7 @@ geo_ar() {
                         sleep 1
                         echo
                     else
+                        log::status -bu '\nOpening IAP tunnel'
                         # Start up IAP tunnel in the background.
                         if [[ -n $connection_file ]]; then
                             # log::debug 'running in loc'
@@ -1683,7 +1805,13 @@ geo_ar() {
                     sleep 5
                     
                     local opts='-n'
-                    $bind_myadmin_port && opts+='L'
+                    # log::debug "tunnel"
+                    # log::debug "iap_skip_password: $iap_skip_password"
+                    # log::debug "bind_myadmin_port: $bind_myadmin_port"  
+                    if $bind_myadmin_port; then
+                        opts+='L'
+                        $iap_skip_password && opts+='s'
+                    fi
                     # Continuously ask the user to re-open the ssh session (until ctrl + C is pressed, killing the tunnel).
                     # This allows users to easily re-connect to the server after the session times out.
                     # The -n option tells geo ar ssh not to store the port; the -p option specifies the ssh port.
@@ -1708,6 +1836,7 @@ geo_ar() {
             local save='true'
             local loop=true
             local bind_myadmin_port=false
+            local iap_skip_password=false
 
             # while [[ ${1:0:1} == - ]]; do
             #     # log::debug "option $1"
@@ -1721,7 +1850,7 @@ geo_ar() {
             # done
 
             local OPTIND
-            while getopts "nrLp:u:" opt; do
+            while getopts "nrLsp:u:" opt; do
                 case "${opt}" in
                     # Don't save port/user if -n (no save) option supplied. This option is used in geo ar tunnel so that re-opening
                     # an SSH session doesn't overwrite the most recent port (from the newest IAP tunnel, which may be different from this one).
@@ -1731,6 +1860,7 @@ geo_ar() {
                     p ) port="$OPTARG" ;;
                     u ) user="$OPTARG" ;;
                     L ) bind_myadmin_port=true ;;
+                    s ) iap_skip_password=true ;;
                     : )
                         log::Error "Option '${opt}' expects an argument."
                         return 1
@@ -1744,6 +1874,22 @@ geo_ar() {
             shift $((OPTIND - 1))
 
             [[ -z $port ]] && log::Error "No port found. Add a port with the -p <port> option." && return 1
+            # log::debug "iap_skip_password: $iap_skip_password"
+            # log::debug "bind_myadmin_port: $bind_myadmin_port"
+            if $bind_myadmin_port && ! $iap_skip_password; then
+                show_iap_password_prompt_message
+                
+                # log::hint "Leave the password and database empty if you will be manually updating an existing server in pgAdmin."
+                # local iap_password_prompt="Access Request password:\n> "
+                # local iap_db_prompt="Database:\n> "
+                # prompt_for_info_n -v iap_password "$iap_password_prompt"
+                # prompt_for_info_n -v iap_db "$iap_db_prompt"
+                # if [[ -z $iap_password ]]; then
+                #     iap_skip_password=true
+                # else
+                #     _geo_copy_pgAdmin_server_config --iap "$iap_password" "$iap_db" "$user"
+                # fi
+            fi
 
             echo
             log::status -bu 'Opening SSH session'
@@ -1761,12 +1907,35 @@ geo_ar() {
             local cmd="ssh $user@localhost -p $port"
 
             if $bind_myadmin_port; then
-                log::status -b "Binding local port 5433 to 5432 on remote host (through IAP tunnel)"
-                log::info -b "\nYou can connect to the Postgres database in pgAdmin by creating a server via $(txt_underline 'Objects > Register > Server'). Then enter in the following information:"
-                log::keyvalue "Host:" "localhost"
-                log::keyvalue "Port:" "5433"
-                log::keyvalue "username:" "$user"
-                log::keyvalue "Password:" "the password you got from MyAdmin when you created the Access Request"
+                # log::status -b "Binding local port 5433 to 5432 on remote host (through IAP tunnel)"
+                # log::info "geo-cli can configure pgAmin to connect to Postgres over the IAP tunnel."
+                # log::info "Enter your Access Request password below to update the password file for the MyGeotab Over IAP server in pgAdmin, or leave it blank if you already have a server in pgAdmin and plan to update its password manually."
+                # log::hint "The MyGeotab Over IAP server needs to be imported once into pgAdmin. The instructions will be shown after you enter your password."
+                # log::hint "After it has been added, you only need to paste in your password below to have its passfile updated."
+                
+                # local iap_password_prompt="Access Request password:\n> "
+                # prompt_for_info_n -v iap_password "$iap_password_prompt"
+                
+                # _geo_copy_pgAdmin_server_config --iap "$iap_password" "$user"
+        
+                log::info -b 'Connect with pgAdmin (if not already set up)'
+                log::info "  1. Open pgAdmin"
+                log::info "  2. From the toolbar, click $(txt_underline 'Tools > Import/Export Servers')"
+                log::info "  3. Paste the following path into the 'Filename' input box and then click $(txt_underline 'Next'):"
+                log::data "     $(log::link $GEO_CLI_CONFIG_DIR/data/db/iap-pgAdmin.json)"
+                log::info "  4. Click on the Servers checkbox and then click $(txt_underline 'Next')"
+                log::info "  5. Click $(txt_underline 'Finish') to complete the import process"
+                echo
+                log::info -b "\nAlternatively, you can create a server manually:"
+                log::info "Create a new server in pgAdmin via $(txt_underline 'Objects > Register > Server') and enter the following information:"
+                log::info "  Name: MyGeotab IAP (or whatever you want)"
+                log::info "  Connection tab"
+                log::info "    Host: localhost"
+                log::info "    Port: 5433"
+                log::info "    Maintenance database: geotabdemo"
+                log::info "    Username: $user"
+                log::info "    Password: the one you got from MyAdmin when you created the Access Request"              
+
                 # log::info "    Host: localhost"
                 # log::info "    Port: 5433"
                 # log::info "    username: $user"

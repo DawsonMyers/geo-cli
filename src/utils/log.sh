@@ -222,6 +222,9 @@ make_logger_function yellow Yellow
 log::yellow() {
     _log_yellow "$@"
 }
+log::link() {
+    _log_yellow -u "$@"
+}
 make_logger_function green Green
 log::green() {
     _log_green "$@"

@@ -1,0 +1,20 @@
+
+{
+    "Servers": {
+        "1": {
+            "Name": "MyGeotab Over IAP",
+            "Group": "Servers",
+            "Host": "localhost",
+            "Port": 5433,
+            "MaintenanceDB": "$iap_database",
+            "Username": "$geotab_username",
+            "SSLMode": "prefer",
+            "SSLCompression": 0,
+            "Timeout": 10,
+            "UseSSHTunnel": 0,
+            "TunnelPort": "22",
+            "TunnelAuthentication": 0,
+            "PassFile": "$passfile"
+        }
+    }
+}
