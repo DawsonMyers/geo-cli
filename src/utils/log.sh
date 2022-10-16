@@ -50,6 +50,7 @@ make_logger_function() {
 
     eval "
         _log_$name() {
+            set +f
             local msg=\"\$@\"
             local options=
             local format_tokens=
@@ -92,9 +93,10 @@ make_logger_function() {
             # echo interprets '-e' as a command line switch, so a space is added to it so that it will actually be printed.
             re='^ *-e$'
             [[ \$msg =~ \$re ]] && msg+=' '
-            [[ \$GEO_RAW_OUTPUT == true ]] && echo -n \"\$msg\" && return
+            [[ \$GEO_RAW_OUTPUT == true ]] && echo -n \"\$msg\" && set +f && return
 
             echo \"-\${opts}\" \"\${format_tokens}\${!color_name}\${msg}\${Off}\"
+            set +f
         }
     "
 }
@@ -115,6 +117,7 @@ make_logger_function_vte() {
 
     eval "
         _log_$name() {
+            set -f
             local msg=\"\$@\"
             local options=
             local format_tokens=
@@ -143,13 +146,14 @@ make_logger_function_vte() {
                     opts+=n
                     ;;&
             esac
-
+            
             # echo interprets '-e' as a command line switch, so a space is added to it so that it will actually be printed.
             re='^ *-e$'
             [[ \$msg =~ \$re ]] && msg+=' '
-            [[ \$GEO_RAW_OUTPUT == true ]] && echo -n \"\${msg}\" && return
+            [[ \$GEO_RAW_OUTPUT == true ]] && echo -n \"\${msg}\" && set +f && return
 
             echo \"-\${opts}\" \"\${format_tokens}\${${color}}\${msg}\${Off}\"
+            set +f
         }
     "
 }
@@ -308,6 +312,7 @@ log::repeat_str() {
 # 2: the number of spaces to indent the text with
 # 3: the string/char used to indent then text with (a space, by default), or, if the 3rd arg is '--keep-spaces-and-breaks', then don't remove spaces or line breaks
 log::fmt_text() {
+    set -f
     local indent=0
     local indent_len=0
     local indent_str=' '
@@ -353,6 +358,7 @@ log::fmt_text() {
     # indented using the sed substitution.
     echo "$txt" | fmt -w $width | sed "$sed_pattern"
     # echo $1 | fmt -w $width | sed "s/^/$(printf '$%.0s' `seq 1 $indent`)/g"
+    set +f
 }
 
 # Takes a long string and wraps it according to the terminal width (like left justifying text in Word or Goggle Doc),
@@ -374,6 +380,7 @@ log::fmt_text() {
 #         very very very very very very
 #         very very very very long line
 log::fmt_text_and_indent_after_first_line() {
+    set -f
     local indent_char=' '
     local long_text="$1"
     # The amount to indent lines that wrap.
@@ -410,6 +417,7 @@ log::fmt_text_and_indent_after_first_line() {
         # output+="${wrapped_line_indent_str}${line}\n"
     done <<<"$long_text"
     echo -n -e "$output"
+    set +f
 }
 
 # Format functions

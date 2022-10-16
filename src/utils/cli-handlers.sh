@@ -1559,17 +1559,23 @@ geo_ar_doc() {
 geo_ar() {
     # ssh -L 127.0.0.1:5433:localhost:5432 -N <username>@127.0.0.1 -p <port from IAP>
     show_iap_password_prompt_message() {
-        log::status -b "Binding local port 5433 to 5432 on remote host (through IAP tunnel)"
+        log::status -bu "Binding local port 5433 to 5432 on remote host (through IAP tunnel)"
         echo
-        log::info "$(txt_underline geo-cli) can configure pgAmin to connect to Postgres over the IAP tunnel."
+        log::info "$(txt_underline geo-cli) can configure pgAdmin to connect to Postgres over the IAP tunnel."
         log::info "Enter your Access Request password below to update the password file for the $(txt_underline MyGeotab Over IAP) server in pgAdmin, $(txt_underline OR) leave it blank if you already have a server in pgAdmin and plan to update its password manually."
         echo
-        log::hint "The $(txt_underline MyGeotab Over IAP) server needs to be imported once into pgAdmin."
-        log::hint "The instructions will be shown after you enter your password."
-        log::hint "After the server is added, you only need to paste in your password below to have its passfile updated."
+        log::info "The $(txt_underline MyGeotab Over IAP) server needs to be imported $(txt_underline once) into pgAdmin."
+        log::info "The instructions will be shown after you enter your password."
         echo
-        log::hint "Leave the password and database empty if you will be manually updating an existing server in pgAdmin."
-        log::detail "Enter '-' in any of the following inputs to re-use the last value used."
+        log::info "After the server is added, you only need to paste in your password below to have its passfile updated. Make sure to refresh the server in pgAdmin after the port is bound."
+        echo
+        hint='* Leave the password empty if you will be manually updating an existing server in pgAdmin.'
+        log::hint "$(log::fmt_text_and_indent_after_first_line "$hint" 0 2)"
+        hint="* Enter '-' in any of the following inputs to re-use the last value used."
+        log::hint "$(log::fmt_text_and_indent_after_first_line "$hint" 0 2)"
+
+        # log::fmt_text_and_indent_after_first_line "$hint" 0 2
+        # log::detail "Enter '-' in any of the following inputs to re-use the last value used."
         iap_password_prompt="Access Request password:\n> "
         iap_db_prompt="Database:\n> "
 
@@ -1721,6 +1727,7 @@ geo_ar() {
                 [[ -z $open_port ]] && open_port=$(python3 -c "$get_open_port_python_code")
                 [[ -z $open_port ]] && log::Error 'Open port could not be found' && return 1
 
+                echo
                 log::status -bu 'Opening IAP tunnel'
                 if [[ -n $open_port ]]; then
                     local port_arg='--local-host-port=localhost:'$open_port
@@ -1780,7 +1787,7 @@ geo_ar() {
                         done
                         [[ -z $open_port ]] && log::Error 'Open port could not be found' && return 1
                         geo_set AR_PORT "$open_port"
-                        log::status -bu '\nOpening IAP tunnel'
+                        # log::status -bu '\nOpening IAP tunnel'
                         log::info "Using port: '$open_port' to open IAP tunnel"
                         log::info "Note: the port is saved and will be used when you call '$(log::txt_italic geo ar ssh)'"
                         echo
@@ -1788,7 +1795,7 @@ geo_ar() {
                         sleep 1
                         echo
                     else
-                        log::status -bu '\nOpening IAP tunnel'
+                        # log::status -bu '\nOpening IAP tunnel'
                         # Start up IAP tunnel in the background.
                         if [[ -n $connection_file ]]; then
                             # log::debug 'running in loc'
@@ -1908,7 +1915,7 @@ geo_ar() {
 
             if $bind_myadmin_port; then
                 # log::status -b "Binding local port 5433 to 5432 on remote host (through IAP tunnel)"
-                # log::info "geo-cli can configure pgAmin to connect to Postgres over the IAP tunnel."
+                # log::info "geo-cli can configure pgAdmin to connect to Postgres over the IAP tunnel."
                 # log::info "Enter your Access Request password below to update the password file for the MyGeotab Over IAP server in pgAdmin, or leave it blank if you already have a server in pgAdmin and plan to update its password manually."
                 # log::hint "The MyGeotab Over IAP server needs to be imported once into pgAdmin. The instructions will be shown after you enter your password."
                 # log::hint "After it has been added, you only need to paste in your password below to have its passfile updated."
@@ -1923,7 +1930,7 @@ geo_ar() {
                 log::info "  2. From the toolbar, click $(txt_underline 'Tools > Import/Export Servers')"
                 log::info "  3. Paste the following path into the 'Filename' input box and then click $(txt_underline 'Next'):"
                 log::data "     $(log::link $GEO_CLI_CONFIG_DIR/data/db/iap-pgAdmin.json)"
-                log::info "  4. Click on the Servers checkbox and then click $(txt_underline 'Next')"
+                log::info "  4. Click on the $(txt_underline 'Servers') checkbox and then click $(txt_underline 'Next')"
                 log::info "  5. Click $(txt_underline 'Finish') to complete the import process"
                 echo
                 log::info -b "\nAlternatively, you can create a server manually:"
@@ -1932,7 +1939,7 @@ geo_ar() {
                 log::info "  Connection tab"
                 log::info "    Host: localhost"
                 log::info "    Port: 5433"
-                log::info "    Maintenance database: geotabdemo"
+                log::info "    Maintenance database: postgres"
                 log::info "    Username: $user"
                 log::info "    Password: the one you got from MyAdmin when you created the Access Request"              
 
@@ -1964,10 +1971,10 @@ geo_ar() {
                 echo
                 sleep 1
                 log::status -bu 'SSH closed'
-                log::info 'Options:'
-                log::info '    - Press ENTER to SSH back into the server'
-                log::info '    - Press CTRL + C to close this tunnel (running on port: '$open_port
-                log::info '    - Open a new terminal and run '$(log::txt_italic geo ar ssh)' to reconnect to this tunnel'
+                log::info "Options:"
+                log::info "    - Press ENTER to SSH back into the server"
+                log::info "    - Press CTRL + C to close this tunnel (running on port: $open_port)"
+                log::info "    - Open a new terminal and run $(txt_underline geo ar ssh) to reconnect to this tunnel"
                 # log::status 'SSH closed. Listening to IAP tunnel again. Open a new terminal and run "geo ar ssh" to reconnect to this tunnel.'
                 read response
                 log::status -bu 'Reopening SSH session'
