@@ -345,7 +345,7 @@ _geo_db_create() {
     local accept_defaults=
     local no_prompt=
     local empty_db=false
-    local build=false
+    # local build=false
     local OPTIND
 
     while getopts "syenb" opt; do
@@ -354,7 +354,7 @@ _geo_db_create() {
             y ) accept_defaults=true ;;
             n ) no_prompt=true ;;
             e ) empty_db=true && log::status -b 'Creating empty Postgres container';;
-            b ) build=true ;;
+            # b ) build=true ;;
             \? )
                 log::Error "Invalid option: -$OPTARG"
                 return 1
@@ -363,16 +363,16 @@ _geo_db_create() {
     done
     shift $((OPTIND - 1))
 
-    if $build; then
-        log::status -b 'Building MyGeotab'
-        local dev_repo=$(geo_get DEV_REPO_DIR)
-        myg_core_proj="$dev_repo/Checkmate/MyGeotab.Core.csproj"
-        [[ ! -f $myg_core_proj ]] && Error "Build failed. Cannot find csproj file at: $myg_core_proj" && return 1;
-        if ! dotnet build "${myg_core_proj}"; then
-            Error "Building MyGeotab failed"
-            return 1;
-        fi
-    fi
+    # if $build; then
+    #     log::status -b 'Building MyGeotab'
+    #     local dev_repo=$(geo_get DEV_REPO_DIR)
+    #     myg_core_proj="$dev_repo/Checkmate/MyGeotab.Core.csproj"
+    #     [[ ! -f $myg_core_proj ]] && Error "Build failed. Cannot find csproj file at: $myg_core_proj" && return 1;
+    #     if ! dotnet build "${myg_core_proj}"; then
+    #         Error "Building MyGeotab failed"
+    #         return 1;
+    #     fi
+    # fi
 
     db_version="$1"
     db_version=$(_geo_make_alphanumeric "$db_version")
@@ -482,7 +482,7 @@ _geo_copy_pgAdmin_server_config() {
 _geo_db_start() {
     local accept_defaults=
     local no_prompt=
-    local build=
+    local no_build=false
     local prompt_for_db=
     local db_version=
     local OPTIND
@@ -491,7 +491,7 @@ _geo_db_start() {
         case "${opt}" in
             y ) accept_defaults=true ;;
             n ) no_prompt=true ;;
-            b ) build=true ;;
+            b ) no_build=true ;;
             p ) prompt_for_db=true ;;
             h ) geo_db_doc && return ;;
             # d ) database="$OPTARG" ;;
@@ -638,7 +638,6 @@ _geo_db_start() {
         local opts=-s
         [[ $accept_defaults == true ]] && opts+=y
         [[ $no_prompt == true ]] && opts+=n
-        [[ $build == true ]] && opts+=b
 
         # log::debug "db_version: $db_version"
 
@@ -673,9 +672,15 @@ _geo_db_start() {
         log::status "  NAME: $container_name"
 
         [[ $no_prompt == true ]] && return
+        
+        opts=-
+        [[ $accept_defaults == true ]] && opts+=y
+        [[ $no_prompt == true ]] && opts+=n
+        [[ $no_build == true ]] && opts+=b
+        [[ ${#opts} -eq 1 ]] && opts=
         echo
         if [ $accept_defaults ] || prompt_continue 'Would you like to initialize the db? (Y|n): '; then
-            geo_db_init $accept_defaults
+            geo_db_init $opts
         else
             log::info "Initialize a running db anytime using $(log::txt_underline 'geo db init')"
         fi
@@ -1157,9 +1162,36 @@ _geo_check_docker_permissions() {
 # }
 
 function geo_db_init() {
-    local accept_defaults=$1
+    # local accept_defaults=$1
+    local silent=false
+    local accept_defaults=false
+    local no_prompt=false
+    local no_build=false
+    local opts=
 
-    [ $accept_defaults ] && log::info 'Waiting for db to start...' && sleep 5
+    local OPTIND
+    while getopts "synb" opt; do
+        case "${opt}" in
+            s ) silent=true ;;
+            y ) accept_defaults=true ;;
+            n ) no_prompt=true ;;
+            b ) 
+                no_build=true
+                opts+=b
+                ;;
+            : )
+                log::Error "Option '${opt}' expects an argument."
+                return 1
+                ;;
+            \? )
+                log::Error "Invalid option: ${opt}"
+                return 1
+                ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+
+    $accept_defaults && log::info 'Waiting for db to start...' && sleep 5
 
     local wait_count=0
     local msg_shown=
@@ -1225,7 +1257,6 @@ function geo_db_init() {
     [[ -z $password ]] && password=passwordpassword
     [[ -z $sql_user ]] && sql_user=geotabuser
     [[ -z $sql_password ]] && sql_password=vircom43
-
     
     # Make sure there's a running db container to initialize.
     local container_id=$(_geo_get_running_container_id)
@@ -1293,9 +1324,9 @@ function geo_db_init() {
         return 1
     fi
 
-    local path=''
-    _geo_get_checkmate_dll_path $accept_defaults
-    path=$prompt_return
+    # local path=''
+    # _geo_get_checkmate_dll_path $accept_defaults
+    # path=$prompt_return
 
     # [ $accept_defaults ] && log::info 'Waiting...' && sleep 5
 
@@ -1309,18 +1340,32 @@ function geo_db_init() {
     #         return 1
     #     fi
     # done
-    
 
-    if dotnet "${path}" CreateDatabase postgres companyName="$db_name" administratorUser="$user" administratorPassword="$password" sqluser="$sql_user" sqlpassword="$sql_password" useMasterLogin='true'; then
+    local dev_repo=$(geo_get DEV_REPO_DIR)
+    local myg_core_proj="$dev_repo/Checkmate/MyGeotab.Core.csproj"
+    
+    # Minimum verbosity level (m).
+    opts="-v m"
+    if $no_build; then
+        opts+=' --no-build'
+        log::status -b '\nSkipping build'
+        log::hint 'Reminder: MyGeotab needs to be re-built after checking out a different release branch (i.e. 9.0 to 10.0).'
+    else
+        log::status -b '\nBuilding MyGeotab'
+        log::hint 'Hint: If MyGeotab is already built, add the -b option to skip re-building it (faster).'
+    fi
+
+    if dotnet run $opts --project "$myg_core_proj" -- CreateDatabase postgres companyName="$db_name" administratorUser="$user" administratorPassword="$password" sqluser="$sql_user" sqlpassword="$sql_password" useMasterLogin='true'; then
+    # if dotnet "${path}" CreateDatabase postgres companyName="$db_name" administratorUser="$user" administratorPassword="$password" sqluser="$sql_user" sqlpassword="$sql_password" useMasterLogin='true'; then
         log::success "$db_name initialized"
-        
+        echo
         _geo_copy_pgAdmin_server_config
         
         log::info -b 'Connect with pgAdmin (if not already set up)'
         log::info "  1. Open pgAdmin"
         log::info "  2. From the toolbar, click $(txt_underline 'Tools > Import/Export Servers')"
         log::info "  3. Paste the following path into the 'Filename' input box and then click $(txt_underline 'Next'):"
-        log::data "$GEO_CLI_CONFIG_DIR/data/db/demo-pgAdmin.json"
+        log::data "     $(log::link $GEO_CLI_CONFIG_DIR/data/db/demo-pgAdmin.json)"
         log::info "  4. Click on the Servers checkbox and then click $(txt_underline 'Next')"
         log::info "  5. Click $(txt_underline 'Finish') to complete the import process"
         echo
@@ -4218,10 +4263,11 @@ _geo_auto_switch_server_config() {
     local server_config_storage_path="${HOME}/.geo-cli/data/server-config"
     local server_config_backup_path="${HOME}/.geo-cli/data/server-config/backup"
     local prev_server_config_path="$server_config_storage_path/server.config_${prev_myg_release}"
+    local prev_server_config_backup_path="$server_config_storage_path/backup/server.config_${prev_myg_release}"
     local next_server_config_name="server.config_${cur_myg_release}"
     local next_server_config_path="$server_config_storage_path/${next_server_config_name}"
 
-    [[ -e $cur_myg_release || -e $prev_myg_release ]] && log::Error "cur_myg_release or prev_myg_release missing" && return 1
+    [[ -z $cur_myg_release || -z $prev_myg_release ]] && log::Error "cur_myg_release or prev_myg_release missing" && return 1
 
     if [[ ! -f $server_config_path ]]; then
         log::Error "server.config not found at path: '$server_config_path'"
@@ -4234,6 +4280,11 @@ _geo_auto_switch_server_config() {
 
     if [[ ! -d $server_config_backup_path ]]; then
         mkdir -p "$server_config_backup_path"
+    fi
+
+    # Make backup if this is the first time we're switching this version's config.
+    if [[ ! -f $prev_server_config_backup_path ]]; then
+        cp $server_config_path $prev_server_config_backup_path
     fi
 
     # Copy server.config to storage.
@@ -4296,6 +4347,33 @@ geo_myg() {
             # local build_output=$(geo_myg build | tee /dev/tty || return 1)
             ;;
     esac
+}
+
+#######################################################################################################################
+COMMANDS+=('edit')
+geo_edit_doc() {
+    doc_cmd 'edit <file>'
+        doc_cmd_desc 'Opens up files for editing.'
+    doc_cmd_examples_title
+        doc_cmd_example "geo edit server.config"
+}
+geo_edit() {
+    local file="$1"
+    local file_path=
+    case "$file" in
+        server.config | server | sconf )
+            file_path="${HOME}/GEOTAB/Checkmate/server.config"
+            ;;
+        bashrc | .bashrc | brc | rc )
+            file_path="${HOME}/.bashrc"
+            ;;
+        * )
+            log::Error "Arugument '$file' is invalid."
+            return 1
+            ;;
+    esac
+    [[ ! -f $file_path ]] && log::Error "File not found at: $file_path" && return 1
+    code "$file_path"
 }
 
 #######################################################################################################################
