@@ -126,7 +126,7 @@ class IndicatorApp(object):
         print('notification_handler pressed')
 
     def build_menu(self, menu):
-        item_geo_header = Gtk.MenuItem(label='-------------------- geo-cli --------------------')
+        item_geo_header = Gtk.MenuItem(label='------------------------- geo-cli -------------------------')
         item_geo_header.set_sensitive(False)
         menu.append(item_geo_header)
         sep = Gtk.SeparatorMenuItem()

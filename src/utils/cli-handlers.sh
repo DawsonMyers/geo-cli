@@ -4310,6 +4310,12 @@ geo_loc() {
     find . -name '*'$file_type | xargs wc -l
 }
 
+_geo_get_mygeotab_csproj_path() {
+    local dev_repo=$(geo_get DEV_REPO_DIR)
+    myg_core_proj="$dev_repo/Checkmate/MyGeotab.Core.csproj"
+    echo -n "$myg_core_proj"
+}
+
 #######################################################################################################################
 COMMANDS+=('myg')
 geo_myg_doc() {
@@ -4324,8 +4330,7 @@ geo_myg_doc() {
 }
 geo_myg() {
     local cmd="$1"
-    local dev_repo=$(geo_get DEV_REPO_DIR)
-    myg_core_proj="$dev_repo/Checkmate/MyGeotab.Core.csproj"
+    local myg_core_proj="$(_geo_get_mygeotab_csproj_path)"
     [[ ! -f $myg_core_proj ]] && Error "Cannot find csproj file at: $myg_core_proj" && return 1
 
     case "$cmd" in
@@ -4337,16 +4342,128 @@ geo_myg() {
                 return 1;
             fi
             ;;
+        stop )
+            ! _geo_myg_is_running && log::Error "MyGeotab is not running" && return 1
+            # local myg_proccess_id_file="$HOME/.geo-cli/tmp/myg/myg-proccess.pid"
+            local myg_running_lock_file="$HOME/.geo-cli/tmp/myg/myg-running.lock"
+            local proc_id=$(cat $myg_running_lock_file)
+            [[ -z $proc_id ]] && log::Error "MyGeotab proccess id file was empty" && return 1
+            kill -SIGKILL $proc_id && kill $(pgrep CheckmateServer) || log::Error "Failed to stop MyGeotab" && return 1
+            
+            log::success "Done"
+            ;;
+        restart )
+            ! _geo_myg_is_running && log::Error "MyGeotab is not running" && return 1
+            # local myg_proccess_id_file="$HOME/.geo-cli/tmp/myg/myg-proccess.pid"
+            local myg_running_lock_file="$HOME/.geo-cli/tmp/myg/myg-running.lock"
+            local proc_id=$(cat $myg_running_lock_file)
+            [[ -z $proc_id ]] && log::Error "MyGeotab proccess id file was empty" && return 1
+            kill -SIGSTOP $proc_id && kill $(pgrep CheckmateServer)  || log::Error "Failed to restart MyGeotab" && return 1
+            log::success "Done"
+            ;;
         start )
-            log::status -b 'Starting MyGeotab'
-            if ! dotnet run -v n --project "${myg_core_proj}" -- login; then
-                    log::Error "Running MyGeotab failed"
-                return 1;
-            fi
+            _geo_myg_start
+            # log::status -b 'Starting MyGeotab'
+            # if ! dotnet run -v m --project "${myg_core_proj}" -- login; then
+            #         log::Error "Running MyGeotab failed"
+            #     return 1;
+            # fi
             # # Output to the console (/dev/tty) and store build output to a variable.
             # local build_output=$(geo_myg build | tee /dev/tty || return 1)
             ;;
+        is-running )
+            local checkmate_pid=$(pgrep CheckmateServer)
+            [[ -z $checkmate_pid ]] && return 1;
+            echo -n $checkmate_pid
+            ;;
+        stop )
+            local checkmate_pid=$(pgrep CheckmateServer)
+            [[ -z $checkmate_pid ]] && log::Error "CheckmateServer isn't running." && return 1;
+            
+            kill $checkmate_pid && log::success "CheckmateServer stopped" || log::Error "Failed to stop CheckmateServer"
+            ;;
+
     esac
+}
+
+_geo_myg_is_running() {
+    local myg_running_lock_file="$HOME/.geo-cli/tmp/myg/myg-running.lock"
+    # Open a file descriptor on the lock file.
+    [[ ! -f $myg_running_lock_file ]] && return 1
+    exec {lock_fd}<> "$myg_running_lock_file"
+
+    ! flock -w 0 $lock_fd || { eval "exec $lock_fd>&-";  return 1; }
+    # Unlock the file.
+    flock -u $lock_fd
+    # Close the file descriptor.
+    eval "exec $lock_fd>&-"
+    return
+}
+
+_geo_myg_start() {
+    export myg_core_proj="$(_geo_get_mygeotab_csproj_path)"
+    local myg_running_lock_file="$HOME/.geo-cli/tmp/myg/myg-running.lock"
+    # local myg_proccess_id_file="$HOME/.geo-cli/tmp/myg/myg-proccess.pid"
+    mkdir -p "$(dirname $myg_running_lock_file)"
+    [[ ! -f $myg_running_lock_file ]] && touch "$myg_running_lock_file"
+    # [[ ! -f $myg_proccess_id_file ]] && touch "$myg_proccess_id_file"
+    local proc_id=
+    # Open a file descriptor on the lock file.
+    exec {lock_fd}<> "$myg_running_lock_file"
+    export lock_file_fd=$lock_file
+    if ! flock -w 2 $lock_fd; then
+        log::debug ' Can not get lock on file'
+        eval "exec $lock_fd>&-"
+        return 1
+    fi
+   
+    cleanup() {
+        echo "cleanup"
+        kill $proc_id
+         # Unlock the file.
+        flock -u $lock_fd
+        # Close the file descriptor.
+        eval "exec $lock_fd>&-"
+    }
+    trap cleanup INT TERM QUIT EXIT
+    
+
+    run_checkmate() {
+        local show_startup_msg=${1:-true}
+        kill_checkmate() {
+            log::debug "kill_checkmate=========================="
+            kill $(pgrep CheckmateServer)
+            flock -u 0 $lock_file_fd
+        }
+        trap kill_checkmate QUIT INT TERM EXIT
+        # log::debug "myg_core_proj = ${myg_core_proj}"
+        $show_startup_msg && log::status -b 'Starting MyGeotab' && startup_msg_shown=true
+        if ! dotnet run -v m --project "${myg_core_proj}" -- login; then
+                log::Error "Running MyGeotab failed"
+            return 1;
+        fi
+    }
+
+    local show_startup_message=true
+    while true; do
+        run_checkmate $show_startup_message &
+        show_startup_message=false
+        proc_id=$!
+        # log::debug "proc_id = $proc_id"
+        echo $proc_id > $myg_running_lock_file
+        # log::debug "proc file `cat $myg_running_lock_file`"
+        wait $proc_id
+        exit_code=$?
+        (( exit_code != 147 )) && log::debug "$exit_code != 147" && break
+        echo
+        log::status -b "Restarting MyGeotab"
+        sleep 2
+    done
+
+     # Unlock the file.
+    flock -u $lock_fd
+    # Close the file descriptor.
+    eval "exec $lock_fd>&-"
 }
 
 #######################################################################################################################
@@ -4827,13 +4944,6 @@ prompt_for_info_n() {
     prompt_for_info -n "$@"
 }
 
-geo_logo() {
-    log::green -b '       ___  ____  __         ___  __    __ '
-    log::green -b '      / __)(  __)/  \  ___  / __)(  )  (  )'
-    log::green -b '     ( (_ \ ) _)(  O )(___)( (__ / (_/\ )( '
-    log::green -b '      \___/(____)\__/       \___)\____/(__)'
-}
-
 geotab_logo() {
     echo
     log::cyan -b '===================================================='
@@ -4846,6 +4956,37 @@ geotab_logo() {
     echo
     log::cyan -b '===================================================='
 }
+geo_logo1() {
+    log::green -b '       ___  ____  __         ___  __    __ '
+    log::green -b '      / __)(  __)/  \  ___  / __)(  )  (  )'
+    log::green -b '     ( (_ \ ) _)(  O )(___)( (__ / (_/\ )( '
+    log::green -b '      \___/(____)\__/       \___)\____/(__)'
+}
+
+geo_logo() {
+    log::green -b '                                     _ _'
+    log::green -b '          __ _  ___  ___         ___| (_)'
+    log::green -b '         / _` |/ _ \/ _ \ _____ / __| | |'
+    log::green -b '        | (_| |  __/ (_) |_____| (__| | |'
+    log::green -b '         \__, |\___|\___/       \___|_|_|'
+    log::green -b '         |___/ '
+# log::green -b '   ____   ____  ____             ____ |  | |__|'
+# log::green -b '  / ___\_/ __ \/  _ \   ______ _/ ___\|  | |  |'
+# log::green -b ' / /_/  >  ___(  <_> ) /_____/ \  \___|  |_|  |'
+# log::green -b ' \___  / \___  >____/           \___  >____/__|'
+# log::green -b '/_____/      \/                     \/ '
+# log::green -b '   ____   ____  ____             ____ |  | |__|'
+# log::green -b '  / ___\_/ __ \/  _ \   ______ _/ ___\|  | |  |'
+# log::green -b ' / /_/  >  ___(  <_> ) /_____/ \  \___|  |_|  |'
+# log::green -b ' \___  / \___  >____/           \___  >____/__|'
+# log::green -b '/_____/      \/                     \/ '
+# log::green -b ''
+# log::green -b '┌─┐┌─┐┌─┐   ┌─┐┬  ┬'
+# log::green -b '│ ┬├┤ │ │───│  │  │'
+# log::green -b '└─┘└─┘└─┘   └─┘┴─┘┴'
+}
+
+# 🇬​​​​​🇪​​​​​🇴​​​​​-🇨​​​​​🇱​​​​​🇮​​​​​
 # geo_logo() {
 #     echo
 #     log::detail '=============================================================================='

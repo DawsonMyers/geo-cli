@@ -127,7 +127,7 @@ class OpenIapTunnelMenu(Gtk.MenuItem):
         self.menu = Gtk.Menu()
         self.menu.append(self.empty_item)
         self.menu.show_all()
-        self.items.add(self.empty_item)
+        # self.items.add(self.empty_item)
         self.set_submenu(self.menu)
         self.show_all()
     
@@ -165,25 +165,29 @@ class OpenIapTunnelMenu(Gtk.MenuItem):
                 item = OpenIapTunnelMenuItem(ar_name, iap_port)
                 # item = OpenIapTunnelMenuItem(ar_name, iap_port, self.geo_command)
                 # print(f'{ar_name} ({iap_port})')
+                item.show()
                 self.items.add(item)
                 self.menu.append(item)
             if not self.items:
                 self.log('adding empty item')
-                self.menu.append(self.empty_item)
+                # self.menu.append(self.empty_item)
                 self.empty_item.show()
-                self.menu.show_all()
-                self.menu.remove(self.empty_item)
+                # self.menu.show_all()
+                # self.menu.remove(self.empty_item)
                 # Don't know why I need to do this for it to actually get rendered...
                 def delayed():
-                    self.menu.append(self.empty_item)
+                    # self.menu.append(self.empty_item)
                     self.empty_item.show()
                     self.menu.show_all()
+                    self.set_submenu(self.menu)
                 GLib.timeout_add(1000, delayed)
-            for child in self.menu.get_children():
-                if child == self.empty_item:
-                    self.menu.remove(child)
-            self.menu.show_all()
-            self.show_all()
+            else:
+                self.empty_item.hide()
+            # for child in self.menu.get_children():
+            #     if child == self.empty_item:
+            #         self.menu.remove(child)
+            # self.menu.show_all()
+            # self.show_all()
                 
         except Exception as err:
             print('SshOverOpenTunnelMenuItem: ERROR: ' + err)
@@ -191,10 +195,11 @@ class OpenIapTunnelMenu(Gtk.MenuItem):
     
     def remove_all(self):
         if not self.items:
-            self.menu.remove(self.empty_item)
-            self.menu.show_all()
-            self.show_all()
-            self.items.add(self.empty_item)
+            self.empty_item.show()
+            # self.menu.remove(self.empty_item)
+            # self.menu.show_all()
+            # self.show_all()
+            # self.items.add(self.empty_item)
             return
         for item in self.items:
             self.menu.remove(item)
