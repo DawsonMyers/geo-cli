@@ -3863,18 +3863,21 @@ geo_dev() {
 }
 
 remove_unused_lock_files_in_current_directory() {
-    for file in *; do
-        exec {fd}>$file
-        if flock -w 0 $fd; then
-            # log::debug "Removing unused lock file $file"
-            # Unlock the file.
-            flock -u $fd
-            # Close the file descriptor.
-            eval "exec $fd>&-"
-            # Remove the unused lock file.
-            rm "$file"
-        fi
-    done
+    # Run in subshell to ensure that file descriptor and lock are released before exiting this function.
+    (
+        for file in *; do
+            exec {fd}>$file
+            if flock -w 0 $fd; then
+                # log::debug "Removing unused lock file $file"
+                # Unlock the file.
+                flock -u $fd
+                # Close the file descriptor.
+                eval "exec $fd>&-"
+                # Remove the unused lock file.
+                rm "$file"
+            fi
+        done
+    )
 }
 
 #######################################################################################################################
