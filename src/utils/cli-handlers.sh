@@ -3767,6 +3767,8 @@ geo_dev_doc() {
             doc_cmd_sub_cmd_desc 'Returns the name of the MyGeotab release version of the currently checked out branch'
         doc_cmd_sub_cmd 'databases'
             doc_cmd_sub_cmd_desc 'Returns a list of all of the geo-cli database container names'
+        doc_cmd_sub_cmd 'open-iap-tunnels'
+            doc_cmd_sub_cmd_desc 'Gets a list of open-iap tunnels.'
 }
 geo_dev() {
     local geo_cli_dir="$(geo_get GEO_CLI_DIR)"
@@ -3865,6 +3867,8 @@ geo_dev() {
 remove_unused_lock_files_in_current_directory() {
     # Run in subshell to ensure that file descriptor and lock are released before exiting this function.
     (
+        # Check each file by trying to lock it, if we ackquire a lock, then the IAP tunnel isn't active, so we delete it.
+        # The remaining files represent active IAP tunnels. This is how the UI knows what tunnels are active.
         for file in *; do
             exec {fd}>$file
             if flock -w 0 $fd; then
@@ -3874,7 +3878,7 @@ remove_unused_lock_files_in_current_directory() {
                 # Close the file descriptor.
                 eval "exec $fd>&-"
                 # Remove the unused lock file.
-                rm "$file"
+                [[ -f "$file" ]] && rm "$file"
             fi
         done
     )
@@ -4326,13 +4330,23 @@ geo_myg_doc() {
         doc_cmd_desc 'Performs various tasks related to building and running MyGeotab.'
     doc_cmd_sub_cmds_title
         doc_cmd_sub_cmd "start"
-        doc_cmd_sub_cmd_desc "Starts MyGeotab"
-
+            doc_cmd_sub_cmd_desc "Starts MyGeotab."
+        doc_cmd_sub_cmd 'build'
+            doc_cmd_sub_cmd_desc "Builds MyGeotab.Core."
+        doc_cmd_sub_cmd 'clean'
+            doc_cmd_sub_cmd_desc "Runs $(txt_underline git clean -xfd) if the Development repo."
+        doc_cmd_sub_cmd 'stop'
+            doc_cmd_sub_cmd_desc "Stops the running CheckmateServer (MyGeotab) instance."
+        doc_cmd_sub_cmd 'restart'
+            doc_cmd_sub_cmd_desc "Restarts the running CheckmateServer (MyGeotab) instance."
     doc_cmd_examples_title
-        doc_cmd_example "geo loc cs # Counts the lines in all *.cs files."
+        doc_cmd_example "geo myg start"
+        doc_cmd_example "geo myg clean"
 }
 geo_myg() {
     local cmd="$1"
+    local dev_repo=$(geo_get DEV_REPO_DIR)
+    local myg_dir="$dev_repo/Checkmate"
     local myg_core_proj="$(_geo_get_mygeotab_csproj_path)"
     [[ ! -f $myg_core_proj ]] && Error "Cannot find csproj file at: $myg_core_proj" && return 1
 
@@ -4356,11 +4370,11 @@ geo_myg() {
             local checkmate_pid=$(pgrep CheckmateServer)
             # log::debug "Checkmate server PID: $checkmate_pid"
             kill $checkmate_pid  || { log::Error "Failed to restart MyGeotab"; return 1; }
+            
             log::status -n "Waiting for MyGeotab to stop..."
             local wait_count=0
             while pgrep CheckmateServer > /dev/null; do
                 log::status -n '.'
-                # (( wait_count++ ))
                 (( wait_count++ >= 10 )) \
                     && log::Error "CheckmateServer failed to stop within 10 seconds" && return 1
                 sleep 1
@@ -4383,7 +4397,52 @@ geo_myg() {
             local checkmate_pid=$(pgrep CheckmateServer)
             [[ -z $checkmate_pid ]] && log::Error "CheckmateServer isn't running." && return 1;
             
-            kill $checkmate_pid && log::success "CheckmateServer stopped" || log::Error "Failed to stop CheckmateServer"
+            kill $checkmate_pid \
+                 && log::success "CheckmateServer stopped" \
+                 || log::Error "Failed to stop CheckmateServer"
+            ;;
+        clean )
+            (
+                local opened_by_ui=false
+                [[ $2 == --interactive ]] && opened_by_ui=true
+                close_after_clean()
+                { 
+                    # Count down from 5 to allow the user time to keep the terminal open.
+                    for i in $(seq 5 -1 0); do
+                        log::status -n "$i.."
+                        sleep 1
+                    done
+                    kill $1
+                    exit
+                }
+                cd "$dev_repo"
+                log::status -b "Cleanning the Development repo"
+                log::debug "\ngit clean -xfd"
+                if git clean -xfd; then
+                    echo
+                    log::success "Done"
+                    if $opened_by_ui; then
+                        log::status "\nClosing in 5 seconds..."
+                        log::info "\nPress Enter to stay open"
+                        # Start in background, if it's not killed (via user input) it will exit.
+                        close_after_clean $$ &
+                        local pid=$!
+                        
+                        read
+                        # Kill the close_after_clean process to prevent it from exiting.
+                        kill $pid
+
+                        log::info "\nPress Enter again to exit"
+                        # Wait here until the user presses enter to exit.
+                        read
+                    fi
+                else
+                    log::Error "Git failed to clean the Development repo."
+                    log::info "\nPress Enter to exit"
+                    # Wait here until the user presses enter to exit.
+                    read
+                fi
+            )
             ;;
 
     esac
