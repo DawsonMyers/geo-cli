@@ -1,6 +1,7 @@
 import concurrent.futures
 import os
 import shutil
+import time
 
 from indicator import *
 from indicator.geo_indicator import IndicatorApp
@@ -33,7 +34,7 @@ class MyGeotabMenuItem(Gtk.MenuItem):
         stop_item = Gtk.MenuItem(label='Stop')
         stop_item.connect('activate', lambda _: geo.run('myg stop'))
         restart_item = Gtk.MenuItem(label='Restart')
-        restart_item.connect('activate', lambda _: geo.run('myg restart'))
+        restart_item.connect('activate', lambda _: geo.run_in_terminal('myg restart'))
         build_item = Gtk.MenuItem(label='Build')
         build_item.connect('activate', lambda _: geo.run_in_terminal('myg build'))
         submenu.append(start_item)
@@ -48,6 +49,10 @@ class MyGeotabMenuItem(Gtk.MenuItem):
             "restart": restart_item,
             "build": build_item,
         }
+    def restart_myg(self):
+        geo.run('myg restart')
+        time.sleep(3)
+        geo.run_in_terminal('myg start')
 
     def monitor(self):
         is_running = geo.run('myg is-running')
