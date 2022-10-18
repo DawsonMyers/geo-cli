@@ -4344,21 +4344,12 @@ geo_myg() {
             ;;
         stop )
             ! _geo_myg_is_running && log::Error "MyGeotab is not running" && return 1
-            # local myg_proccess_id_file="$HOME/.geo-cli/tmp/myg/myg-proccess.pid"
             local myg_running_lock_file="$HOME/.geo-cli/tmp/myg/myg-running.lock"
-            # local proc_id=$(cat $myg_running_lock_file)
-            # [[ -z $proc_id ]] && log::Error "MyGeotab proccess id file was empty" && return 1
             kill $(pgrep CheckmateServer) || log::Error "Failed to stop MyGeotab" && return 1
-            # kill -SIGKILL $proc_id && kill $(pgrep CheckmateServer) || log::Error "Failed to stop MyGeotab" && return 1
-            
             log::success "Done"
             ;;
         restart )
             ! _geo_myg_is_running && log::Error "MyGeotab is not running" && return 1
-            # local myg_proccess_id_file="$HOME/.geo-cli/tmp/myg/myg-proccess.pid"
-            # local myg_running_lock_file="$HOME/.geo-cli/tmp/myg/myg-running.lock"
-            # local proc_id=$(cat $myg_running_lock_file)
-            # [[ -z $proc_id ]] && log::Error "MyGeotab proccess id file was empty" && return 1
             local checkmate_pid=$(pgrep CheckmateServer)
             # log::debug "Checkmate server PID: $checkmate_pid"
             kill $checkmate_pid  || { log::Error "Failed to restart MyGeotab"; return 1; }
@@ -4372,20 +4363,13 @@ geo_myg() {
                 sleep 1
             done
             echo
+            echo
             _geo_myg_is_running && log::Error "MyGeotab is still running" && return 1
-            # kill -SIGSTOP $proc_id && kill $(pgrep CheckmateServer)  || log::Error "Failed to restart MyGeotab" && return 1
             _geo_myg_start -r
             log::success "Done"
             ;;
         start )
             _geo_myg_start
-            # log::status -b 'Starting MyGeotab'
-            # if ! dotnet run -v m --project "${myg_core_proj}" -- login; then
-            #         log::Error "Running MyGeotab failed"
-            #     return 1;
-            # fi
-            # # Output to the console (/dev/tty) and store build output to a variable.
-            # local build_output=$(geo_myg build | tee /dev/tty || return 1)
             ;;
         is-running )
             local checkmate_pid=$(pgrep CheckmateServer)
@@ -4421,17 +4405,15 @@ _geo_myg_start() {
     [[ $1 == -r ]] && restarting=true
     export myg_core_proj="$(_geo_get_mygeotab_csproj_path)"
     local myg_running_lock_file="$HOME/.geo-cli/tmp/myg/myg-running.lock"
-    # local myg_proccess_id_file="$HOME/.geo-cli/tmp/myg/myg-proccess.pid"
     mkdir -p "$(dirname $myg_running_lock_file)"
     [[ ! -f $myg_running_lock_file ]] && touch "$myg_running_lock_file"
-    # [[ ! -f $myg_proccess_id_file ]] && touch "$myg_proccess_id_file"
     local proc_id=
-    # log::debug 'Creating file descriptor'
+
     # Open a file descriptor on the lock file.
     exec {lock_fd}<> "$myg_running_lock_file"
     local wait_time=2
-    # $restarting && wait_time=5 && log::status "Waiting for MyGeotab to stop..."
     export lock_file_fd=$lock_file
+
     if ! flock -w $wait_time $lock_fd; then
         log::debug ' Can not get lock on file'
         eval "exec $lock_fd>&-"
@@ -4447,49 +4429,9 @@ _geo_myg_start() {
         eval "exec $lock_fd>&- &> /dev/null"
     }
     trap cleanup INT TERM QUIT EXIT
-    
-
-    run_checkmate() {
-        local show_startup_msg=${1:-true}
-        kill_checkmate() {
-            log::debug "kill_checkmate=========================="
-            kill $(pgrep CheckmateServer)
-            flock -u 0 $lock_file_fd
-        }
-        trap kill_checkmate QUIT INT TERM EXIT
-        # log::debug "myg_core_proj = ${myg_core_proj}"
-        $show_startup_msg && log::status -b 'Starting MyGeotab' && startup_msg_shown=true
-        if ! dotnet run -v m --project "${myg_core_proj}" -- login; then
-                log::debug "exit_code = $?"
-                log::Error "Running MyGeotab failed"
-            return 1;
-        fi
-    }
 
     log::status -b "Starting MyGeotab"
     dotnet run -v m --project "${myg_core_proj}" -- login
-    # if ! dotnet run -v m --project "${myg_core_proj}" -- login; then
-    #         log::Error "Running MyGeotab failed"
-    #     # return 1;
-    # fi
-    # proc_id=$!
-        # log::debug "proc_id = $proc_id"
-    # echo $proc_id > $myg_running_lock_file
-    # local show_startup_message=true
-    # while true; do
-    #     run_checkmate $show_startup_message &
-    #     show_startup_message=false
-    #     proc_id=$!
-    #     # log::debug "proc_id = $proc_id"
-    #     echo $proc_id > $myg_running_lock_file
-    #     # log::debug "proc file `cat $myg_running_lock_file`"
-    #     wait $proc_id
-    #     exit_code=$?
-    #     (( exit_code != 147 )) && log::debug "$exit_code != 147" && break
-    #     echo
-    #     log::status -b "Restarting MyGeotab"
-    #     sleep 2
-    # done
 
      # Unlock the file.
     flock -u $lock_fd
