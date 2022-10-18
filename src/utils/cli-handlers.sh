@@ -4359,7 +4359,20 @@ geo_myg() {
             # local myg_running_lock_file="$HOME/.geo-cli/tmp/myg/myg-running.lock"
             # local proc_id=$(cat $myg_running_lock_file)
             # [[ -z $proc_id ]] && log::Error "MyGeotab proccess id file was empty" && return 1
-            kill $(pgrep CheckmateServer)  || log::Error "Failed to restart MyGeotab" && return 1
+            local checkmate_pid=$(pgrep CheckmateServer)
+            # log::debug "Checkmate server PID: $checkmate_pid"
+            kill $checkmate_pid  || { log::Error "Failed to restart MyGeotab"; return 1; }
+            log::status -n "Waiting for MyGeotab to stop..."
+            local wait_count=0
+            while pgrep CheckmateServer > /dev/null; do
+                log::status -n '.'
+                # (( wait_count++ ))
+                (( wait_count++ >= 10 )) \
+                    && log::Error "CheckmateServer failed to stop within 10 seconds" && return 1
+                sleep 1
+            done
+            echo
+            _geo_myg_is_running && log::Error "MyGeotab is still running" && return 1
             # kill -SIGSTOP $proc_id && kill $(pgrep CheckmateServer)  || log::Error "Failed to restart MyGeotab" && return 1
             _geo_myg_start -r
             log::success "Done"
@@ -4413,24 +4426,25 @@ _geo_myg_start() {
     [[ ! -f $myg_running_lock_file ]] && touch "$myg_running_lock_file"
     # [[ ! -f $myg_proccess_id_file ]] && touch "$myg_proccess_id_file"
     local proc_id=
+    # log::debug 'Creating file descriptor'
     # Open a file descriptor on the lock file.
     exec {lock_fd}<> "$myg_running_lock_file"
     local wait_time=2
-    $restarting && wait_time=5 && log::status "Waiting for MyGeotab to stop..."
+    # $restarting && wait_time=5 && log::status "Waiting for MyGeotab to stop..."
     export lock_file_fd=$lock_file
-    if ! flock -w 2 $lock_fd; then
+    if ! flock -w $wait_time $lock_fd; then
         log::debug ' Can not get lock on file'
         eval "exec $lock_fd>&-"
         return 1
     fi
    
     cleanup() {
-        echo "cleanup"
-        kill $proc_id
+        # echo "cleanup"
+        [[ -n $proc_id ]] && kill $proc_id &> /dev/null
          # Unlock the file.
-        flock -u $lock_fd
+        flock -u $lock_fd &> /dev/null
         # Close the file descriptor.
-        eval "exec $lock_fd>&-"
+        eval "exec $lock_fd>&- &> /dev/null"
     }
     trap cleanup INT TERM QUIT EXIT
     
@@ -4452,10 +4466,12 @@ _geo_myg_start() {
         fi
     }
 
-    if ! dotnet run -v m --project "${myg_core_proj}" -- login; then
-            log::Error "Running MyGeotab failed"
-        # return 1;
-    fi
+    log::status -b "Starting MyGeotab"
+    dotnet run -v m --project "${myg_core_proj}" -- login
+    # if ! dotnet run -v m --project "${myg_core_proj}" -- login; then
+    #         log::Error "Running MyGeotab failed"
+    #     # return 1;
+    # fi
     # proc_id=$!
         # log::debug "proc_id = $proc_id"
     # echo $proc_id > $myg_running_lock_file
