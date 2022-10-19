@@ -4417,8 +4417,8 @@ geo_myg() {
                 }
                 cd "$dev_repo"
                 log::status -b "Cleanning the Development repo"
-                log::debug "\ngit clean -Xfd"
-                if git clean -Xfd; then
+                log::debug "\ngit clean -Xfd -e '!.idea'"
+                if git clean -Xfd -e '!.idea'; then
                     echo
                     log::success "Done"
                     if $opened_by_ui; then
