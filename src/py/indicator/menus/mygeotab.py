@@ -46,6 +46,8 @@ class MyGeotabMenuItem(Gtk.MenuItem):
         restart_item.connect('activate', lambda _: self.start_or_restart_myg('restart'))
         build_item = Gtk.MenuItem(label='Build')
         build_item.connect('activate', lambda _: geo.run_in_terminal('myg build'))
+        build_sln_item = Gtk.MenuItem(label='Build Solution')
+        build_sln_item.connect('activate', lambda _: geo.run_in_terminal('myg build sln'))
         browser_item = Gtk.MenuItem(label='Open In Browser')
         browser_item.connect('activate', lambda _: webbrowser.open('https://localhost:10001', new=2))
         api_item = Gtk.MenuItem(label='Open API Runner')
@@ -54,6 +56,7 @@ class MyGeotabMenuItem(Gtk.MenuItem):
         clean_item.connect('activate', lambda _: geo.run_in_terminal('myg clean --interactive', stay_open_after=False))
         submenu.append(start_item)
         submenu.append(build_item)
+        submenu.append(build_sln_item)
         submenu.append(clean_item)
         submenu.append(stop_item)
         submenu.append(restart_item)
@@ -64,6 +67,7 @@ class MyGeotabMenuItem(Gtk.MenuItem):
         self.items = {
             "start": start_item,
             "build": build_item,
+            "build_sln": build_sln_item,
             "clean": clean_item,
             "stop": stop_item,
             "restart": restart_item,
@@ -80,6 +84,7 @@ class MyGeotabMenuItem(Gtk.MenuItem):
         if is_running:
             self.items['start'].hide()
             self.items['build'].hide()
+            self.items['build_sln'].hide()
             self.items['clean'].hide()
             
             self.items['stop'].show()
@@ -89,6 +94,7 @@ class MyGeotabMenuItem(Gtk.MenuItem):
         else:
             self.items['start'].show()
             self.items['build'].show()
+            self.items['build_sln'].show()
             self.items['clean'].show()
             
             self.items['stop'].hide()

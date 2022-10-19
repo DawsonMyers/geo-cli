@@ -3858,6 +3858,14 @@ geo_dev() {
                 echo -n "${open_tunnels:0:-1}"
             )
             ;;
+        tag )
+            [[ $USER != dawsonmyers ]] && log::Error "This feature is for internal purposes only."
+            local geo_cli_version=$(cat "$GEO_CLI_DIR/version.txt")
+            [[ -z "$geo_cli_version" ]] && log::Error "Tag is empty" && return 1
+            log::debug "git tag -a v$geo_cli_version -m 'geo-cli $geo_cli_version'"
+            git tag -a "v$geo_cli_version" -m "geo-cli $geo_cli_version"
+            git push origin "v$geo_cli_version"
+            ;;
         * )
             log::Error "Unknown argument: '$1'"
             ;;
@@ -4345,6 +4353,7 @@ geo_myg_doc() {
 }
 geo_myg() {
     local cmd="$1"
+    shift
     local dev_repo=$(geo_get DEV_REPO_DIR)
     local myg_dir="$dev_repo/Checkmate"
     local myg_core_proj="$(_geo_get_mygeotab_csproj_path)"
@@ -4352,10 +4361,22 @@ geo_myg() {
 
     case "$cmd" in
         build )
-            log::status -b 'Building MyGeotab'
-            
-            if ! dotnet build "${myg_core_proj}"; then
-                log::Error "Building MyGeotab failed"
+            local project_path="$myg_dir"
+            local project='MyGeotab.Core.csproj'
+            case "$1" in
+                sln )
+                    project="MyGeotab.Core.sln"
+                    ;;
+                test | tests )
+                    project="MyGeotab.Core.Tests.csproj"
+                    project_path+="/MyGeotab.Core.Tests"
+                    ;;
+            esac
+            log::status -b "Building $project"
+            local build_command="dotnet build \"$project_path/$project\""
+            log::debug "$build_command"
+            if ! $build_command; then
+                log::Error "Building $project failed"
                 return 1;
             fi
             ;;
@@ -4548,6 +4569,52 @@ geo_edit() {
 
 # Util
 ###########################################################################################################################################
+
+
+# Parses long options that don't take arguments
+# example() {
+#     _geo_parse_long_options long_opts remaining_args "$@"
+#     # Set function args to the remaining args (with the long args removed); overwriting all positional arguments for
+#     # this function (i.e. $1, $2, etc.).
+#     set -- $remaining_args
+#     for arg in $long_opts; do
+#         case "$arg" in
+#             --help) echo "help option" ;;
+#             --example) echo "example option" ;;
+#         esac
+#     done
+#     # Parse short options.
+#     local OPTIND
+#     while getopts "ud:" opts; do
+#         case "${opt}" in
+#             u ) make_unit_test=true ;;
+#             d ) database="$OPTARG" ;;
+#             : )
+#                 log::Error "Option '${opt}' expects an argument."
+#                 return 1
+#                 ;;
+#             \? )
+#                 log::Error "Invalid option: -${opt}"
+#                 return 1
+#                 ;;
+#         esac
+#     done
+#     shift $((OPTIND - 1))
+# }
+_geo_parse_long_options() {
+    local -n long=$1
+    local -n remaining=$2
+    shift 2
+    long=''
+    remaining=''
+    for arg; do
+        if [[ $arg =~ ^-{2,2} ]]; then
+            long+=" $arg"
+        else
+            remaining+=" $arg"
+        fi
+    done
+}
 
 _geo_cmd_exists() {
     cmd=$(echo "${COMMANDS[@]}" | tr ' ' '\n' | grep -E "$(echo ^$1$)")
