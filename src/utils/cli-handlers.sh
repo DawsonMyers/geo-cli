@@ -1370,7 +1370,7 @@ function geo_db_init() {
         log::info "  5. Click $(txt_underline 'Finish') to complete the import process"
         echo
         log::info -b "\nAlternatively, you can create a server manually:"
-        log::info 'Create a new server in pgAdmin via $(txt_underline 'Objects > Register > Server') and enter the following information:'
+        log::info "Create a new server in pgAdmin via $(txt_underline 'Objects > Register > Server') and enter the following information:"
         log::info "  Name: MyGeotab (or whatever you want)"
         log::info "  Connection tab"
         log::info "    Host: localhost"
@@ -4334,7 +4334,7 @@ geo_myg_doc() {
         doc_cmd_sub_cmd 'build'
             doc_cmd_sub_cmd_desc "Builds MyGeotab.Core."
         doc_cmd_sub_cmd 'clean'
-            doc_cmd_sub_cmd_desc "Runs $(txt_underline git clean -xfd) if the Development repo."
+            doc_cmd_sub_cmd_desc "Runs $(txt_underline git clean -Xfd) if the Development repo."
         doc_cmd_sub_cmd 'stop'
             doc_cmd_sub_cmd_desc "Stops the running CheckmateServer (MyGeotab) instance."
         doc_cmd_sub_cmd 'restart'
@@ -4417,8 +4417,8 @@ geo_myg() {
                 }
                 cd "$dev_repo"
                 log::status -b "Cleanning the Development repo"
-                log::debug "\ngit clean -xfd"
-                if git clean -xfd; then
+                log::debug "\ngit clean -Xfd"
+                if git clean -Xfd; then
                     echo
                     log::success "Done"
                     if $opened_by_ui; then
