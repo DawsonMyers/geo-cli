@@ -3069,8 +3069,8 @@ geo_analyze() {
                     [[ $stop_requested == true ]] && break
 
                     dotnet_build() {
-                        debug "dotnet build -p:DebugAnalyzers=\"$target_analyzer\" -p:TreatWarningsAsErrors=false -p:RunAnalyzersDuringBuild=true ${MYG_CORE_PROJ}"
-                        dotnet build -p:DebugAnalyzers="$target_analyzer" -p:TreatWarningsAsErrors=false -p:RunAnalyzersDuringBuild=true ${MYG_CORE_PROJ}
+                        debug "dotnet build -p:DebugAnalyzers=\"$target_analyzer\" -p:TreatWarningsAsErrors=false -p:RunAnalyzersDuringBuild=true $analyzer_project"
+                        dotnet build -p:DebugAnalyzers="$target_analyzer" -p:TreatWarningsAsErrors=false -p:RunAnalyzersDuringBuild=true $analyzer_project
                     }
                     
                     local cmd=dotnet_build
