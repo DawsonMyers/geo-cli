@@ -2721,6 +2721,10 @@ geo_update_doc() {
         doc_cmd_example 'geo update --force'
 }
 geo_update() {
+    if [[ $1 == docker-compose ]]; then
+        _geo_install_or_update_docker_compose
+        return
+    fi
     # Don't install if already at latest version unless the force flag is present (-f or --force)
     if ! _geo_check_for_updates && [[ $1 != '-f' && $1 != '--force' ]]; then
         log::Error 'The latest version of geo-cli is already installed'
@@ -4641,12 +4645,6 @@ _geo_check_docker_installation() {
             sudo apt-get install -y build-essential make gcc g++ python
             curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
 
-            # Remove old version of docker-compose
-            [ -f /usr/local/bin/docker-compose ] && sudo rm /usr/local/bin/docker-compose
-            # Get the latest docker-compose version
-            COMPOSE_VERSION=`git ls-remote https://github.com/docker/compose | grep refs/tags | grep -oE "[0-9]+\.[0-9][0-9]+\.[0-9]+$" | sort --version-sort | tail -n 1`
-            sudo curl -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION:-1.28.6}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-
             sudo apt-key fingerprint 0EBFCD88
             sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
 
@@ -4657,13 +4655,41 @@ _geo_check_docker_installation() {
             sudo usermod -aG docker $USER
             sudo usermod -a -G docker $USER
 
-            sudo chmod +x /usr/local/bin/docker-compose
-            docker-compose --version
+            _geo_install_or_update_docker_compose
 
             log::warn 'You must completely log out of your account and log back in again to begin using docker.'
             log::success 'OK'
         fi
     fi
+}
+
+_geo_install_or_update_docker_compose() {
+    # Get the latest docker-compose version
+    latest_compose_version=$(git ls-remote https://github.com/docker/compose | grep refs/tags | grep -oE "[0-9]+\.[0-9][0-9]+\.[0-9]+$" | sort --version-sort | tail -n 1)
+    
+    # If docker-compose is installed, get its version.
+    local current_compose_version=$(which docker-compose > /dev/null && docker-compose --version)
+    # The version will be like Docker Compose version v2.12.0, so remove 'Docker Compose version v' to get just the version.
+    current_compose_version="${current_compose_version#Docker Compose version v}"
+    # log::debug "$current_compose_version == $latest_compose_version"
+    # Don't install if the latest docker-compose is already up-to-date.
+    [[ $current_compose_version == $latest_compose_version ]] && log::success "Latest docker-compose version ($current_compose_version) is already installed." && return
+    
+    
+    # Remove old version of docker-compose
+    if [ -f /usr/bin/docker-compose || -f /usr/local/bin/docker-compose ]; then
+        log::status "Removing previous version of docker-compose"
+        [ -f /usr/bin/docker-compose ] && sudo rm /usr/bin/docker-compose
+        [ -f /usr/local/bin/docker-compose ] && sudo rm /usr/local/bin/docker-compose
+    fi
+    
+    log::status "Installing docker-compose $latest_compose_version"
+    # Download docker-compose to /usr/local/bin/docker-compose
+    sudo curl -L "https://github.com/docker/compose/releases/download/v${latest_compose_version:-2.12.0}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+
+    sudo chmod +x /usr/local/bin/docker-compose
+    docker-compose --version
+    log::success 'OK'
 }
 
 _geo_print_messages_between_commits_after_update() {

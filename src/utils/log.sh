@@ -284,7 +284,7 @@ log::data_header() {
 }
 
 log::success() {
-    echo -e "${BIGreen}✔️   $@${Off}"
+    echo -e "${BIGreen}✔${Off}   ${BIGreen}$@${Off}"
 }
 
 log::prompt() {
