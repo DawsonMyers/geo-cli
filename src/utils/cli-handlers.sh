@@ -143,6 +143,8 @@ geo_db_doc() {
     doc_cmd_sub_options_title
         doc_cmd_sub_option '-y'
             doc_cmd_sub_option_desc 'Accept all prompts.'
+        doc_cmd_sub_option '-b'
+            doc_cmd_sub_option_desc 'Skip building MyGeotab when initializing a new db with geotabdemo. This is faster, but you have to make sure the correct version of MyGeotab has already been built'
 
     doc_cmd_sub_cmd 'cp <source_db> <destination_db>'
         doc_cmd_sub_cmd_desc 'Makes a copy of an existing database container.'
@@ -151,7 +153,7 @@ geo_db_doc() {
         doc_cmd_sub_cmd_desc 'Removes the container and volume associated with the provided version (e.g. 2004).'
         doc_cmd_sub_options_title
             doc_cmd_sub_option '-a, --all'
-            doc_cmd_sub_option_desc 'Remove all db containers and volumes.'
+                doc_cmd_sub_option_desc 'Remove all db containers and volumes.'
 
     doc_cmd_sub_cmd 'stop [version]'
         doc_cmd_sub_cmd_desc 'Stop geo-cli db container.'
@@ -160,7 +162,7 @@ geo_db_doc() {
         doc_cmd_sub_cmd_desc 'List geo-cli db containers.'
         doc_cmd_sub_options_title
             doc_cmd_sub_option '-a, --all'
-            doc_cmd_sub_option_desc 'Display all geo images, containers, and volumes.'
+                doc_cmd_sub_option_desc 'Display all geo images, containers, and volumes.'
 
     doc_cmd_sub_cmd 'ps'
         doc_cmd_sub_cmd_desc 'List running geo-cli db containers.'
@@ -169,7 +171,9 @@ geo_db_doc() {
         doc_cmd_sub_cmd_desc 'Initialize a running db container with geotabdemo or an empty db with a custom name.'
         doc_cmd_sub_options_title
             doc_cmd_sub_option '-y'
-            doc_cmd_sub_option_desc 'Accept all prompts.'
+                doc_cmd_sub_option_desc 'Accept all prompts.'
+            doc_cmd_sub_option '-b'
+                doc_cmd_sub_option_desc 'Skip building MyGeotab when initializing a new db with geotabdemo. This is faster, but you have to make sure the correct version of MyGeotab has already been built'
 
     doc_cmd_sub_cmd 'psql [options]'
         doc_cmd_sub_cmd_desc 'Open an interactive psql session to geotabdemo (or a different db, if a db name was provided with the -d option) in
@@ -232,6 +236,7 @@ geo_db() {
     ls)
         _geo_db_ls_containers
 
+        # Show all geo-cli volumes and images if the user supplied some variant of all (-a, --all, all).
         if [[ $2 =~ ^-*a(ll)? ]]; then
             echo
             _geo_db_ls_volumes
@@ -1191,6 +1196,7 @@ function geo_db_init() {
     done
     shift $((OPTIND - 1))
 
+    ! $no_build && log::hint "Hint: You can add the $(txt_underline '-b') option to skip building MyGeotab when initializing a new db with geotabdemo. This is faster, but you have to make sure the correct version of MyGeotab has already been built." && echo
     $accept_defaults && log::info 'Waiting for db to start...' && sleep 5
 
     local wait_count=0
@@ -1791,7 +1797,9 @@ geo_ar() {
                 [[ ! -d $geo_tmp_ar_dir ]] && mkdir -p "$geo_tmp_ar_dir"
                 local ar_request_name="${gcloud_cmd#gcloud compute start-iap-tunnel }"
                 ar_request_name="${ar_request_name% 22 --project*}"
+                local regex='([[:alnum:]]+-[[:digit:]]+)'
                 local connection_file=""
+                [[ $gcloud_cmd =~ $regex ]] && ar_request_name="${BASH_REMATCH[1]}"
                 [[ -n $open_port ]] && connection_file="$geo_tmp_ar_dir/${ar_request_name}__${open_port}"
 
                 if [[ $start_ssh ]]; then
@@ -1823,7 +1831,7 @@ geo_ar() {
                             if [[ $gcloud_output =~ $port_line_regex ]]; then
                                 open_port=${BASH_REMATCH[1]}
                                 local is_number_re='^[0-9]+$'
-                                if [[ $is_number_re =~ $open_port ]]; then
+                                if [[ $open_port =~ $is_number_re ]]; then
                                     # kill %1
                                     # sleep 1
                                     break
