@@ -517,12 +517,30 @@ _geo_db_start() {
     prompt_for_db_version() {
         while [[ -z $db_version ]]; do
             prompt_for_info -v db_version "Enter an alphanumeric name (including .-_) for the new database version: "
+            # log::debug "db_version: $db_version"
+            # Parse any options supplied by the user.
+            local options_regex='-([[:alpha:]]+) .*'
+            if [[ $db_version =~ $options_regex ]]; then
+                local options=${BASH_REMATCH[1]}
+                # log::debug "opts: $options"
+                [[ $options =~ b ]] && no_build=true
+                [[ $options =~ y ]] && accept_defaults=true
+                # Remove the options from the user input.
+                db_version=${db_version#-* }
+                # log::debug "db_version: $db_version"
+            fi
             db_version=$(_geo_make_alphanumeric "$db_version")
         done
         # log::debug $db_version
     }
 
     if [[ $prompt_for_db == true ]]; then
+        log::status -b Create Database
+        log::info "Add the following options like this: [-option] <db name>. For example, '-by 10.0' would create a db named 10.0 using the 'skip build' and 'accept defaults' options"
+        local skip_build_text="b: Skip building MyGeotab (faster, but the correct version of MyGeotab has to already be built."
+        local accept_defaults_text="y: Accept defaults. Re-uses the previous username and passwords so that you aren't prompted for to enter them again."
+        log::detail "$(log::fmt_text_and_indent_after_first_line  "$skip_build_text" 0 3)"
+        log::detail "$(log::fmt_text_and_indent_after_first_line  "$accept_defaults_text" 0 3)"
         prompt_for_db_version
         shift
     else
@@ -1371,7 +1389,7 @@ function geo_db_init() {
         log::info "  1. Open pgAdmin"
         log::info "  2. From the toolbar, click $(txt_underline 'Tools > Import/Export Servers')"
         log::info "  3. Paste the following path into the 'Filename' input box and then click $(txt_underline 'Next'):"
-        log::data "     $(log::link $GEO_CLI_CONFIG_DIR/data/db/demo-pgAdmin.json)"
+        log::data "     $(log::link $GEO_CLI_CONFIG_DIR/data/db/myg-demo-pgAdmin.json)"
         log::info "  4. Click on the Servers checkbox and then click $(txt_underline 'Next')"
         log::info "  5. Click $(txt_underline 'Finish') to complete the import process"
         echo
