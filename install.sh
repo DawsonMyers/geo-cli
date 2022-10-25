@@ -11,6 +11,8 @@ export GEO_CLI_CONFIG_DIR="$HOME/.geo-cli"
 export GEO_CLI_CONF_FILE="$GEO_CLI_CONFIG_DIR/.geo.conf"
 # Create config dir if it doesn't exist.
 [ ! -d "$GEO_CLI_CONFIG_DIR" ] && mkdir -p $GEO_CLI_CONFIG_DIR
+[ ! -d "$GEO_CLI_CONFIG_DIR/data/geo" ] && mkdir -p "$GEO_CLI_CONFIG_DIR/data/geo"
+echo -n "$GEO_CLI_DIR" > "$GEO_CLI_CONFIG_DIR/data/geo/repo-dir"
 
 # Create .geo.conf file if it doesn't exist. 
 # This file contains environment vars for geo cli.
@@ -100,6 +102,10 @@ fi
 # Ensure GitLab environment variable file has correct permissions.
 PAT_ENV_VAR_FILE_PATH="$GEO_CLI_CONFIG_DIR/env/gitlab-pat.sh"
 [[ -f $PAT_ENV_VAR_FILE_PATH && $(stat -L -c '%a' $PAT_ENV_VAR_FILE_PATH) != 600 ]] && chmod 600 "$PAT_ENV_VAR_FILE_PATH"
+
+# Set up the nautilius context menu scripts.
+[ ! -d ~/.local/share/nautilus/scripts ] && mkdirp ~/.local/share/nautilus/scripts
+cp $GEO_CLI_SRC_DIR/includes/nautilus-scripts/* ~/.local/share/nautilus/scripts/
 
 _geo_check_for_dev_repo_dir
 
