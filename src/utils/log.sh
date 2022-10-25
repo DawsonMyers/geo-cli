@@ -278,7 +278,7 @@ log::stacktrace() {
 
 # ✘
 log::Error() {
-    echo -e "❌  ${BIRed}Error: $@${Off}"
+    echo -e "❌  ${BIRed}Error: $@${Off}" #>&2
     log::stacktrace
 }
 log::error() {

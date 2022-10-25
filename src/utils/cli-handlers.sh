@@ -2327,6 +2327,11 @@ _geo_init_git_hook() {
     fi
     
     hook="$geo_src_dir/includes/git/prepare-commit-msg"
+    destination_hook_path="$dev_repo/.git/hooks/prepare-commit-msg"
+    if [[ -f $destination_hook_path ]]; then
+        log::warn "The $(txt_underline prepare-commit-msg) git hook already exists in the Development repo."
+        prompt_continue "Would you like to replace the exiting $(txt_underline prepare-commit-msg) commit hook (Y|n): " || return 1
+    fi
     [[ $1 == --show || $1 == -s ]] && cat "$hook" && return
     if ! cp "$hook" "$dev_repo/.git/hooks/prepare-commit-msg"; then
         log::Error "Failed to copy git hook to: $dev_repo/.git/hooks/"
