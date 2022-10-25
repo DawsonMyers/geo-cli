@@ -2230,6 +2230,9 @@ geo_init_doc() {
                     doc_cmd_sub_option_desc 'Checks if the current PAT environment variable (or one that is supplied as an argument) is valid.'
         doc_cmd_sub_cmd 'git-hook'
             doc_cmd_sub_cmd_desc 'Add the prepare-commit-msg git hook to the Development repo. This hook prepends the Jira issue number in the branch name (e.g. for a branch named MYG-50500-my-branch, the issue number would be MYG-50500) to each commit message. So when you commit some changes with the message "Add test", the commit message would be automatically modified to look like this: [MYG-50500] Add test.'
+            doc_cmd_sub_options_title
+                doc_cmd_sub_option '-s, --show'
+                    doc_cmd_sub_option_desc 'Print out the prepare-commit-msg hook code'
 
     doc_cmd_examples_title
         doc_cmd_example 'geo init repo'
@@ -2308,7 +2311,7 @@ geo_init() {
         geo_init_pat "${@:2}"
         ;;
     git-hook* | git | gh )
-        _geo_init_git_hook
+        _geo_init_git_hook "${@:2}"
         ;;
     esac
 }
@@ -2324,6 +2327,7 @@ _geo_init_git_hook() {
     fi
     
     hook="$geo_src_dir/includes/git/prepare-commit-msg"
+    [[ $1 == --show || $1 == -s ]] && cat "$hook" && return
     if ! cp "$hook" "$dev_repo/.git/hooks/prepare-commit-msg"; then
         log::Error "Failed to copy git hook to: $dev_repo/.git/hooks/"
         return 1
