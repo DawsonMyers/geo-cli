@@ -1,0 +1,25 @@
+#!/bin/bash
+
+###################################################################################################
+# This hook gets the issue id (e.g. MYG-40000) and prepends it to the commit message.
+# Example:
+#   Branch: MYG-40000-add-more-tests
+#   Commit: Add test
+#   Final commit: [MYG-40000] Add test
+###################################################################################################
+
+FILE=$1
+MESSAGE=$(cat $FILE)
+TICKET=[$(git rev-parse --abbrev-ref HEAD | grep -Eo '^(\w+/)?(\w+[-_])?[0-9]+' | grep -Eo '(\w+[-])?[0-9]+' | tr "[:lower:]" "[:upper:]")]
+if [[ $TICKET == "[]" || "$MESSAGE" == "$TICKET"* ]];then
+  exit 0;
+fi
+
+# Check to see if the commit message already has an issue id (e.g. [MYG-40000] Add test).
+RE='^\[.*\] .*'
+if [[ $MESSAGE =~ $RE ]]; then
+  # If so, remove the tag.
+  MESSAGE="${MESSAGE##*MYG-*] }"
+fi
+
+echo "$TICKET $MESSAGE" > $FILE

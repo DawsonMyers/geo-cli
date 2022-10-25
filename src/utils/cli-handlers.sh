@@ -2228,10 +2228,13 @@ geo_init_doc() {
                     doc_cmd_sub_option_desc 'List/display the current PAT environment variable file.'
                 doc_cmd_sub_option '-v, --valid [PAT]'
                     doc_cmd_sub_option_desc 'Checks if the current PAT environment variable (or one that is supplied as an argument) is valid.'
+        doc_cmd_sub_cmd 'git-hook'
+            doc_cmd_sub_cmd_desc 'Add the prepare-commit-msg git hook to the Development repo. This hook prepends the Jira issue number in the branch name (e.g. for a branch named MYG-50500-my-branch, the issue number would be MYG-50500) to each commit message. So when you commit some changes with the message "Add test", the commit message would be automatically modified to look like this: [MYG-50500] Add test.'
 
     doc_cmd_examples_title
         doc_cmd_example 'geo init repo'
         doc_cmd_example 'geo init npm'
+        doc_cmd_example 'geo init git-hook'
 }
 geo_init() {
     if [[ "$1" == '--' ]]; then shift; fi
@@ -2304,7 +2307,24 @@ geo_init() {
     pat )
         geo_init_pat "${@:2}"
         ;;
+    git-hook* | git | gh )
+        _geo_init_git_hook
+        ;;
     esac
+}
+
+_geo_init_git_hook() {
+    _geo_check_for_dev_repo_dir
+    local dev_repo=$(geo_get DEV_REPO_DIR)
+    local geo_src_dir=$(geo_get SRC_DIR)
+    (
+        cd "$dev_repo"
+        [[ ! -d .git/hooks ]] && log::Error ".git/hooks directory doesn't exist in Development repo directory." && return 1
+        cp "$geo_src_dir/includes/git/prepare-commit-msg" "$dev_repo_dir/.git/hooks/" \
+            || log::Error "Failed to copy git hook to: $dev_repo_dir/.git/hooks/" && return 1
+        log::success "prepare-commit-msg git hook added to Development repo"
+    )
+    
 }
 
 geo_init_pat() {
@@ -4712,12 +4732,16 @@ _geo_parse_long_options() {
     done
 }
 
+# Checks if a geo-cli command exists.
+# 1: the command to check
 _geo_cmd_exists() {
     cmd=$(echo "${COMMANDS[@]}" | tr ' ' '\n' | grep -E "$(echo ^$1$)")
     echo $cmd
     [[ -n $cmd ]]
 }
 
+# Checks if a command exists (i.e. docker, code).
+# 1: the command to check
 _geo_terminal_cmd_exists() {
     type "$1" &> /dev/null
 }
