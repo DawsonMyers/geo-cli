@@ -2317,13 +2317,18 @@ _geo_init_git_hook() {
     _geo_check_for_dev_repo_dir
     local dev_repo=$(geo_get DEV_REPO_DIR)
     local geo_src_dir=$(geo_get SRC_DIR)
-    (
-        cd "$dev_repo"
-        [[ ! -d .git/hooks ]] && log::Error ".git/hooks directory doesn't exist in Development repo directory." && return 1
-        cp "$geo_src_dir/includes/git/prepare-commit-msg" "$dev_repo_dir/.git/hooks/" \
-            || log::Error "Failed to copy git hook to: $dev_repo_dir/.git/hooks/" && return 1
-        log::success "prepare-commit-msg git hook added to Development repo"
-    )
+    # cd "$dev_repo"
+    if [[ ! -d $dev_repo/.git/hooks ]]; then
+        log::Error ".git/hooks directory doesn't exist in Development repo directory."
+        return 1
+    fi
+    
+    hook="$geo_src_dir/includes/git/prepare-commit-msg"
+    if ! cp "$hook" "$dev_repo/.git/hooks/prepare-commit-msg"; then
+        log::Error "Failed to copy git hook to: $dev_repo/.git/hooks/"
+        return 1
+    fi
+    log::success "prepare-commit-msg git hook added to Development repo"
     
 }
 
