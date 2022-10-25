@@ -708,6 +708,7 @@ _geo_db_start() {
             log::info "Initialize a running db anytime using $(log::txt_underline 'geo db init')"
         fi
     fi
+    _geo_validate_server_config
     log::success Done
 }
 
@@ -925,6 +926,21 @@ _geo_db_psql() {
     else
         docker exec -it -e PGPASSWORD=$sql_password $running_container_id psql -U $sql_user -h localhost -p 5432 -d $db_name
     fi
+}
+
+_geo_validate_server_config() {
+    ! _geo_terminal_cmd_exists xmlstarlet && return 1;
+    local server_config="$HOME/GEOTAB/Checkmate/server.config"
+    local webPort=$(xmlstarlet sel -t -v //WebServerSettings/WebPort ~/GEOTAB/Checkmate/server.config)
+    local sslPort=$(xmlstarlet sel -t -v //WebServerSettings/WebSSLPort ~/GEOTAB/Checkmate/server.config)
+
+    if [[ $webPort == 80 || $sslPort == 443 ]]; then
+        xmlstarlet ed --inplace -u "//WebServerSettings/WebPort" -v 10000 -u "//WebServerSettings/WebSSLPort" -v 10001 "$server_config" && \
+            log::status "Setting server.config WebPort & WebSSLPort to correct values. From ($webPort, $sslPort) to (10000, 10001)." || \
+            log::Error "Failed to update server.config with correct WebPort & WebSSLPort. Current values are ($webPort, $sslPort)."
+    fi
+    # xmlstarlet ed --inplace -u "//WebSSLPort" -v 10001 ~/GEOTAB/Checkmate/server.config
+
 }
 
 _geo_db_script() {
