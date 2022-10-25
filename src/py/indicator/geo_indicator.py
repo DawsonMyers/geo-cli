@@ -178,6 +178,7 @@ class IndicatorApp(object):
         menu.append(menus.AccessRequestMenuItem(self))
         menu.append(item_run_tests)
         menu.append(item_quarantine_test)
+        menu.append(self.build_editor_menu())
         menu.append(item_mygeotab)
         menu.append(Gtk.SeparatorMenuItem())
 
@@ -205,6 +206,25 @@ class IndicatorApp(object):
         self.box_outer.pack_start(self.label, True, True, 0)
         # self.box_outer.append(self.label)
         return self.box_outer
+
+    def build_editor_menu(self):
+        item = Gtk.MenuItem(label='Edit')
+        menu = Gtk.Menu()
+        server_config = Gtk.MenuItem(label='server.config')
+        gitlab_ci = Gtk.MenuItem(label='.gitlab-ci.yml')
+        bashrc = Gtk.MenuItem(label='.bashrc')
+        
+        server_config.connect('activate', lambda _: geo.run('edit server.config'))
+        gitlab_ci.connect('activate', lambda _: geo.run('edit gitlab-ci'))
+        bashrc.connect('activate', lambda _: geo.run('edit bashrc'))
+        
+        menu.append(server_config)
+        menu.append(gitlab_ci)
+        menu.append(bashrc)
+        
+        item.set_submenu(menu)
+        item.show_all()
+        return item
 
     @staticmethod
     def quit(source=None):

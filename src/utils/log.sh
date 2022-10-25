@@ -108,7 +108,7 @@ make_logger_function_vte() {
     name=$1
     color=$2
 
-    eval "${name}() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"\${${color}}\${args[@]}\${Off}\"; }"
+    # eval "${name}() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"\${${color}}\${args[@]}\${Off}\"; }"
     eval "${name}_b() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"${BOLD_ON}\${${color}}\${args[@]}\${Off}\"; }"
     eval "${name}_i() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"\${${color}}\${args[@]}\${Off}\"; }"
     eval "${name}_bi() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"${BOLD_ON}\${${color}}\${args[@]}\${Off}\"; }"
@@ -229,6 +229,9 @@ log::yellow() {
 log::link() {
     _log_yellow -u "$@"
 }
+log::filepath() {
+    echo "$(_log_purple -n 'file://')$(_log_yellow -u  "$@")"
+}
 make_logger_function green Green
 log::green() {
     _log_green "$@"
@@ -236,6 +239,10 @@ log::green() {
 make_logger_function white White
 log::white() {
     _log_white "$@"
+}
+make_logger_function_vte code VTE_COLOR_115 # greenish blue
+log::code() {
+    _log_code "$@"
 }
 make_logger_function_vte hint VTE_COLOR_135 # purple
 log::hint() {

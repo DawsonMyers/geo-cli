@@ -2718,7 +2718,7 @@ _geo_push() {
 
 _geo_push_get_items() {
     [[ -z $1 ]] && return
-    geo get $1 | tr '@' '\n'
+    geo_get $1 | tr '@' '\n'
 }
 
 _geo_push_get_item() {
@@ -2742,9 +2742,13 @@ geo_update_doc() {
     doc_cmd_options_title
         doc_cmd_option '-f, --force'
             doc_cmd_sub_option_desc 'Force update, even if already at latest version.'
+    doc_cmd_sub_cmds_title
+        doc_cmd_sub_cmd 'docker-compose'
+            doc_cmd_sub_cmd_desc 'Updates docker-compose to the latest stable version.'
     doc_cmd_examples_title
         doc_cmd_example 'geo update'
         doc_cmd_example 'geo update --force'
+        doc_cmd_example 'geo update docker-compose'
 }
 geo_update() {
     if [[ $1 == docker-compose ]]; then
@@ -3226,6 +3230,9 @@ geo_id() {
     local encoded_guid_re='^a[a-zA-Z0-9_-]{22,22}$'
     local msg=
     number_re='^[0-9]+$'
+    
+    # If the imput is wrapped in quotes (e.g. "123") or other invalid characters, remove them.
+    arg="${arg//[\"\n\']/}"
 
     convert_id() {
         arg=${1:-$arg}
@@ -3304,6 +3311,8 @@ geo_id() {
 
     if [[ $interactive == true || $use_clipboard == true ]]; then
         clipboard=$(xclip -o)
+        # If the imput is wrapped in quotes (e.g. "123") or other invalid characters, remove them.
+        clipboard="${clipboard//[\"\n\']/}"
         # log::debug "Clip $clipboard"
         local valid_id_re='^[a-zA-Z0-9_-]{1,36}$'
         # [[ $clipboard =~ $valid_id_re]]
@@ -3322,6 +3331,8 @@ geo_id() {
                 geo_id $clipboard
                 echo
             fi
+        else
+            log::detail 'No valid ID in clipboard'
         fi
 
         if [[ $use_clipboard == true ]]; then
@@ -3340,6 +3351,7 @@ geo_id() {
 
     # Convert the id.
     if ! convert_id $arg; then
+        log::Error "Failed to convert id: $arg"
         return 1
     fi
     [[ $format_output == true ]] && log::status "$msg: "
@@ -3672,14 +3684,14 @@ geo_test() {
 
     local test_filter="$1"
 
-    if [[ $interactive == true ]]; then
+    if [[ $interactive == true || -z $test_filter ]]; then
         log::status -b "Example tests filters:"
         log::info "* UserTest.AddDriverScopeTest"
         local long_example="FullyQualifiedName=Geotab.Checkmate.ObjectModel.Tests.JSONSerializer\n .DisplayDiagnosticSerializerTest.DateRangeTest|FullyQualifiedName=Geotab..."
         log::info "* $long_example"
         echo
 
-        local prev_tests=$(_geo_push_get_items TEST_FILTERS)
+        local prev_tests="$(_geo_push_get_items TEST_FILTERS)"
         local prev_tests_array=($prev_tests)
         local i=0
         if [[ -n $prev_tests ]]; then
@@ -3701,7 +3713,7 @@ geo_test() {
             local i=${test_filter}
             # Get the test filter using the id as the index.
             test_filter=${prev_tests_array[i]}
-            [[ -n $test_filter ]] && log::status "\nUsing test filter: $test_filter"
+            [[ -n $test_filter ]] && log::status "\nUsing test filter:\n$test_filter"
         fi
         [[ -z $test_filter ]] && log::Error "Test filter cannot be empty." && return 1
 
@@ -3971,9 +3983,13 @@ geo_quarantine() {
     # log::debug "commit_msg: $commit_msg"
     # return
 
-    local full_name=$1
+    $interactive && log::status -bu "Quarantine Test"
 
-    [[ -z $full_name && $interactive == false ]] && log::Error "You must specify the fully qualified name of the test to quarantine." && return 1
+    local full_name="$1"
+
+    # [[ -z $full_name && $interactive == false ]] && log::Error "You must specify the fully qualified name of the test to quarantine." && return 1
+    # [[ -z $full_name ]] && $interactive = true
+
     local dev_repo=$(geo_get DEV_REPO_DIR)
 
     (
@@ -3987,12 +4003,14 @@ geo_quarantine() {
         # Keep asking for the fully qualified test name until a valid one is entered.
         while [[ -z $match && $test_can_be_quarantined == false ]]; do
             if [[ -z $full_name ]]; then
+                echo
                 prompt_for_info "Enter the fully qualified name (namespace.TestClass.TestName) of a test to quarantine:"
                 full_name=$prompt_return
                 [[ -z $full_name ]] && continue
             fi
 
             if [[ ! $full_name =~ $valid_test_name_re ]]; then
+                echo
                 log::Error "The fully qualified name of the test must be of the form:\n namspace.TestClassName.TestName"
                 if [[ $interactive == true ]]; then
                     full_name=
@@ -4023,8 +4041,14 @@ geo_quarantine() {
                 return 1
             fi
 
+            echo 
+            log::status "Found test in file:"
+            # Print the absolute file path. Remove the first character from the path since it's relative (starts with a './', e.g. ./Checkmate/...)
+            log::filepath "$(pwd)${file:1}"
+
             [[ $blame == true ]] && git blame $file -L /$testname\(/ --show-email && return
             
+
             # Prefix with line number.
             # local match=grep -n -e " $testname(" $file
             
@@ -4039,15 +4063,24 @@ geo_quarantine() {
                 return 1
             fi
 
+            print_test_definition() {
+                echo
+                log::code ...
+                log::code "$(grep -B 3 -e " $testname(" $file)"
+                log::code ...
+                echo
+            }
+
             # Check to see if the test already has quarantine attributes.
             local attribute_text_check='"TestCategory", "Quarantine"|QuarantinedTestTicketLink'
             if grep -E "$attribute_text_check" <<<"$match" > /dev/null; then
+                echo
                 log::warn 'Test definition:'
-                echo ...
-                grep -B 3 -e " $testname(" $file
-                echo ...
+                print_test_definition
                 log::Error 'Test is already quarantined.'
+                
                 if [[ $interactive == true ]]; then
+                    echo
                     full_name=
                     match=
                     continue
@@ -4079,10 +4112,15 @@ geo_quarantine() {
             return 1
         fi
 
-        log::status -b "Attributes added to test"
-        echo ...
-        grep -B 3 -e " $testname(" $file
-        echo ...
+        # echo 
+        # log::status "Found test in file:"
+        # log::filepath "$file"
+
+        log::status -b "\nAttributes added to test"
+        print_test_definition
+        # log::detail ...
+        # log::detail "$(grep -B 3 -e " $testname(" $file)"
+        # log::detail ...
 
         local msg="Quarantined test $testclass.$testname"
         if [[ $interactive == true ]]; then
@@ -4557,18 +4595,44 @@ COMMANDS+=('edit')
 geo_edit_doc() {
     doc_cmd 'edit <file>'
         doc_cmd_desc 'Opens up files for editing.'
+    doc_cmd_options_title
+        doc_cmd_option '-e, --editor <editor_cmd>'
+        doc_cmd_option_desc 'Sets the editor to open the files in (e.g. code, nano). VS Code (code) is the default editor.'
+    doc_cmd_sub_cmds_title
+        doc_cmd_sub_cmd 'server.config'
+            doc_cmd_sub_cmd_desc 'Opens "~/GEOTAB/Checkmate/server.config" for editing.'
+        doc_cmd_sub_cmd 'bashrc'
+            doc_cmd_sub_cmd_desc 'Opens "~/.bashrc" for editing.'
+        doc_cmd_sub_cmd 'gitlab-ci'
+            doc_cmd_sub_cmd_desc 'Opens "~/GEOTAB/Checkmate/server.config" for editing.'
+
     doc_cmd_examples_title
         doc_cmd_example "geo edit server.config"
+        doc_cmd_example "geo edit --editor nano server.config"
 }
 geo_edit() {
+    local editor=$(geo_get EDITOR)
+    [[ $1 == -e || $1 == --editor ]] && editor=$2 && shift 2
     local file="$1"
     local file_path=
+    local dev_repo=$(geo_get DEV_REPO_DIR)
+    if [[ -z $editor ]]; then
+        log::hint "You can set the default editor using: ""$(log::code -u 'geo set EDITOR <editor_command>')"
+        if _geo_terminal_cmd_exists code; then
+            editor=code
+        elif _geo_terminal_cmd_exists nano; then
+            editor=nano
+        fi
+    fi
     case "$file" in
-        server.config | server | sconf )
+        server.config | server | sconf | scf )
             file_path="${HOME}/GEOTAB/Checkmate/server.config"
             ;;
-        bashrc | .bashrc | brc | rc )
+        *bashrc | brc | rc )
             file_path="${HOME}/.bashrc"
+            ;;
+        ci | cicd | *gitlab-ci* | git-ci )
+            file_path="${dev_repo}/.gitlab-ci.yml"
             ;;
         * )
             log::Error "Arugument '$file' is invalid."
@@ -4576,7 +4640,9 @@ geo_edit() {
             ;;
     esac
     [[ ! -f $file_path ]] && log::Error "File not found at: $file_path" && return 1
-    code "$file_path"
+    
+    log::debug "$editor '$file_path'"
+    $editor "$file_path"
 }
 
 #######################################################################################################################
@@ -4650,6 +4716,10 @@ _geo_cmd_exists() {
     cmd=$(echo "${COMMANDS[@]}" | tr ' ' '\n' | grep -E "$(echo ^$1$)")
     echo $cmd
     [[ -n $cmd ]]
+}
+
+_geo_terminal_cmd_exists() {
+    type "$1" &> /dev/null
 }
 
 # Install Docker and Docker Compose if needed.
@@ -5076,7 +5146,7 @@ prompt_for_info() {
     if $prompt_on_same_line; then
         log::prompt_n "$1"
     else
-        log::prompt "$1"
+        log::prompt "$(log::fmt_text "$1")"
         log::prompt_n '> '
     fi
     # Assign the user input to the variable (or variable reference) user_info.
