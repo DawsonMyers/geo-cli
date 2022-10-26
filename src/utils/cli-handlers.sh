@@ -1700,6 +1700,8 @@ geo_ar() {
                 local list_previous_cmds='false'
                 local bind_myadmin_port='false'
                 local port=
+                local user=
+                
                 
                 [[ $@ =~ --prompt ]] && prompt_for_cmd=true && shift
 
@@ -1715,13 +1717,15 @@ geo_ar() {
                 #     shift
                 # done
 
+                # TODO Add support for user argument.
                 local OPTIND
-                while getopts "nrLp:u:" opt; do
+                while getopts "slLp:u:" opt; do
                     case "${opt}" in
                         s ) start_ssh=  ;;
                         l ) list_previous_cmds=true ;;
-                        p ) port="$OPTARG" ;;
                         L ) bind_myadmin_port=true ;;
+                        p ) port="$OPTARG" ;;
+                        u ) user="$OPTARG" ;;
                         : )
                             log::Error "Option '${opt}' expects an argument."
                             return 1
@@ -1906,10 +1910,13 @@ geo_ar() {
                         opts+='L'
                         $iap_skip_password && opts+='s'
                     fi
+
+                    local username_option=
+                    [[ -n $user ]] && username_option="-u $user"
                     # Continuously ask the user to re-open the ssh session (until ctrl + C is pressed, killing the tunnel).
                     # This allows users to easily re-connect to the server after the session times out.
                     # The -n option tells geo ar ssh not to store the port; the -p option specifies the ssh port.
-                    geo_ar ssh $opts -p $open_port
+                    geo_ar ssh $opts -p $open_port $username_option
 
                     fg
                 else
