@@ -88,6 +88,9 @@ make_logger_function() {
                 *p* | *n* )
                     opts+=n
                     ;;&
+                *f* )
+                    msg=\"\$(log::fmt_text \"\$msg\")\"
+                    ;;&
             esac
 
             # echo interprets '-e' as a command line switch, so a space is added to it so that it will actually be printed.
@@ -144,6 +147,9 @@ make_logger_function_vte() {
                     ;;&
                 *p* )
                     opts+=n
+                    ;;&
+                *f* )
+                    msg=\"\$(log::fmt_text \"\$msg\")\"
                     ;;&
             esac
             
@@ -293,9 +299,9 @@ log::data_header() {
 log::success() {
     echo -e "${BIGreen}✔${Off}   ${BIGreen}$@${Off}"
 }
-
+make_logger_function prompt BCyan 
 log::prompt() {
-    echo -e "${BCyan}$@${Off}"
+    _log_prompt "$@"
 }
 
 # Echo without new line

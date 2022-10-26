@@ -1331,7 +1331,7 @@ function geo_db_init() {
         geo_set SQL_PASSWORD "$sql_password"
     }
 
-    if [ ! $accept_defaults ]; then
+    if ! $accept_defaults; then
         # Get sql user.
         log::data "\nStored db admin user: $(log::info $sql_user)"
         prompt_continue "Use stored user? (Y|n): " || get_sql_user
@@ -1559,7 +1559,9 @@ _geo_check_for_dev_repo_dir() {
     }
 
     get_dev_repo_dir() {
-        log::prompt 'Enter the full path (e.g. ~/repos/Development or /home/username/repos/Development) to the Development repo directory. This directory must contain the Checkmate directory (Type "--" to skip for now):'
+        local prompt_text='Enter the full path (e.g. ~/code/Development or ~/code/mygeotab) to the Development repo directory. This directory must contain the Checkmate directory (Type "--" to skip for now):'
+        log::prompt "$(log::fmt_text "$prompt_text")"
+        log::prompt -n '> '
         read dev_repo
         # Expand home directory (i.e. ~/repo to /home/user/repo).
         dev_repo=${dev_repo/\~/$HOME}
@@ -2282,7 +2284,7 @@ geo_init() {
         fi
         geo_set DEV_REPO_DIR "$repo_dir"
         log::status "MyGeotab base repo (Development) path set to:"
-        log::detail "    $repo_dir"
+        log::link "    $repo_dir"
         ;;
     # npmi )
     #     (
@@ -2401,13 +2403,13 @@ geo_init_pat() {
     
             
     log::info "Note: This feature automates the environment variable setup from the following GitLab PAT setup guide:"
-    log::data "https://docs.google.com/document/d/13TbaF2icEWqtxg1altUbI0Jn18KxoSPb9eKvKuxcxHg/edit?hl=en&forcehl=1"
+    log::link "https://docs.google.com/document/d/13TbaF2icEWqtxg1altUbI0Jn18KxoSPb9eKvKuxcxHg/edit?hl=en&forcehl=1"
     echo
-    prompt_for_info_n "Enter your GitLab username (not your email): "
+    prompt_for_info "Enter your GitLab username (what comes before @geotab.com): "
     local username="$prompt_return"
     echo
     log::status -b "Create your GitLab Personal Access Token (PAT) at the following link and then paste it in below:"
-    log::data "https://git.geotab.com/-/profile/personal_access_tokens?name=geotab-gitlab-package-repository&scopes=read_api"
+    log::link "https://git.geotab.com/-/profile/personal_access_tokens?name=geotab-gitlab-package-repository&scopes=read_api"
     
     while true; do
         echo

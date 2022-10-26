@@ -66,7 +66,7 @@ function geo()
     # Check if the MyGeotab base repo dir has been set.
     if ! geo_haskey DEV_REPO_DIR && [[ "$1 $2" != "init repo" ]]; then
         log::warn 'MyGeotab repo directory not set.'
-        log::detail 'Fix: Navigate to MyGeotab base repo (Development) directory, then run "geo init repo".'
+        log::detail 'Fix: Navigate to MyGeotab base repo (Development) directory, then run "geo init repo".\n'
     fi
 
     
