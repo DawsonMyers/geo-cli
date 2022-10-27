@@ -136,6 +136,8 @@ geo_db_doc() {
                 doc_cmd_sub_option_desc 'Accept all prompts.'
             doc_cmd_sub_option '-e'
                 doc_cmd_sub_option_desc 'Create blank Postgres 12 container.'
+            doc_cmd_sub_option '-d <database name>'
+                doc_cmd_sub_option_desc 'Sets the name of the db to be created (only used if initializing it as well).'
 
     doc_cmd_sub_cmd 'start [option] [name]'
         doc_cmd_sub_cmd_desc 'Starts (creating if necessary) a versioned db container and volume. If no name is provided,
@@ -145,6 +147,8 @@ geo_db_doc() {
             doc_cmd_sub_option_desc 'Accept all prompts.'
         doc_cmd_sub_option '-b'
             doc_cmd_sub_option_desc 'Skip building MyGeotab when initializing a new db with geotabdemo. This is faster, but you have to make sure the correct version of MyGeotab has already been built'
+        doc_cmd_sub_option '-d <database name>'
+                doc_cmd_sub_option_desc 'Sets the name of the db to be created (only used if initializing it as well).'
 
     doc_cmd_sub_cmd 'cp <source_db> <destination_db>'
         doc_cmd_sub_cmd_desc 'Makes a copy of an existing database container.'
@@ -174,6 +178,8 @@ geo_db_doc() {
                 doc_cmd_sub_option_desc 'Accept all prompts.'
             doc_cmd_sub_option '-b'
                 doc_cmd_sub_option_desc 'Skip building MyGeotab when initializing a new db with geotabdemo. This is faster, but you have to make sure the correct version of MyGeotab has already been built'
+            doc_cmd_sub_option '-d <database name>'
+                doc_cmd_sub_option_desc 'Sets the name of the db to be created.'
 
     doc_cmd_sub_cmd 'psql [options]'
         doc_cmd_sub_cmd_desc 'Open an interactive psql session to geotabdemo (or a different db, if a db name was provided with the -d option) in
@@ -230,7 +236,7 @@ geo_db() {
 
     case "$1" in
     init)
-        geo_db_init "$2"
+        geo_db_init "${@:2}"
         return
         ;;
     ls)
@@ -350,18 +356,27 @@ _geo_db_create() {
     local accept_defaults=
     local no_prompt=
     local empty_db=false
+    local db_name=
+    local dont_prompt_for_db_name_confirmation=false
+
     # local build=false
     local OPTIND
 
-    while getopts "syenb" opt; do
+    while getopts "syenbd:x" opt; do
         case "${opt}" in
             s ) silent=true ;;
             y ) accept_defaults=true ;;
             n ) no_prompt=true ;;
             e ) empty_db=true && log::status -b 'Creating empty Postgres container';;
+            d ) db_name="$OPTARG" ;;
+            x ) dont_prompt_for_db_name_confirmation=true ;;
             # b ) build=true ;;
+            : )
+                log::Error "Option '${opt}' expects an argument."
+                return 1
+                ;;
             \? )
-                log::Error "Invalid option: -$OPTARG"
+                log::Error "Invalid option: ${opt}"
                 return 1
                 ;;
         esac
@@ -399,7 +414,7 @@ _geo_db_create() {
         return 1
     fi
 
-    if [[ -z $accept_defaults && -z $no_prompt ]]; then
+    if [[ -z $accept_defaults && -z $no_prompt ]] && ! $dont_prompt_for_db_name_confirmation; then
         prompt_continue "Create db container with name $(log::txt_underline ${db_version})? (Y|n): " || return
     fi
     log::status -b "Creating volume:"
@@ -490,16 +505,17 @@ _geo_db_start() {
     local no_build=false
     local prompt_for_db=
     local db_version=
+    local db_name=
     local OPTIND
 
-    while getopts "ynbph" opt; do
+    while getopts "ynbphd:" opt; do
         case "${opt}" in
             y ) accept_defaults=true ;;
             n ) no_prompt=true ;;
             b ) no_build=true ;;
             p ) prompt_for_db=true ;;
             h ) geo_db_doc && return ;;
-            # d ) database="$OPTARG" ;;
+            d ) db_name="$OPTARG" ;;
             : )
                 log::Error "Option '${opt}' expects an argument."
                 return 1
@@ -511,7 +527,7 @@ _geo_db_start() {
         esac
     done
     shift $((OPTIND - 1))
-
+    # log::debug "===== $db_name"
     # log::Error "Port error" && return 1
     
     prompt_for_db_version() {
@@ -535,7 +551,7 @@ _geo_db_start() {
     }
 
     if [[ $prompt_for_db == true ]]; then
-        log::status -b Create Database
+        log::status -b 'Create Database'
         log::info "Add the following options like this: [-option] <db name>. For example, '-by 10.0' would create a db named 10.0 using the 'skip build' and 'accept defaults' options"
         local skip_build_text="b: Skip building MyGeotab (faster, but the correct version of MyGeotab has to already be built."
         local accept_defaults_text="y: Accept defaults. Re-uses the previous username and passwords so that you aren't prompted for to enter them again."
@@ -658,7 +674,7 @@ _geo_db_start() {
             prompt_continue "Db container $(log::txt_underline ${db_version}) doesn't exist. Would you like to create it? (Y|n): " || return
         fi
 
-        local opts=-s
+        local opts=-sx
         [[ $accept_defaults == true ]] && opts+=y
         [[ $no_prompt == true ]] && opts+=n
 
@@ -696,13 +712,15 @@ _geo_db_start() {
 
         [[ $no_prompt == true ]] && return
         
-        opts=-
+        opts=-x
         [[ $accept_defaults == true ]] && opts+=y
         [[ $no_prompt == true ]] && opts+=n
         [[ $no_build == true ]] && opts+=b
         [[ ${#opts} -eq 1 ]] && opts=
+        [[ -n $db_name ]] && opts+=" -d $db_name"
         echo
-        if [ $accept_defaults ] || prompt_continue 'Would you like to initialize the db? (Y|n): '; then
+        # log::debug "geo_db_init $opts"
+        if [[ $accept_defaults == true ]] || prompt_continue 'Would you like to initialize the db? (Y|n): '; then
             geo_db_init $opts
         else
             log::info "Initialize a running db anytime using $(log::txt_underline 'geo db init')"
@@ -1206,10 +1224,11 @@ function geo_db_init() {
     local accept_defaults=false
     local no_prompt=false
     local no_build=false
+    local db_name=geotabdemo
     local opts=
 
     local OPTIND
-    while getopts "synb" opt; do
+    while getopts "synbd:" opt; do
         case "${opt}" in
             s ) silent=true ;;
             y ) accept_defaults=true ;;
@@ -1218,6 +1237,7 @@ function geo_db_init() {
                 no_build=true
                 opts+=b
                 ;;
+            d ) db_name="$OPTARG" ;;
             : )
                 log::Error "Option '${opt}' expects an argument."
                 return 1
@@ -1254,7 +1274,7 @@ function geo_db_init() {
         log::info "Run $(log::txt_underline 'geo db ls') to view available containers and $(log::txt_underline 'geo db start <name>') to start one."
         return 1
     fi
-    db_name='geotabdemo'
+
     # log::status 'A db can be initialized with geotabdemo or with a custom db name (just creates an empty database with provided name).'
     # if ! [ $accept_defaults ] && ! prompt_continue 'Would you like to initialize the db with geotabdemo? (Y|n): '; then
     #     stored_name=`geo_get PREV_DB_NAME`
@@ -1280,10 +1300,10 @@ function geo_db_init() {
     #     geo_set PREV_DB_NAME "$db_name"
     # fi
 
-    # if [[ -z $db_name ]]; then
-    #     log::Error 'Db name cannot be empty'
-    #     return 1
-    # fi
+    if [[ -z $db_name ]]; then
+        log::Error 'Db name cannot be empty'
+        return 1
+    fi
 
     log::status -b "Initializing db $db_name"
     local user=$(geo_get DB_USER)
@@ -1906,6 +1926,7 @@ geo_ar() {
                     
                     local opts='-n'
                     # log::debug "tunnel"
+
                     # log::debug "iap_skip_password: $iap_skip_password"
                     # log::debug "bind_myadmin_port: $bind_myadmin_port"  
                     if $bind_myadmin_port; then
@@ -2400,7 +2421,6 @@ geo_init_pat() {
             return 1
             ;;
     esac
-    
             
     log::info "Note: This feature automates the environment variable setup from the following GitLab PAT setup guide:"
     log::link "https://docs.google.com/document/d/13TbaF2icEWqtxg1altUbI0Jn18KxoSPb9eKvKuxcxHg/edit?hl=en&forcehl=1"
