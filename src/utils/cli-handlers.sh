@@ -1199,7 +1199,11 @@ _geo_container_exists() {
     local variable=
     # Check if the caller supplied a variable name that they want the container id to be stored in.
     [[ $1 == -v ]] && local -n variable="$2" && shift 2 && variable=
-    _geo_get_container_id -v id "$1" && variable="$id"
+    local container_name=$1
+
+    [[ ! $container_name =~ geo_cli_db_postgres_ ]] && container_name="geo_cli_db_postgres_${container_name}"
+
+    _geo_get_container_id -v id "$container_name" && variable="$id"
 }
 
 _geo_get_running_container_id() {

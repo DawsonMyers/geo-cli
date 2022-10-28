@@ -57,7 +57,9 @@ def get_myg_release():
 
 def try_start_last_db():
     last_db = get_config('LAST_DB_VERSION')
-    if last_db is not None:
+    dbs = get_geo_db_names()
+    # Make sure there is a last db and that it exists (otherwise we will recreate a deleted db)
+    if last_db is not None and last_db in dbs:
         start_db(last_db)
 
 
