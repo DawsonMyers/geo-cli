@@ -554,7 +554,7 @@ _geo_db_start() {
         log::status -b 'Create Database'
         log::info "Add the following options like this: [-option] <db name>. For example, '-by 10.0' would create a db named 10.0 using the 'skip build' and 'accept defaults' options"
         local skip_build_text="b: Skip building MyGeotab (faster, but the correct version of MyGeotab has to already be built."
-        local accept_defaults_text="y: Accept defaults. Re-uses the previous username and passwords so that you aren't prompted for to enter them again."
+        local accept_defaults_text="y: Accept defaults. Re-uses the previous username and passwords so that you aren't prompted to enter them again."
         log::detail "$(log::fmt_text_and_indent_after_first_line  "$skip_build_text" 0 3)"
         log::detail "$(log::fmt_text_and_indent_after_first_line  "$accept_defaults_text" 0 3)"
         prompt_for_db_version
