@@ -121,7 +121,7 @@ echo
 
 log::info -b "Next step: create a database container and start geotabdemo"
 step1="1. Build MyGeotab.Core in your IDE (required when creating new dbs)"
-step2="2. Run `log::txt_underline 'geo db start <name>'`, where 'name' is any alphanumeric name you want to give this db version (it could be related to the MyGeotab release, e.g., '2004')."
+step2="2. Run `log::txt_underline 'geo db start <name>'`, where 'name' is any alphanumeric name you want to give this db version (it could be related to the MyGeotab release, e.g., '10.0')."
 step3="3. Start MyGeotab.Core in your IDE"
 log::info "$(log::fmt_text_and_indent_after_first_line "$step1" 3 3)"
 log::info "$(log::fmt_text_and_indent_after_first_line "$step2" 3 3)"

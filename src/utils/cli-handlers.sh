@@ -1537,6 +1537,7 @@ geo_db_rm() {
     local container_id=$(_geo_get_running_container_id "$container_name")
 
     if [[ -n "$container_id" ]]; then
+        log::status 'Trying to stop container...'
         docker stop $container_id >/dev/null && log::success "Container stopped"
     fi
 
