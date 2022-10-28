@@ -1328,26 +1328,22 @@ function geo_db_init() {
     fi
 
     get_user() {
-        log::prompt_n "Enter MyGeotab admin username (your email): "
-        read user
+        prompt_for_info_n -v user "Enter MyGeotab admin username (your email): "
         geo_set DB_USER "$user"
     }
 
     get_password() {
-        log::prompt_n "Enter MyGeotab admin password: "
-        read password
+        prompt_for_info_n -v password "Enter MyGeotab admin password: "
         geo_set DB_PASSWORD "$password"
     }
 
     get_sql_user() {
-        log::prompt_n "Enter db admin username: "
-        read sql_user
+        prompt_for_info_n -v sql_user "Enter db admin username: "
         geo_set SQL_USER "$sql_user"
     }
 
     get_sql_password() {
-        log::prompt_n "Enter db admin password: "
-        read sql_password
+        prompt_for_info_n -v sql_password "Enter db admin password: "
         geo_set SQL_PASSWORD "$sql_password"
     }
 
@@ -1380,7 +1376,7 @@ function geo_db_init() {
     # path=$HOME/repos/MyGeotab/Checkmate/bin/Debug/netcoreapp3.1
 
     if ! _geo_check_for_dev_repo_dir; then
-        log::Error "Unable to init db: can't find CheckmateServer.dll. Run 'geo db init' to try again on a running db container."
+        log::Error "Unable to init db: can't find MyGeotab repo. Run 'geo db init' to try again on a running db container."
         return 1
     fi
 
@@ -1581,8 +1577,9 @@ _geo_check_for_dev_repo_dir() {
     get_dev_repo_dir() {
         local prompt_text='Enter the full path (e.g. ~/code/Development or ~/code/mygeotab) to the Development repo directory. This directory must contain the Checkmate directory (Type "--" to skip for now):'
         log::prompt "$(log::fmt_text "$prompt_text")"
-        log::prompt -n '> '
-        read dev_repo
+        # log::prompt -n '> '
+        # read -e dev_repo
+        prompt_for_info_n -v dev_repo '> '
         # Expand home directory (i.e. ~/repo to /home/user/repo).
         dev_repo=${dev_repo/\~/$HOME}
         if [[ ! -d $dev_repo ]]; then
@@ -1596,6 +1593,9 @@ _geo_check_for_dev_repo_dir() {
         echo $dev_repo
     }
 
+    log::status "Searching for possible repo locations..."
+    _geo_init_repo_find_myg_repo -v dev_repo
+    
     # Ask repeatedly for the dev repo dir until a valid one is provided.
     while ! is_valid_repo_dir "$dev_repo" && [[ "$dev_repo" != -- ]]; do
         get_dev_repo_dir
@@ -2291,9 +2291,13 @@ geo_init() {
     case $1 in
     'repo' | '')
         local repo_dir=$(pwd)
+        [[ $1 == repo && -n $2 ]] && repo_dir="$2"
         if ! geo_is_valid_repo_dir "$repo_dir"; then
-            log::Error "The current directory does not contain the Development repo since it is missing the Checkmate folder."
-            return
+            log::warn "MyGeotab repo not found in:"
+            log::link "$repo_dir"
+            log::status "Searching for possible repo locations..."
+            _geo_init_repo_find_myg_repo -v repo_dir
+            [[ -z $repo_dir ]] && log::log::Error "Faild to locate the MyGeotab repo directory." && return 1
         fi
         local current_repo_dir=$(geo_get DEV_REPO_DIR)
         if [[ -n $current_repo_dir ]]; then
@@ -2360,6 +2364,44 @@ geo_init() {
         _geo_init_git_hook "${@:2}"
         ;;
     esac
+}
+
+_geo_init_repo_find_myg_repo() {
+    local repo_path=
+    local passed_ref=false
+    if [[ $1 == -v ]]; then
+        local -n repo_path="$2"
+        passed_ref=true
+        shift 2
+    else
+        local repo_path=
+    fi
+    # Search for possible locations for the MyG repo.
+    local possible_repos="$(find "$HOME" -maxdepth 4 -type f -name MyGeotab.Core.csproj)"
+
+    [[ -z $possible_repos ]] && return 1
+
+    # Strip Checkmate/MyGeotab.Core.csproj from the end of each path.
+    possible_repos="${possible_repos//\/Checkmate\/MyGeotab.Core.csproj/}"
+
+    local path_count=$(wc -l <<<"$possible_repos")
+
+    if (( $path_count == 1 )); then
+        log::status "Found the following path for the MyGeotab repo:"
+        log::link "   $possible_repos"
+        prompt_continue "Is the above path the correct location of the MyGeotab repo? (Y/n): " || return 1
+        repo_path="$possible_repos"
+    elif (( $path_count > 1 )); then
+        PS3="$(log::prompt 'Enter the number of the correct repo path: ')"
+        select option in $r; do
+            [[ -z $option ]] && log::warn "Invalid option: '$REPLY'" && continue
+            repo_path="$option"
+            break
+        done
+    fi
+
+    $passed_ref && return
+    prompt_return="$repo_path"
 }
 
 _geo_init_git_hook() {
@@ -4713,6 +4755,9 @@ geo_edit() {
         ci | cicd | *gitlab-ci* | git-ci )
             file_path="${dev_repo}/.gitlab-ci.yml"
             ;;
+        cfg | geo.config | gconf )
+            file_path="${HOME}/.geo-cli/.geo.conf"
+            ;;
         * )
             log::Error "Arugument '$file' is invalid."
             return 1
@@ -4809,8 +4854,7 @@ _geo_terminal_cmd_exists() {
 _geo_check_docker_installation() {
     if ! type docker > /dev/null; then
         log::warn 'Docker is not installed'
-        log::info -bn 'Install Docker and Docker Compose? (Y|n): '
-        read answer
+        prompt_for_info_n -v answer 'Install Docker and Docker Compose? (Y|n): '
         if [[ ! $answer =~ [n|N] ]]; then
             log::info 'Installing Docker and Docker Compose'
             # sudo apt-get remove docker docker-engine docker.io
@@ -5189,7 +5233,7 @@ doc_cmd_sub_option_desc() {
 
 prompt_continue_or_exit() {
     log::prompt_n "Do you want to continue? (Y|n): "
-    read answer
+    read -e answer
     [[ ! $answer =~ [nN] ]]
 }
 prompt_continue() {
@@ -5205,8 +5249,10 @@ prompt_continue() {
     fi
     log::prompt_n "$prompt_msg"
 
-    read answer
-
+    read -e answer
+    # The read command doesn't add a new line with the -e option (allows for editing of the input with arrow keys, etc.)
+    # when the user just presses Enter (with no input), read doesn't add a new line after. So add one.
+    [[ -z $answer ]] && echo
     [[ $answer =~ $regex || -z $answer && $default == yes ]]
 }
 
@@ -5234,7 +5280,10 @@ prompt_for_info() {
     fi
     # Assign the user input to the variable (or variable reference) user_info.
     # This allows the callers to supply the variable name that they want the result stored in.
-    read user_info
+    read -e user_info
+    # The read command doesn't add a new line with the -e option (allows for editing of the input with arrow keys, etc.)
+    # when the user just presses Enter (with no input), read doesn't add a new line after. So add one.
+    [[ -z $user_info ]] && echo
     # Store the user input to the global variable prompt_return to give the caller access to the user info (without 
     # passing in a variable name to reference).
     prompt_return="$user_info"
