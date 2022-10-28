@@ -17,6 +17,7 @@ A tool that makes MyGeotab development easier. Specifically, this tool aims to s
     - [Copying Databases](#copying-databases)
     - [List Databases](#list-databases)
     - [Removing Databases](#removing-databases)
+      - [Remove All Databases](#remove-all-databases)
     - [Creating Empty Databases](#creating-empty-databases)
     - [Querying the Database](#querying-the-database)
     - [Running Analyzers](#running-analyzers)
@@ -183,11 +184,17 @@ geo db rm 2001
 ```
 ![rm db](res/geo-db-rm.png)
 
-> You can delete all databases using `geo db rm --all`. You will be prompted before continuing.
-
 You can confirm that the `2001` database has been removed by listing your `geo-cli` databases:
+```
+geo db ls
+```
 
 ![list dbs 2](res/geo-db-ls-2.png)
+
+#### Remove All Databases
+You can delete all databases using `geo db rm --all`/`geo db rm -a`. You will be prompted before continuing. Additionally, you can add a filter to the command. For instance, if you wanted to remove all databases that contain the string `test`, you would use `geo db rm -a test`.
+
+![rm db](res/geo-db-rm-all.png)
 
 ### Creating Empty Databases
 `geo-cli` can also be used to create empty databases for any use case you may encounter:
@@ -349,6 +356,10 @@ To convert device data from MyDecoder into a MyGeotab text log file, export the 
 ![export-data](res/geo-mydecoder-1.png "export-data")
 
 Then, open up a terminal in the JSON file's directory and run `geo mydecoder <filename.json>`. After the command has run, the output file will be in the same directory, with the same name, but with a .txt file extension. This file can be processed by MyGeotab just like any other log file.
+
+You can also convert a JSON file by right clicking on it and selecting the `Scripts > [geo-cli] MyDecoder JSON To Txt` option.
+
+![mydecoder-script](res/gifs/geo-mydecoder-script.gif)
 
 > Note: This feature is only available for MYG 9.0 and above, so you must have a compatible version of MYG checked out for it to work.
 

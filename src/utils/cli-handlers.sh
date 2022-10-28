@@ -1356,7 +1356,7 @@ function geo_db_init() {
         return 1
     fi
 
-    log::status -b "Initializing db $db_name"
+    log::status -b "Initializing db $db_name\n"
     local user=$(geo_get DB_USER)
     local password=$(geo_get DB_PASSWORD)
     local sql_user=$(geo_get SQL_USER)
@@ -1400,26 +1400,33 @@ function geo_db_init() {
 
     if ! $accept_defaults; then
         # Get sql user.
-        log::data "\nStored db admin user: $(log::info $sql_user)"
+        log::detail "The db admin user should almost always be $(txt_underline geotabuser). Only change this if you know what you are doing."
+        log::data "Stored db admin user: $(log::info $sql_user)"
         prompt_continue "Use stored user? (Y|n): " || get_sql_user
 
         # Get sql password.
-        log::data "\nStored db admin password: $(log::info $sql_password)"
+        echo
+        log::detail "The db admin password should almost always be $(txt_underline vircom43). Only change this if you know what you are doing."
+        log::data "Stored db admin password: $(log::info $sql_password)"
         prompt_continue "Use stored password? (Y|n): " || get_sql_password
 
-        # Get db admin user.
+        # Get MyGeotab admin user.
+        echo
+        log::detail "The MyGeotab admin user should be your email address. This user is used to login to the MyGeotab web app."
         if [[ -z $user ]]; then
             get_user
         else
-            log::data "\nStored MyGeotab admin user: $(log::info $user)"
+            log::data "Stored MyGeotab admin user: $(log::info $user)"
             prompt_continue "Use stored user? (Y|n): " || get_user
         fi
 
-        # Get db admin passord
+        # Get MyGeotab admin password.
+        echo
+        log::detail "Using the default password $(txt_underline passwordpassword) is easiest, but you can change it if you like."
         if [[ -z $password ]]; then
             get_password
         else
-            log::data "\nStored MyGeotab admin password: $(log::info $password)"
+            log::data "Stored MyGeotab admin password: $(log::info $password)"
             prompt_continue "Use stored password? (Y|n): " || get_password
         fi
     fi
