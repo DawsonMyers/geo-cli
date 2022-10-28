@@ -129,8 +129,8 @@ geo_db_doc() {
 
     doc_cmd_sub_cmds_title
 
-    doc_cmd_sub_cmd 'create [option] <name>'
-        doc_cmd_sub_cmd_desc 'Creates a versioned db container and volume.'
+    doc_cmd_sub_cmd 'create [option] <name> [additional names]'
+        doc_cmd_sub_cmd_desc 'Creates a versioned db container and volume. Multiple containers can be created at once by supplying additional names.'
         doc_cmd_sub_options_title
             doc_cmd_sub_option '-y'
                 doc_cmd_sub_option_desc 'Accept all prompts.'
@@ -156,8 +156,8 @@ geo_db_doc() {
     doc_cmd_sub_cmd 'rm, remove [option] <version> [additional version to remove]'
         doc_cmd_sub_cmd_desc 'Removes the container and volume associated with the provided version (e.g. 2004).'
         doc_cmd_sub_options_title
-            doc_cmd_sub_option '-a, --all'
-                doc_cmd_sub_option_desc 'Remove all db containers and volumes.'
+            doc_cmd_sub_option '-a, --all [substring to match]'
+                doc_cmd_sub_option_desc 'Remove all db containers and volumes. You can also add a substring that will be used to remove all containers that contain it. Example: geo db rm -a .0 => remove all containers that have .0 in their name (e.g. 10.0, 11.0).'
 
     doc_cmd_sub_cmd 'stop [version]'
         doc_cmd_sub_cmd_desc 'Stop geo-cli db container.'
@@ -357,14 +357,16 @@ _geo_db_create() {
     local no_prompt=
     local empty_db=false
     local db_name=
+    local suppress_info=false
     local dont_prompt_for_db_name_confirmation=false
 
     # local build=false
     local OPTIND
 
-    while getopts "syenbd:x" opt; do
+    while getopts "sSyenbd:x" opt; do
         case "${opt}" in
             s ) silent=true ;;
+            S ) suppress_info=true ;;
             y ) accept_defaults=true ;;
             n ) no_prompt=true ;;
             e ) empty_db=true && log::status -b 'Creating empty Postgres container';;
@@ -396,6 +398,15 @@ _geo_db_create() {
 
     db_version="$1"
     db_version=$(_geo_make_alphanumeric "$db_version")
+    # Create multiple containers if more than one container name was passed in (i.e., geo db create 8.0 9.0).
+    if [[ -n $1 && -n $2 ]]; then
+        log::debug 'Creating multiple containers'
+        while [[ -n $1 ]]; do
+            _geo_db_create -xS $1
+            shift
+        done
+        return
+    fi
 
     if [[ -z $db_version ]]; then
         log::Error "No database version provided."
@@ -453,7 +464,7 @@ _geo_db_create() {
     fi
     echo
 
-    if [[ $silent == false ]]; then
+    if [[ $silent == false ]] && ! $suppress_info; then
         log::info "Start your new db with $(log::txt_underline geo db start $db_version)"
         log::info "Initialize it with geotabdemo using $(log::txt_underline geo db init $db_version)"
         echo
@@ -1146,6 +1157,30 @@ _geo_get_container_id() {
     [[ -z $container_does_not_exists ]]
 }
 
+_geo_get_container_name_from_id() {
+    local is_by_ref=false
+    local variable=
+    # Check if the caller supplied a variable name that they want the result to be stored in.
+    [[ $1 == -v ]] && local -n variable="$2" && shift 2 && is_by_ref=true
+
+    local id=$1
+    # [[ -z $name ]] && name="$IMAGE*"
+    # echo `docker container ls -a --filter name="$name" -aq`
+    local result=$(docker inspect "$id" --format='{{.Name}}' 2>&1)
+
+    # Remove / from start of name.
+    result="${result//\//}"
+
+    if $is_by_ref; then
+        variable="$result"
+    else
+        echo $result
+    fi
+
+    local container_does_not_exists=$(echo $result | grep -i "error")
+    [[ -z $container_does_not_exists ]]
+}
+
 _geo_container_exists() {
     local id=
     local variable=
@@ -1250,7 +1285,6 @@ function geo_db_init() {
     done
     shift $((OPTIND - 1))
 
-    ! $no_build && log::hint "Hint: You can add the $(txt_underline '-b') option to skip building MyGeotab when initializing a new db with geotabdemo. This is faster, but you have to make sure the correct version of MyGeotab has already been built." && echo
     $accept_defaults && log::info 'Waiting for db to start...' && sleep 5
 
     local wait_count=0
@@ -1408,7 +1442,7 @@ function geo_db_init() {
         log::hint 'Reminder: MyGeotab needs to be re-built after checking out a different release branch (i.e. 9.0 to 10.0).'
     else
         log::status -b '\nBuilding MyGeotab'
-        log::hint 'Hint: If MyGeotab is already built, add the -b option to skip re-building it (faster).'
+        log::hint 'Hint: If MyGeotab is already built, add the -b option to skip re-building it. This is much faster, but you have to make sure the correct version of MyGeotab has already been built.'
     fi
 
     if dotnet run $opts --project "$myg_core_proj" -- CreateDatabase postgres companyName="$db_name" administratorUser="$user" administratorPassword="$password" sqluser="$sql_user" sqlpassword="$sql_password" useMasterLogin='true'; then
@@ -1449,15 +1483,21 @@ function geo_db_init() {
 }
 
 geo_db_rm() {
-    if [[ $1 =~ ^-*a(ll)? ]]; then
-        prompt_continue "Do you want to remove all db contaners? (Y|n): " || return
+    if [[ $1 =~ ^-*a(ll)?$ ]]; then
+        shift
+        local search_str="$1"
+        names="$(docker container ls -a -f name=geo_cli --format "{{.Names}}")"
+        [[ -n $search_str ]] && names="$(grep -F "$search_str" <<<"$names")"
+        [[ -z $names ]] && log::warn "No containers to remove." && return 1
+        log::detail "$names"
+        local count=$(wc -l <<<"$names")
+        prompt_continue "Do you want to remove all ($count) containers? (Y|n): " || return
         # Get list of contianer names
-        names=$(docker container ls -a -f name=geo_cli --format "{{.Names}}")
         # ids=`docker container ls -a -f name=geo_cli --format "{{.ID}}"`
         # echo "$ids" | xargs docker container rm
         local fail_count=0
         for name in $names; do
-            # Remove image prefix from container name; leaving just the version/identier (e.g. geo_cli_db_postgres11_2008 => 2008).
+            # Remove image prefix from container name; leaving just the version/identier (e.g. geo_cli_db_postgres_10.0 => 10.0).
             geo_db_rm -n "$name" || ((fail_count++))
 
             # geo_db_rm "${name#${IMAGE}_}"
@@ -1465,7 +1505,7 @@ geo_db_rm() {
         done
         local num_dbs=$(echo "$names" | wc -l)
         num_dbs=$((num_dbs - fail_count))
-        log::success "Removed $num_dbs dbs"
+        log::success "Removed $num_dbs db(s)"
         [[ fail_count -gt 0 ]] && log::error "Failed to remove $fail_count dbs"
         return
     fi
@@ -1512,7 +1552,7 @@ geo_db_rm() {
         old_container_prefix='geo_cli_db_postgres11_'
         volume_name=$(docker volume ls -f name=geo_cli --format '{{.Name}}' | grep "${old_container_prefix}${db_name}"'$')
     fi
-
+    [[ -z $volume_name ]] && log::Error "Failed to find volume $container_name" && return 1
     if docker volume rm $volume_name >/dev/null; then
         log::success "Volume $db_name removed"
     else
@@ -1593,8 +1633,10 @@ _geo_check_for_dev_repo_dir() {
         echo $dev_repo
     }
 
-    log::status "Searching for possible repo locations..."
-    _geo_init_repo_find_myg_repo -v dev_repo
+    if ! is_valid_repo_dir "$dev_repo" && [[ "$dev_repo" != -- ]]; then
+        log::status "Searching for possible repo locations..."
+        _geo_init_repo_find_myg_repo -v dev_repo
+    fi
     
     # Ask repeatedly for the dev repo dir until a valid one is provided.
     while ! is_valid_repo_dir "$dev_repo" && [[ "$dev_repo" != -- ]]; do
