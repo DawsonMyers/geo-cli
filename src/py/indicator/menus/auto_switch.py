@@ -21,7 +21,7 @@ class AutoSwitchDbMenuItem(Gtk.MenuItem):
         self.app = app
         self.build_submenu(app)
         self.show_all()
-        GLib.timeout_add(1000, self.myg_release_monitor)
+        GLib.timeout_add(2000, self.myg_release_monitor)
 
     def build_submenu(self, app):
         submenu = Gtk.Menu()

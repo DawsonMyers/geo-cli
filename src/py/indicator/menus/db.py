@@ -48,7 +48,7 @@ class RunningDbMenuItem(Gtk.MenuItem):
         self.stop_menu.append(item_copy_db)
         self.set_submenu(self.stop_menu)
         self.show_all()
-        GLib.timeout_add(1000, self.db_monitor)
+        GLib.timeout_add(2000, self.db_monitor)
 
     def stop_db(self, source):
         self.set_db_label('Stopping DB...')
@@ -115,7 +115,7 @@ class DbMenu(Gtk.Menu):
         self.item_running_db = app.item_running_db
         super().__init__()
         self.items = dict()
-        GLib.timeout_add(1000, self.db_monitor)
+        GLib.timeout_add(2000, self.db_monitor)
 
     def build_db_items(self):
         dbs = geo.get_geo_db_names()

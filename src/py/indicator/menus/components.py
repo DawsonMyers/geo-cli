@@ -23,7 +23,7 @@ class PersistentCheckMenuItem(Gtk.CheckMenuItem):
         # self.set_draw_as_radio(True)
         self.show_all()
         GLib.timeout_add(50, self.init)
-        GLib.timeout_add(1000, self.monitor)
+        GLib.timeout_add(2000, self.monitor)
 
     def init(self):
         state = self.get_config_state()

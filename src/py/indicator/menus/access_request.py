@@ -35,7 +35,7 @@ class AccessRequestMenuItem(Gtk.MenuItem):
         self.set_submenu(submenu)
         submenu.show_all()
 
-        GLib.timeout_add(1000, self.monitor)
+        GLib.timeout_add(2000, self.monitor)
 
     def monitor(self):
         menu = self.item_iap_start_prev.get_submenu()
@@ -131,7 +131,7 @@ class OpenIapTunnelMenu(Gtk.MenuItem):
         self.set_submenu(self.menu)
         self.show_all()
     
-        GLib.timeout_add(1000, self.monitor)
+        GLib.timeout_add(2000, self.monitor)
         
     def log(self, msg):
         print(f'OpenIapTunnelMenu: {msg}')

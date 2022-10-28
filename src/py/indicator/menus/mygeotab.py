@@ -25,7 +25,7 @@ class MyGeotabMenuItem(Gtk.MenuItem):
         self.app = app
         self.build_submenu(app)
         self.show_all()
-        GLib.timeout_add(1000, self.monitor)
+        GLib.timeout_add(2000, self.monitor)
 
     def make_titles(self, title, include_version=False):
         window_title = f'{title} [ geo-cli ]'
