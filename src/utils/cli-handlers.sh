@@ -510,6 +510,15 @@ _geo_copy_pgAdmin_server_config() {
     )
 }
 
+_geo_show_repo_dir_reminder() {
+     local dev_repo=$(geo_get DEV_REPO_DIR)
+    if [[ -n $dev_repo ]]; then
+        log::info -f "Using the following path as the MyGeotab repo root. If this path needs to be updated, run $(txt_underline geo init repo) and select the correct location. Current MyGeotab repo path:"
+        log::link "  $dev_repo"
+        echo
+    fi
+}
+
 _geo_db_start() {
     local accept_defaults=
     local no_prompt=
@@ -560,10 +569,13 @@ _geo_db_start() {
         done
         # log::debug $db_version
     }
+    
+    
 
     if [[ $prompt_for_db == true ]]; then
         log::status -b 'Create Database'
-        log::info "Add the following options like this: [-option] <db name>. For example, '-by 10.0' would create a db named 10.0 using the 'skip build' and 'accept defaults' options"
+        _geo_show_repo_dir_reminder
+        log::info -f "Add the following options like this: [-option] <db name>. For example, '-by 10.0' would create a db named 10.0 using the 'skip build' and 'accept defaults' options"
         local skip_build_text="b: Skip building MyGeotab (faster, but the correct version of MyGeotab has to already be built."
         local accept_defaults_text="y: Accept defaults. Re-uses the previous username and passwords so that you aren't prompted to enter them again."
         log::detail "$(log::fmt_text_and_indent_after_first_line  "$skip_build_text" 0 3)"
@@ -571,6 +583,7 @@ _geo_db_start() {
         prompt_for_db_version
         shift
     else
+        _geo_show_repo_dir_reminder
         db_version="$1"
     fi
 
