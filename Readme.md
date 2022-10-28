@@ -13,6 +13,7 @@ A tool that makes MyGeotab development easier. Specifically, this tool aims to s
   - [Getting Started with `geo-cli`](#getting-started-with-geo-cli)
     - [Install](#install)
     - [Create a Database](#create-a-database)
+      - [Import pgAdmin Server for MyGeotab](#import-pgadmin-server-for-mygeotab)
     - [Copying Databases](#copying-databases)
     - [List Databases](#list-databases)
     - [Removing Databases](#removing-databases)
@@ -28,6 +29,7 @@ A tool that makes MyGeotab development easier. Specifically, this tool aims to s
       - [Setting up a GitLab Access Token](#setting-up-a-gitlab-access-token)
     - [Quarantining Tests](#quarantining-tests)
     - [Converting MyDecoder JSON Device Data to MyGeotab Log File](#converting-mydecoder-json-device-data-to-mygeotab-log-file)
+- [Add git Hook](#add-git-hook)
 - [`geo-ui` (NEW)](#geo-ui-new)
   - [Databases](#databases)
     - [Running DB](#running-db)
@@ -140,6 +142,13 @@ geo db start 2004
 The output is shown below:
 
 ![geo db start 2004](res/geo-db-start-3.png)
+
+#### Import pgAdmin Server for MyGeotab
+After creating a `geo-cli` database container, you will be shown instructions on how to import a server configuration into gpAdmin. The following gif demonstrates this process.
+
+![G](res/gifs/geo-add-pgAdmin-server.gif)
+
+> Note: You only have to import the server configuration once. It will work with any `GeotabDemo` database that's running.
 
 ### Copying Databases
 You can make a copy of a `geo-cli` database using:
@@ -343,9 +352,14 @@ Then, open up a terminal in the JSON file's directory and run `geo mydecoder <fi
 
 > Note: This feature is only available for MYG 9.0 and above, so you must have a compatible version of MYG checked out for it to work.
 
+# Add git Hook
+Run the `geo init git-hook` command to add the prepare-commit-msg git hook that prepends the MYG issue number to each commit you make. It parses the issue number from the branch name.
+![git-hook](res/geo-init-git-hook.png)
+
 # `geo-ui` (NEW)
 `geo-ui` is a tray menu UI (app indicator) that further simplifies MyGeotab development. It allows users to quickly access most of `geo-cli`'s features, as well as adding some additional ones, with just a couple mouse clicks.
 
+![geo ui](res/gifs/geo-ui-menu.gif)
 ![geo ui](res/ui/geo-ui-1.png)
 
 ## Databases

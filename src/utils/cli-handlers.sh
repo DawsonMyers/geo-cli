@@ -712,7 +712,7 @@ _geo_db_start() {
 
         [[ $no_prompt == true ]] && return
         
-        opts=-x
+        opts=-
         [[ $accept_defaults == true ]] && opts+=y
         [[ $no_prompt == true ]] && opts+=n
         [[ $no_build == true ]] && opts+=b
