@@ -1508,7 +1508,10 @@ geo_db_rm() {
         [[ -z $names ]] && log::warn "No containers to remove." && return 1
         log::detail "$names"
         local count=$(wc -l <<<"$names")
-        prompt_continue "Do you want to remove all ($count) containers? (Y|n): " || return
+        local prompt_msg="Do you want to remove all ($count) containers? (Y|n): "
+        (( count == 1 )) && prompt_msg="Do you want to remove this container? (Y|n): "
+        prompt_continue "$prompt_msg" || return
+
         # Get list of contianer names
         # ids=`docker container ls -a -f name=geo_cli --format "{{.ID}}"`
         # echo "$ids" | xargs docker container rm
