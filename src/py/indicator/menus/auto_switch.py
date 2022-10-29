@@ -168,6 +168,7 @@ class CheckedOutMygReleaseMenuItem(Gtk.MenuItem):
     def monitor(self):
         cur_release = geo.get_myg_release()
         if cur_release and self.cur_myg_release != cur_release:
+            print(f'CheckedOutMygReleaseMenuItem.monitor: Updating MYG release [{self.cur_myg_release}] => [{cur_release}]')
             self.cur_myg_release = cur_release
             self.app.state['myg_release'] = self.cur_myg_release
             self.app.myg_release = self.cur_myg_release

@@ -286,11 +286,11 @@ log::stacktrace() {
 
 # ✘
 log::Error() {
-    echo -e "❌  ${BIRed}Error: $@${Off}" #>&2
+    echo -e "❌  ${BIRed}Error: $@${Off}" >&2
     log::stacktrace
 }
 log::error() {
-    echo -e "❌  ${BIRed}$@${Off}"
+    echo -e "❌  ${BIRed}$@${Off}" >&2
 }
 
 log::data_header() {

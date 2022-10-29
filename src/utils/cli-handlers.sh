@@ -2433,7 +2433,69 @@ geo_init() {
     git-hook* | git | gh )
         _geo_init_git_hook "${@:2}"
         ;;
+    auto-switch | as )
+        _geo_init_auto_switch "${@:2}"
+        ;;
     esac
+}
+
+_geo_init_auto_switch() {
+    local dev_repo_dir=$(geo_get DEV_REPO_DIR)
+    (
+        cd "$dev_repo_dir"
+        local myg_branches="$(git branch -r | sed 's/  //g' | grep --color=never -P '^origin/(release/\d+\.0|main)$')"
+        local branches=(${myg_branches[@]})
+        if [[ -z ${branches[@]} ]]; then
+            log::Error "Counldn't find any release branches in repo root: "
+            log::link "$dev_repo_dir"
+            return 1
+        fi
+
+        log::data_header "$(printf '%-4s %-42s\n' ID Release)"
+        for branchId in ${!branches[@]}; do
+            branch="${branches[branchId]}"
+            printf '%-4d %-42s\n' $branchId "${branch#origin/}"
+        done
+
+        local branch_count=${#branches[@]}
+        local ids=
+        _geo_prompt_for_ids ids $((branch_count - 1)) "Enter the ids (space separated) for the branches you would like to create database containers for:"
+        echo "the ids: $ids"
+    )
+}
+
+# Prompts the user for 1 or more ids.
+#   1: the name of the variable ref to store the result in.
+#   2: the max number of ids.
+#   3: the text to prompt the user to enter ids.
+_geo_prompt_for_ids() {
+    local -n result_ref=$1
+    local max_id=$2
+    local prompt_txt="$3"
+    local input_ids
+    local valid_input=false
+
+    until $valid_input; do
+        prompt_for_info -v input_ids "$prompt_txt"
+        # Make sure the input consists of only numbers separated by spaces.
+        while [[ ! $input_ids =~ ^( *[0-9]+ *)+$ ]]; do
+            log::warn 'Invalid input. Only space-separated integer IDs are accepted'
+            prompt_for_info -v input_ids "$prompt_txt"
+        done
+        # Make sure the numbers are valid ids between 0 and max_id.
+        for id in $input_ids; do
+            if ((id < 0 | id > max_id)); then
+                log::warn "Invalid ID: ${id}. Only IDs from 0 to ${max_id} are valid"
+                # Set valid_input = false and break out of this for loop, causing the outer until loop to run again.
+                valid_input=false
+                break
+            fi
+            valid_input=true
+        done
+        if [[ $valid_input = true ]]; then
+            result_ref="$input_ids"
+        fi
+    done
 }
 
 _geo_init_repo_find_myg_repo() {

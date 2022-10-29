@@ -48,6 +48,7 @@ class IndicatorApp(object):
         self.menu = MainMenu(self)
         self.build_menu(self.menu)
         self.indicator.set_menu(self.menu)
+        print("=============== IndicatorApp: Starting up...")
 
     def get_state(self, key, default=None):
         return self.state[key] if key in self.state else default
@@ -290,18 +291,20 @@ class DialogExample(Gtk.Dialog):
 def main():
     retry_count = 0
     retry = True
-    while retry and retry_count < 10:
+    delay = 5
+    while retry and retry_count < 20:
         try:
             indicator = IndicatorApp()
             geo.try_start_last_db()
             Gtk.main()
             retry = False
         except Exception as e:
-                print(f'main: retry={retry_count}')
+                print(f'main: IndicatorApp threw and exception. retry={retry_count}')
                 print(e)
                 retry_count += 1
                 retry = True
-                time.sleep(5)
+                time.sleep(delay)
+                delay += 1
     
 
 if __name__ == "__main__":

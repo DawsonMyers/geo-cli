@@ -52,7 +52,9 @@ def geo(arg_str, return_error=False, return_all=False, terminal=False):
 
 def get_myg_release():
     release = geo('dev release')
-    return release if '\n\n' not in release else ''
+    if len(release) > 32 or ' ' in release or '\n\n' in release or 'MyGeotab' in release or 'repo' in release or 'geo-cli' in release or 'cli-handlers' in release:
+        return ''
+    return release
 
 
 def try_start_last_db():
