@@ -41,10 +41,10 @@ def geo(arg_str, return_error=False, return_all=False, terminal=False):
         process = subprocess.Popen("bash %s" % (cmd), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable='/bin/bash', text=True)
         process.wait()
         result = process.communicate()
-        if result[1]:
-            print(f'geo: Error running command {arg_str}: {result}')
+        # if result[1]:
+        #     print(f'geo: Error running command {arg_str}: {result}')
     except Exception as err:
-        print(f'Error running geo("{arg_str}", {return_error}, {return_all}: {err}')
+        print(f'Error running geo("{arg_str}", {return_error}, {return_all}). result = {result}: err = {err}')
     if return_error: return result[1]
     if return_all: return result
     return result[0]

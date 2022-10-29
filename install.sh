@@ -19,16 +19,20 @@ echo -n "$GEO_CLI_DIR" > "$GEO_CLI_CONFIG_DIR/data/geo/repo-dir"
 [ ! -f "$GEO_CLI_CONFIG_DIR/.geo.conf" ] && cp "$GEO_CLI_SRC_DIR/config/.geo.conf" "$GEO_CLI_CONFIG_DIR"
 export GEO_CLI_VERSION=$(cat $GEO_CLI_DIR/version.txt)
 previously_installed_version=$(geo_get GEO_CLI_VERSION)
-geo_set GEO_CLI_DIR $GEO_CLI_DIR
-geo_set GEO_CLI_SRC_DIR $GEO_CLI_SRC_DIR
-geo_set GEO_CLI_CONFIG_DIR $GEO_CLI_CONFIG_DIR
-geo_set GEO_CLI_CONF_FILE $GEO_CLI_CONF_FILE
+geo_set GEO_CLI_DIR "$GEO_CLI_DIR"
+geo_set GEO_CLI_SRC_DIR "$GEO_CLI_SRC_DIR"
+geo_set GEO_CLI_CONFIG_DIR "$GEO_CLI_CONFIG_DIR"
+geo_set GEO_CLI_CONF_FILE "$GEO_CLI_CONF_FILE"
 geo_set GEO_CLI_VERSION "$GEO_CLI_VERSION"
 geo_set OUTDATED false
 
+# The prev_commit is the commit hash that was stored last time geo-cli was updated. cur_commit is the commit hash of
+# this version of geo-cli. The commit messages between theses two hashes are shown to the user to show what's new in
+# this update. The hashes are passed in as params when the 'goe update' command runs this script.
 prev_commit=$1
 cur_commit=$2
 
+# Check if the current branch is a feature branch.
 if [[ $(geo_get FEATURE) == true ]]; then
     if _geo_check_if_feature_branch_merged; then
         cur_commit=$(git rev-parse HEAD)
@@ -66,6 +70,7 @@ geotab_logo
 geo_logo
 echo
 
+# 🎉
 if [[ $previously_installed_version ]]; then
     log::verbose -b "geo-cli updated $previously_installed_version -> $GEO_CLI_VERSION"
 else
@@ -78,8 +83,7 @@ echo
 # prev_commit=daf4b4adeaff0223b590d978d3fc41a5e2324332
 # cur_commit=901e0c31528e27b21216826b7cb338a39bec6185
 if [[ -n $prev_commit && -n $cur_commit ]]; then
-    _geo_print_messages_between_commits_after_update $prev_commit $cur_commit
-    echo
+    _geo_print_messages_between_commits_after_update $prev_commit $cur_commit && echo    
 fi
 
 # Enable notification if the SHOW_NOTIFICATIONS setting doesn't exist in the config file.
@@ -128,6 +132,10 @@ log::info "$(log::fmt_text_and_indent_after_first_line "$step2" 3 3)"
 log::info "$(log::fmt_text_and_indent_after_first_line "$step3" 3 3)"
 echo
 
+# log::hint -fn "Join the geo-cli Chat Space to report bugs, share feature ideas, and stay informed about new features:"
+echo -n '✨ '
+log::hint -nbu " Join the geo-cli Chat Space " && log::hint -n " to report bugs, share feature ideas, and stay informed about new features: "
+log::link ' https://chat.google.com/room/AAAAo9gDWgg?cls=7'
 python3 -m pip install setproctitle &> /dev/null
 
 # # Set up update cron job.

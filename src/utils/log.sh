@@ -64,6 +64,10 @@ make_logger_function() {
 
             local color_name=$color
             case \$options in
+                # Format text to the width of the terminal.
+                *f* )
+                    msg=\"\$(log::fmt_text \"\$msg\")\"
+                    ;;&
                 # Intense
                 *t* )
                     color_name="I${color}"
@@ -87,9 +91,6 @@ make_logger_function() {
                 # Prompt (doesn't add a new line after printing)
                 *p* | *n* )
                     opts+=n
-                    ;;&
-                *f* )
-                    msg=\"\$(log::fmt_text \"\$msg\")\"
                     ;;&
             esac
 
@@ -133,6 +134,10 @@ make_logger_function_vte() {
             fi
 
             case \$options in
+                # Format text to the width of the terminal.
+                *f* )
+                    msg=\"\$(log::fmt_text \"\$msg\")\"
+                    ;;&
                 *b* )
                     format_tokens+=\"$BOLD_ON\"
                     ;;&
@@ -145,11 +150,8 @@ make_logger_function_vte() {
                 *v* )
                     msg=\$(log::txt_invert \$msg)
                     ;;&
-                *p* )
+                *p* | *n* )
                     opts+=n
-                    ;;&
-                *f* )
-                    msg=\"\$(log::fmt_text \"\$msg\")\"
                     ;;&
             esac
             

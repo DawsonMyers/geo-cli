@@ -148,7 +148,7 @@ class OpenIapTunnelMenu(Gtk.MenuItem):
             cur_tunnels = set(open_tunnels_str.split('|'))
             if not cur_tunnels or cur_tunnels == self.prev_tunnels:
                 return True
-            print(f'{open_tunnels_str} == {self.prev_tunnel_str} = {open_tunnels_str == self.prev_tunnel_str}')
+            # print(f'{open_tunnels_str} == {self.prev_tunnel_str} = {open_tunnels_str == self.prev_tunnel_str}')
             self.prev_tunnels = cur_tunnels
             self.prev_tunnel_str = open_tunnels_str
             self.remove_all()
@@ -169,7 +169,7 @@ class OpenIapTunnelMenu(Gtk.MenuItem):
                 self.items.add(item)
                 self.menu.append(item)
             if not self.items:
-                self.log('adding empty item')
+                # self.log('adding empty item')
                 # self.menu.append(self.empty_item)
                 self.empty_item.show()
                 # self.menu.show_all()

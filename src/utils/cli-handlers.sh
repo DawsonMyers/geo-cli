@@ -2946,8 +2946,11 @@ geo_update() {
         _geo_install_or_update_docker_compose
         return
     fi
+    
+    local force=false
+    [[ $1 == '-f' || $1 == '--force' ]] && force=true
     # Don't install if already at latest version unless the force flag is present (-f or --force)
-    if ! _geo_check_for_updates && [[ $1 != '-f' && $1 != '--force' ]]; then
+    if ! _geo_check_for_updates && ! $force; then
         log::Error 'The latest version of geo-cli is already installed'
         return 1
     fi
@@ -2959,7 +2962,7 @@ geo_update() {
     (
         cd $geo_cli_dir
         [[ -z $prev_commit ]] && prev_commit=$(git rev-parse HEAD)
-        if ! git pull >/dev/null; then
+        if ! $force && ! git pull >/dev/null; then
             log::Error 'Unable to pull changes from remote'
             return 1
         fi
@@ -4986,7 +4989,7 @@ _geo_install_or_update_docker_compose() {
 }
 
 _geo_print_messages_between_commits_after_update() {
-    [[ -z $1 || -z $2 ]] && return
+    [[ -z $1 || -z $2 ]] && return 1
     local prev_commit=$1
     local cur_commit=$2
 
@@ -4997,7 +5000,7 @@ _geo_print_messages_between_commits_after_update() {
         local commit_msgs=$(git log --oneline --ancestry-path $prev_commit..$cur_commit)
         # log::debug "$commit_msgs"
         # Each line will look like this: a62b81f Fix geo id parsing order.
-        [[ -z $commit_msgs ]] && return
+        [[ -z $commit_msgs ]] && return 1
 
         local line_count=0
         local max_lines=20
@@ -5013,13 +5016,14 @@ _geo_print_messages_between_commits_after_update() {
             msg=$(log::fmt_text_and_indent_after_first_line "* $msg" 3 2)
             log::detail "$msg"
         done <<<$commit_msgs
-
+        
         if (( line_count > max_lines )); then
             local msgs_not_shown=$(( line_count - max_lines ))
             msg="   => Plus $msgs_not_shown more changes"
             log::detail "$msg"
         fi
     )
+    [[ $? -eq 0 ]] 
 }
 
 # Docker Compose using the geo config file
