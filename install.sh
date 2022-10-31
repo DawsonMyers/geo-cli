@@ -120,7 +120,8 @@ if [[ $previously_installed_version ]]; then
 else
     installed_msg="Open a new terminal or source .bashrc by running '. ~/.bashrc' in this one to start using geo-cli."
 fi
-log::success "$(log::fmt_text_and_indent_after_first_line "$installed_msg" 0 5)"
+log::success "$installed_msg"
+# log::success "$(log::fmt_text_and_indent_after_first_line -d 4 "$installed_msg" 0 5)"
 echo
 
 log::info -b "Next step: create a database container and start geotabdemo"
@@ -136,6 +137,7 @@ echo
 echo -n '✨ '
 log::hint -nbu " Join the geo-cli Chat Space " && log::hint -n " to report bugs, share feature ideas, and stay informed about new features: "
 log::link ' https://chat.google.com/room/AAAAo9gDWgg?cls=7'
+
 python3 -m pip install setproctitle &> /dev/null
 
 # # Set up update cron job.

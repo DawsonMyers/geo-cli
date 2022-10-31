@@ -1066,7 +1066,7 @@ _geo_db_ls_containers() {
 
     local names=$(docker container ls -a -f name=geo_cli --format '{{.Names}}')
     local longest_field_length=$(awk '{ print length }' <<<"$names" | sort -n | tail -1)
-    local container_name_field_length=$((longest_field_length + 4))
+    local container_name_field_length=$((longest_field_length + 2))
     local name_field_length=$((${#longest_field_length} - ${#GEO_DB_PREFIX} + 4))
     ((name_field_length < 16)) && name_field_length=16
 
@@ -1713,7 +1713,7 @@ geo_ar_doc() {
             doc_cmd_sub_option '-L'
             doc_cmd_sub_option_desc "Bind local port 5433 to 5432 on remote host (through IAP tunnel). You can connect to the remote Postgres database 
                     using this port (5433) in pgAdmin. Note: you can also open up an ssh session to this server by opening another terminal and running
-                     $(txt_underline geo ar ssh)"
+                     $(log::green  geo ar ssh)"
             # doc_cmd_sub_option_desc "Starts an SSH session to the server immediately after opening up the IAP tunnel."
         doc_cmd_sub_cmd 'ssh'
             doc_cmd_sub_cmd_desc "SSH into a server through the IAP tunnel started with $(log::green 'geo ar ssh')."
@@ -1725,7 +1725,7 @@ geo_ar_doc() {
             doc_cmd_sub_option '-L'
             doc_cmd_sub_option_desc "Bind local port 5433 to 5432 on remote host (through IAP tunnel). You can connect to the remote Postgres database 
                     using this port (5433) in pgAdmin. Note: you can also open up an ssh session to this server by opening another terminal and running
-                     $(txt_underline geo ar ssh)"
+                     $(log::green  geo ar ssh)"
     doc_cmd_examples_title
         doc_cmd_example 'geo ar tunnel -s gcloud compute start-iap-tunnel gceseropst4-20220109062647 22 --project=geotab-serverops --zone=projects/709472407379/zones/northamerica-northeast1-b'
         doc_cmd_example 'geo ar ssh'
@@ -2334,7 +2334,7 @@ geo_init_doc() {
         doc_cmd_sub_cmd 'repo'
             doc_cmd_sub_cmd_desc 'Init Development repo directory using the current directory.'
         doc_cmd_sub_cmd 'npm'
-            doc_cmd_sub_cmd_desc "Runs 'npm install' in both the wwwroot and drive CheckmateServer directories. This is quick way to fix the npm dependencies after Switching to a different MYG release branch."
+            doc_cmd_sub_cmd_desc "Runs 'npm install' in both the wwwroot and drive CheckmateServer directories. This is a quick way to fix the npm dependencies after switching to a different MYG release branch."
         doc_cmd_sub_cmd 'pat'
             doc_cmd_sub_cmd_desc "Sets up the GitLab Personal Access Token environment variables."
             doc_cmd_sub_options_title
@@ -3176,7 +3176,7 @@ geo_analyze() {
         printf '%-4d %-38s %-8s\n' $id "${analyzer[$name]}" "$project"
     done
     
-    log::hint "\nHint: When running all analyzers with the -a option, you can also add the -s option to skip long-running analyzers (GW-Linux-Debug and Build-All.sln). Example $(txt_underline geo analyze -as)."
+    log::hint "$(log::fmt_text "\nHint: When running all analyzers with the -a option, you can also add the -s option to skip long-running analyzers (GW-Linux-Debug and Build-All.sln). Example $(txt_underline geo analyze -as).")"
     local prev_ids=$(geo_get ANALYZER_IDS)
 
     log::status "\nValid IDs from 0 to ${max_id}"
@@ -5266,7 +5266,7 @@ ord() {
 doc_cmd() {
     doc_handle_command "$1"
     local indent=4
-    local txt=$(log::fmt_text "$@" $indent)
+    local txt=$(log::fmt_text --x "$@" $indent)
     # detail_u "$txt"
     log::detail -b "$txt"
 }
@@ -5274,96 +5274,96 @@ doc_cmd() {
 # Command description
 doc_cmd_desc() {
     local indent=6
-    local txt=$(log::fmt_text "$@" $indent)
+    local txt=$(log::fmt_text --x "$@" $indent)
     log::data -t "$txt"
 }
 
 doc_cmd_desc_note() {
     local indent=8
-    local txt=$(log::fmt_text "$@" $indent)
+    local txt=$(log::fmt_text --x "$@" $indent)
     log::data -t "$txt"
 }
 
 doc_cmd_examples_title() {
     local indent=8
-    local txt=$(log::fmt_text "Example:" $indent)
+    local txt=$(log::fmt_text --x "Example:" $indent)
     log::info -t "$txt"
     # info_i "$(log::fmt_text "Example:" $indent)"
 }
 
 doc_cmd_example() {
     local indent=12
-    local txt=$(log::fmt_text "$@" $indent)
+    local txt=$(log::fmt_text --x "$@" $indent)
     log::data "$txt"
 }
 
 doc_cmd_options_title() {
     local indent=8
-    local txt=$(log::fmt_text "Options:" $indent)
+    local txt=$(log::fmt_text --x "Options:" $indent)
     log::info -t "$txt"
     # log::data -b "$txt"
 }
 doc_cmd_option() {
     # doc_handle_subcommand "$1"
     local indent=12
-    local txt=$(log::fmt_text "$@" $indent)
+    local txt=$(log::fmt_text --x "$@" $indent)
     log::verbose -bt "$txt"
 }
 doc_cmd_option_desc() {
     local indent=16
-    local txt=$(log::fmt_text "$@" $indent)
+    local txt=$(log::fmt_text --x "$@" $indent)
     log::data "$txt"
 }
 
 doc_cmd_sub_cmds_title() {
     local indent=8
-    local txt=$(log::fmt_text "Commands:" $indent)
+    local txt=$(log::fmt_text --x "Commands:" $indent)
     log::info -t "$txt"
     # log::data -b "$txt"
 }
 doc_cmd_sub_cmd() {
     doc_handle_subcommand "$1"
     local indent=12
-    local txt=$(log::fmt_text "$@" $indent)
+    local txt=$(log::fmt_text --x "$@" $indent)
     log::verbose -b "$txt"
 }
 doc_cmd_sub_cmd_desc() {
     local indent=16
-    local txt=$(log::fmt_text "$@" $indent)
+    local txt=$(log::fmt_text --x "$@" $indent)
     log::data "$txt"
 }
 
 doc_cmd_sub_sub_cmds_title() {
     local indent=18
-    local txt=$(log::fmt_text "Commands:" $indent)
+    local txt=$(log::fmt_text --x "Commands:" $indent)
     log::info "$txt"
     # log::data -b "$txt"
 }
 doc_cmd_sub_sub_cmd() {
     local indent=20
-    local txt=$(log::fmt_text "$@" $indent)
+    local txt=$(log::fmt_text --x "$@" $indent)
     log::verbose "$txt"
 }
 doc_cmd_sub_sub_cmd_desc() {
     local indent=22
-    local txt=$(log::fmt_text "$@" $indent)
+    local txt=$(log::fmt_text --x "$@" $indent)
     log::data "$txt"
 }
 
 doc_cmd_sub_options_title() {
     local indent=18
-    local txt=$(log::fmt_text "Options:" $indent)
+    local txt=$(log::fmt_text --x "Options:" $indent)
     log::info "$txt"
     # log::data -b "$txt"
 }
 doc_cmd_sub_option() {
     local indent=20
-    local txt=$(log::fmt_text "$@" $indent)
+    local txt=$(log::fmt_text --x "$@" $indent)
     log::verbose "$txt"
 }
 doc_cmd_sub_option_desc() {
     local indent=22
-    local txt=$(log::fmt_text "$@" $indent)
+    local txt=$(log::fmt_text --x "$@" $indent)
     log::data "$txt"
 }
 

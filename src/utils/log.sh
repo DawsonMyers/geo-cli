@@ -284,13 +284,15 @@ log::stacktrace() {
     fi
 }
 
-# ✘
+# ✘❌
 log::Error() {
-    echo -e "❌  ${BIRed}Error: $@${Off}" >&2
+    echo -e "${BIRed}✘  Error: $(log::fmt_text_and_indent_after_first_line -d 10 -a 10 "$@")${Off}" >&2
+    # echo -e "❌  ${BIRed}Error: $@${Off}" >&2
     log::stacktrace
 }
 log::error() {
-    echo -e "❌  ${BIRed}$@${Off}" >&2
+    echo -e "${BIRed}✘  $(log::fmt_text_and_indent_after_first_line -d 4 -a 3 "$@")${Off}" >&2
+    # echo -e "❌  ${BIRed}$@${Off}" >&2
 }
 
 log::data_header() {
@@ -299,7 +301,8 @@ log::data_header() {
 }
 
 log::success() {
-    echo -e "${BIGreen}✔${Off}   ${BIGreen}$@${Off}"
+    echo -e "${BIGreen}✔${Off}   ${BIGreen}$(log::fmt_text_and_indent_after_first_line -d 4 -a 4 "$@")${Off}"
+    # echo -e "${BIGreen}✔${Off}   ${BIGreen}$@${Off}"
 }
 make_logger_function prompt BCyan 
 log::prompt() {
@@ -325,24 +328,60 @@ log::repeat_str() {
 # be indented.
 # 1: the long string to format
 # 2: the number of spaces to indent the text with
-# 3: the string/char used to indent then text with (a space, by default), or, if the 3rd arg is '--keep-spaces-and-breaks', then don't remove spaces or line breaks
+# 3: the string/char used to indent the text with (a space, by default), or, if the 3rd arg is '--keep-spaces-and-breaks', then don't remove spaces or line breaks
 log::fmt_text() {
     set -f
-    local indent=0
-    local indent_len=0
-    local indent_str=' '
     local keep_spaces=false
+    local decrement_width_by=0
+    local tight_margins=false
+    local remove_color=false
+    local indent=0
+    local additional_indent=0
+    local indent_str=' '
+
+    local OPTIND
+
+    # The --x option prevents command options from being parsed. This is necessary when formatting help text for commands.
+    # This type of text often starts with the option, e.g., "-h, --help".
+    if [[ $1 == --x ]]; then
+        shift
+    else
+        while getopts "kd:tri:s:" opt; do
+            case "${opt}" in
+                k ) keep_spaces=true  ;;
+                d ) decrement_width_by=$OPTARG ;;
+                t ) tight_margins=true ;;
+                r ) remove_color=true ;;
+                i ) indent=$OPTARG  ;;
+                s ) indent_str=$OPTARG  ;;
+                : )
+                    log::Error "Option '${opt}' expects an argument."
+                    return 1
+                    ;;
+                \? )
+                log::debug '----------------------------'
+                    log::Error "Invalid option: ${opt} $OPTARG"
+                    return 1
+                    ;;
+            esac
+        done
+        shift $((OPTIND - 1))
+    fi
+    
     local txt="$1"
 
-    # Check if args 2 and 3 were provided.
-    [[ -n $2 ]] && indent="$2"
+    # Remove all color and formatting characters.
+    $remove_color && txt="$(log::strip_color_codes <<<"$txt")"
 
-    if [[ $3 = '--keep-spaces-and-breaks' ]]; then
-        keep_spaces=true
-    elif [[ -n $3 ]]; then
-        indent_str=$3
-    fi
+    # The amount to indent lines that wrap.
+    # Set if positional parameters were used to set the indents.
+    indent=${2:-$indent}
+    additional_indent=${3:-$additional_indent}
 
+    # Set default indent string to a space.
+    indent_str=${indent_str:- }
+    
+    # Set indent string to an empty string if the indent is 0.
     [[ $indent -eq 0 ]] && indent_str=''
 
     # echo interprets '-e' as a command line switch, so a space is added to it so that it will actually be printed.
@@ -353,13 +392,17 @@ log::fmt_text() {
     [[ $keep_spaces = false ]] && txt=$(echo "$txt" | tr '\n' ' ' | sed -E 's/ {2,}/ /g')
 
     # Determin the total length of the repeated indent string.
-    indent_len=$((${#indent_str} * indent))
+    local indent_len=$((${#indent_str} * indent))
 
     # Get the width of the console.
     local width=$(tput cols)
     # Get max width of text after the indent widht is subtracted.
-    width=$((width - indent_len))
+    # - 1 in case the the last char is a t the last col position, which means that the new line char will be wrapped
+    # to the next line, leaving a blank line.
+    width=$((width - indent_len - decrement_width_by - 1))
 
+    # Start the sed pattern with s/^/, meaning that we are going to substitute the beginning of the string with our
+    # indent string.
     local sed_pattern="s/^/"
     # Repeat the indent string $indent number of times. seq is used to create
     # a seq from 1 ... $indent (e.g. 1 2 3 4, for $indent=4). So for
@@ -369,15 +412,19 @@ log::fmt_text() {
     sed_pattern+=$(printf "$indent_str%.0s" $(seq 1 $indent))
     sed_pattern+="/g"
 
+    local fmt_command=fmt
+    $tight_margins && fmt_command=fold
+
     # Text is piped into fmt to format the text to the correct width, then
-    # indented using the sed substitution.
-    echo "$txt" | fmt -w $width | sed "$sed_pattern"
+    # indented using the sed substitution to insert our intent string.
+    echo "$txt" | $fmt_command -s -w $width | sed "$sed_pattern"
+    # echo "$txt" | fmt -w $width | sed "$sed_pattern"
     # echo $1 | fmt -w $width | sed "s/^/$(printf '$%.0s' `seq 1 $indent`)/g"
     set +f
 }
 
 # Takes a long string and wraps it according to the terminal width (like left justifying text in Word or Goggle Doc),
-# but it allows wrapped lines to be indented more than the first line. The all lines created can also have a base indent.
+# but it allows wrapped lines to be indented more than the first line. All lines created can also have a base indent.
 # 
 # Parameters:
 #   1 (long_text):  The long line of text
@@ -396,43 +443,109 @@ log::fmt_text() {
 #         very very very very long line
 log::fmt_text_and_indent_after_first_line() {
     set -f
+    local strip_spaces=false
+    local tight_margins=false
+    local remove_color=false
+    local decrement_first_line_width_by=0
+    local base_indent=0
+    local additional_indent=0
+    # local next_line_indent=0
+    local OPTIND
+
+    # The --x option prevents command options from being parsed. This is necessary when formatting help text for commands.
+    # This type of text often starts with the option, e.g., "-h, --help".
+    if [[ $1 == --x ]]; then
+        shift
+    else
+        while getopts "b:i:a:sd:tr" opt; do
+            case "${opt}" in
+                b ) base_indent=$OPTARG  ;;
+                i ) indent_str=$OPTARG  ;;
+                a ) additional_indent=$OPTARG  ;;
+                s ) strip_spaces=true  ;;
+                d ) decrement_first_line_width_by=$OPTARG ;;
+                t ) tight_margins=true ;;
+                r ) remove_color=true ;;
+                : )
+                    log::Error "Option '${opt}' expects an argument."
+                    return 1
+                    ;;
+                \? )
+                    log::debug '----------------------------'
+                    log::Error "Invalid option: ${opt}"
+                    return 1
+                    ;;
+            esac
+        done
+        shift $((OPTIND - 1))
+    fi
+
     local indent_char=' '
     local long_text="$1"
+    # Remove all color and formatting characters.
+    $remove_color && long_text="$(log::strip_color_codes <<<"$long_text")"
+    local total_text_length=${#long_text}
+
     # The amount to indent lines that wrap.
-    local base_indent=$2
-    local additional_indent=$3
+    # Set if positional parameters were used to set the indents.
+    base_indent=${2:-$base_indent}
+    additional_indent=${3:-$additional_indent}
+
     local total_indent=$(( base_indent + additional_indent ))
     local wrapped_line_indent_str=$(printf "$indent_char%.0s" $(seq 1 $additional_indent))
     # log::debug "'${wrapped_line_indent_str}'"
-    local lines=$(log::fmt_text "$long_text" $base_indent --keep-spaces-and-breaks)
-    # log::debug "$lines"
+    # local lines=$(log::fmt_text "$long_text" $base_indent)
+    
+    local fmt_option=" -k "
+    $strip_spaces && fmt_option=
+    $tight_margins && fmt_option+=" -t "
+    local decrement_option=
+    (( decrement_first_line_width_by > 0 )) && decrement_option=" -d $decrement_first_line_width_by "
+    local lines=$(log::fmt_text $decrement_option $fmt_option "$long_text" $base_indent )
+   
     local line_number=0
     local output=''
 
-    while read msg; do
-        # log::debug "$msg"
-        # Add the additional indent to the start of the line
-        msg="${wrapped_line_indent_str}${msg}"
-        # log::debug "$msg"
-        local msg_lines=$(log::fmt_text "$msg" $base_indent --keep-spaces-and-breaks)
-        # log::debug "$msg_lines"
-        msg_lines="${msg_lines:additional_indent}"
-        # log::debug -e "$msg_lines"
-        output+="$msg_lines\n"
-        # while read line; do
-        #     (( line_number++ ))
-        #     if [[ $line_number = 1 ]]; then
-        #         output+="$line\n"
-        #         continue
-        #     fi
-        #     # log::debug "$line"
-        #     # log::debug "${wrapped_line_indent_str}${line}\n"
-        #     output+="${wrapped_line_indent_str}${line}\n"
-        # done <<<"$lines"
-        # output+="${wrapped_line_indent_str}${line}\n"
-    done <<<"$long_text"
+    # Get the first line from the formatted stirng. We need to know how log it is so that we can format the remaing 
+    # text again with the additional indent.
+    local first_line=$(head -1 <<<"$lines")
+    local first_line_length=${#first_line}
+    # Remove the base indent form the line to get the actual length of text.
+    first_line_length=$((first_line_length - base_indent))
+    output="$first_line"
+    # log::debug "$first_line"
+    # log::debug "first_line_length = $first_line_length"
+    # log::debug "total_text_length = $total_text_length"
+    # log::debug "$total_text_length != ($first_line_length - $base_indent)"
+
+    if (( total_text_length != first_line_length )); then
+        # Add line break for first line.
+        output+="\n"
+
+        # Get the remaing text to be indented (everything after the first line).
+        local rest_to_be_indented="${long_text:$first_line_length}"
+        [[ ${rest_to_be_indented:0:1} == ' ' ]] && rest_to_be_indented="${rest_to_be_indented:1}"
+        # Indent the rest with the additional indent.
+        local rest_indented="$(log::fmt_text $fmt_option "$rest_to_be_indented" $total_indent)"
+        # Add the indented text to the result
+        output+="$rest_indented"
+        # log::debug "$rest_to_be_indented"
+    fi
     echo -n -e "$output"
     set +f
+}
+
+log::strip_color_codes() {
+    local args
+    # Allow this command to accept piped in arguments. Example: echo "text" | log::strip_color_codes
+    if (( "$#" == 0 )); then
+        IFS= read -r args
+        set -- "$args"
+    fi
+    echo -n "$@" | sed -r "s/(\x1B|\\e)\[([0-9]{1,3}(;[0-9]{1,3})*)?[mGK]//g" 
+    # \e[38;5;${i}m
+    # '\033[1;31m'
+    # echo -n "$@" | sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g"
 }
 
 # Format functions
