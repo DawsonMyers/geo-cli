@@ -1067,10 +1067,10 @@ _geo_db_ls_containers() {
     local names=$(docker container ls -a -f name=geo_cli --format '{{.Names}}')
     local longest_field_length=$(awk '{ print length }' <<<"$names" | sort -n | tail -1)
     local container_name_field_length=$((longest_field_length + 2))
-    local name_field_length=$((${#longest_field_length} - ${#GEO_DB_PREFIX} + 4))
-    ((name_field_length < 16)) && name_field_length=16
+    local name_field_length=$((${#longest_field_length} - ${#GEO_DB_PREFIX} + 2))
+    ((name_field_length < 14)) && name_field_length=14
 
-    local line_format="%-${name_field_length}s %-16s %-${container_name_field_length}s %-16s\n"
+    local line_format=" %-${name_field_length}s %-14s %-${container_name_field_length}s %-12s\n"
     local header=$(printf "$line_format" "geo-cli Name" "Container ID" "Container Name" "Created")
     # Print the table header.
     log::data_header "$header"
@@ -4217,8 +4217,6 @@ geo_quarantine() {
 
     local OPTIND
     while getopts "bcim:" opt; do
-        # log::debug "OPTIND: $OPTIND"
-        # log::debug "OPTARG: $OPTARG"
         case "${opt}" in
             b ) blame=true ;;
             c ) commit=true ;;
@@ -4374,9 +4372,6 @@ geo_quarantine() {
 
         log::status -b "\nAttributes added to test"
         print_test_definition
-        # log::detail ...
-        # log::detail "$(grep -B 3 -e " $testname(" $file)"
-        # log::detail ...
 
         local msg="Quarantined test $testclass.$testname"
         if [[ $interactive == true ]]; then
