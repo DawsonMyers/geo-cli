@@ -4164,10 +4164,45 @@ geo_dev() {
             git tag -a "v$geo_cli_version" -m "geo-cli $geo_cli_version"
             git push origin "v$geo_cli_version"
             ;;
+        api | runner | api-runner )
+            _geo_dev_open_api_runner
+            ;;
         * )
             log::Error "Unknown argument: '$1'"
             ;;
     esac
+}
+
+_geo_dev_open_api_runner() {
+    local use_local_api=$(geo_get USE_LOCAL_API)
+    local username=$(geo_get DB_USER)
+    local password=$(geo_get DB_PASSWORD)
+    [[ -z $username ]] && username="$USER@geotab.com"
+    [[ -z $password ]] && password=passwordpassword
+    # local webPort=$(xmlstarlet sel -t -v //WebServerSettings/WebPort ~/GEOTAB/Checkmate/server.config)
+    local sslPort=$(xmlstarlet sel -t -v //WebServerSettings/WebSSLPort ~/GEOTAB/Checkmate/server.config)
+    local server="localhost:$sslPort"
+    local database=geotabdemo
+
+    local url="https://geotab.github.io/sdk/software/api/runner.html"
+    [[ -n $use_local_api ]] && url="http://localhost:3000/software/api/runner.html"
+
+    # url encode the parameters.
+    server=$(_geo_url_encode "$server")
+    database=$(_geo_url_encode "$database")
+    username=$(_geo_url_encode "$username")
+    password=$(_geo_url_encode "$password")
+    local params="server=$server&database=$database&username=$username&password=$password"
+    params=$(base64 <<<$params)
+    echo $params
+    google-chrome "$url?$params#"
+}
+
+_geo_url_encode() {
+    local url="$(jq -sRrc @uri <<<"$@")"
+    # Remove trailing '%0A' (new line). jq always adds a new line for some reason.
+    url=${url%\%0A}
+    echo -n $url
 }
 
 remove_unused_lock_files_in_current_directory() {
