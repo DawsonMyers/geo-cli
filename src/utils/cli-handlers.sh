@@ -688,6 +688,13 @@ _geo_db_start() {
                 log::success OK
             fi
         fi
+
+        #  Restore db user password in server.config
+        local db_user_password=$(geo_get "${container_name}_db_user_password")
+        if _geo_terminal_cmd_exists xmlstarlet && [[ -n $db_user_password ]]; then
+            xmlstarlet ed --inplace -u "//LoginSettings/Password" -v "$db_user_password" "~/GEOTAB/Checkmate/server.config"
+        fi
+
     else
         # db_version was getting overwritten somehow, so get its value from the config file.
         db_version=$(geo_get LAST_DB_VERSION)
@@ -1471,6 +1478,16 @@ function geo_db_init() {
 
     if dotnet run $opts --project "$myg_core_proj" -- CreateDatabase postgres companyName="$db_name" administratorUser="$user" administratorPassword="$password" sqluser="$sql_user" sqlpassword="$sql_password" useMasterLogin='true'; then
     # if dotnet "${path}" CreateDatabase postgres companyName="$db_name" administratorUser="$user" administratorPassword="$password" sqluser="$sql_user" sqlpassword="$sql_password" useMasterLogin='true'; then
+        local container_name=$(_geo_get_running_container_name)
+        geo_set "${container_name}_username" "$user"
+        geo_set "${container_name}_password" "$password"
+        geo_set "${container_name}_database" "$db_name"
+
+        if _geo_terminal_cmd_exists xmlstarlet; then
+            local db_user_password=$(xmlstarlet sel -t -v //LoginSettings/Password ~/GEOTAB/Checkmate/server.config)
+            [[ -n $db_user_password ]] && geo_set "${container_name}_db_user_password" "$db_user_password"
+        fi
+        
         log::success "$db_name initialized"
         echo
         _geo_copy_pgAdmin_server_config
@@ -1568,6 +1585,11 @@ geo_db_rm() {
     # container_name=bad
 
     if docker container rm $container_name >/dev/null; then
+        geo_rm "${container_name}_username"
+        geo_rm "${container_name}_password"
+        geo_rm "${container_name}_db_user_password"
+        geo_rm "${container_name}_database"
+
         log::success "Container $db_name removed"
     else
         log::Error "Could not remove container $container_name"
@@ -2902,7 +2924,7 @@ geo_haskey() {
 COMMANDS+=('rm')
 geo_rm_doc() {
     doc_cmd 'rm <env_var>'
-    doc_cmd_desc 'Remove geo environment variable.'
+    doc_cmd_desc 'Removes a geo environment variable.'
 
     doc_cmd_examples_title
     doc_cmd_example 'geo rm DEV_REPO_DIR'
@@ -4067,6 +4089,8 @@ geo_dev_doc() {
             doc_cmd_sub_cmd_desc 'Returns a list of all of the geo-cli database container names'
         doc_cmd_sub_cmd 'open-iap-tunnels'
             doc_cmd_sub_cmd_desc 'Gets a list of open-iap tunnels.'
+        doc_cmd_sub_cmd 'api'
+            doc_cmd_sub_cmd_desc 'Opens the api runner and logs into geotabdemo.'
 }
 geo_dev() {
     local geo_cli_dir="$(geo_get GEO_CLI_DIR)"
@@ -4177,12 +4201,29 @@ _geo_dev_open_api_runner() {
     local use_local_api=$(geo_get USE_LOCAL_API)
     local username=$(geo_get DB_USER)
     local password=$(geo_get DB_PASSWORD)
+    local database=geotabdemo
+
+    local container_name=$(_geo_get_running_container_name)
+    
+    [[ -z $container_name ]] && log::Error 'No container running' && return 1
+    
+    # Check if there is a specific user username/password that was saved when the db was created.
+    local db_username=$(geo_get "${container_name}_username")
+    local db_password=$(geo_get "${container_name}_password")
+    local db_name=$(geo_get "${container_name}_database")
+    
+    # Use the versioned credentials if they exist.
+    username=${db_username:-$username}
+    password=${db_password:-$password}
+    database=${db_name:-$database}
+
+    # Use default credentials if none exist.
     [[ -z $username ]] && username="$USER@geotab.com"
     [[ -z $password ]] && password=passwordpassword
+
     # local webPort=$(xmlstarlet sel -t -v //WebServerSettings/WebPort ~/GEOTAB/Checkmate/server.config)
     local sslPort=$(xmlstarlet sel -t -v //WebServerSettings/WebSSLPort ~/GEOTAB/Checkmate/server.config)
     local server="localhost:$sslPort"
-    local database=geotabdemo
 
     local url="https://geotab.github.io/sdk/software/api/runner.html"
     [[ -n $use_local_api ]] && url="http://localhost:3000/software/api/runner.html"
