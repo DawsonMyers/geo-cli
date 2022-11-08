@@ -1,5 +1,7 @@
 import os
 import subprocess
+import time
+
 from . import util
 from . import config
 
@@ -12,10 +14,26 @@ prev_config_file_str = ''
 GEO_CONFIG_FILE_PATH = os.environ['HOME'] + '/.geo-cli/.geo.conf'
 geo_config_cache = {}
 
+def make_cached_property(get_value_func, delay=1, default=None):
+    value = default
+    last_refresh_time = time.time()
+    def get_value():
+        nonlocal last_refresh_time
+        nonlocal value
+        now = time.time()
+        if now - last_refresh_time > delay:
+            value = get_value_func()
+            last_refresh_time = time.time()
+        return value
+    return get_value
+
 
 def start_db(name):
-    # '-n' option is the 'no prompt' option. It causes geo to exit instead of waiting for user input.
-    return geo('db start -n ' + name)
+    dbs = get_geo_db_names()
+    # Make sure there is a db name and that it exists (otherwise we will recreate a deleted db get running 'geo db start -n <db name>')
+    if name and name in dbs:
+        # '-n' option is the 'no prompt' option. It causes geo to exit instead of waiting for user input.
+        return geo('db start -n ' + name)
 
 
 def stop_db(arg=None):
@@ -59,10 +77,7 @@ def get_myg_release():
 
 def try_start_last_db():
     last_db = get_config('LAST_DB_VERSION')
-    dbs = get_geo_db_names()
-    # Make sure there is a last db and that it exists (otherwise we will recreate a deleted db)
-    if last_db is not None and last_db in dbs:
-        start_db(last_db)
+    start_db(last_db)
 
 
 def get_geo_cmd(geo_cmd):
@@ -92,13 +107,17 @@ def get_config(key):
     key = key.upper()
     if key in geo_config_cache:
         return geo_config_cache[key]
-    value = geo('get ' + key)
+    value = geo(f"get '{key}'")
     return value
 
 
 def set_config(key, value):
-    geo('set %s "%s"' % (key, value))
+    geo("set '%s' '%s'" % (key, value))
     return value
+
+
+def rm_config(key):
+    geo("rm '%s'" % key)
 
 
 def notifications_are_allowed():
@@ -134,14 +153,16 @@ def get_geo_db_names():
         names_a.sort(reverse=True)
     except Exception as err:
         print(f'Error running get_geo_db_names(): {err}')
-
+    names_a = [] if not names_a else names_a
     return names_a
-
-
+        
+        
 def get_running_db_name():
     cmd = 'docker container ls --filter name="geo_cli_db_" --filter status=running  -a --format="{{ .Names }}"'
     name = ''
+    # get_name = make_cached_property(lambda: subprocess.run(cmd, shell=True, text=True, capture_output=True))
     try:
+        # full_name = get_name().stdout[0:-1]
         full_name = subprocess.run(cmd, shell=True, text=True, capture_output=True).stdout[0:-1]
         name = full_name.replace('geo_cli_db_postgres_', '')
     except Exception as err:

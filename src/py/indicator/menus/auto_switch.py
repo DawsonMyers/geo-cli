@@ -216,10 +216,15 @@ class DbForMygReleaseMenuItem(Gtk.MenuItem):
 
     def get_db_for_release(self):
         if not self.app.myg_release:
-        # if not self.app.myg_release or not self.app.db:
             return ''
         release_key = 'DB_FOR_RELEASE_' + to_key(self.app.myg_release)
         configured_db_for_myg_release = geo.get_config(release_key)
+        
+        dbs = self.app.get_state('dbs')
+        if dbs and configured_db_for_myg_release and configured_db_for_myg_release not in dbs:
+            print('DbForMygReleaseMenuItem: removing auto-switch db config "%s" because the db no longer exists' % release_key)
+            geo.rm_config(release_key)
+            configured_db_for_myg_release = ''
         if configured_db_for_myg_release is not None:
             self.app.set_state('configured_db_for_myg_release', configured_db_for_myg_release)
         return configured_db_for_myg_release
@@ -244,6 +249,7 @@ class StartDbForMygReleaseMenuItem(Gtk.MenuItem):
 
     def monitor(self):
         configured_db_for_myg_release = self.app.get_state('configured_db_for_myg_release')
+        dbs = self.app.get_state('dbs')
         if configured_db_for_myg_release and self.app.db != configured_db_for_myg_release:
             if self.is_hidden:
                 self.set_sensitive(True)

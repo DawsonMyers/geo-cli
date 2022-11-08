@@ -13,7 +13,7 @@ from indicator.geo_indicator import IndicatorApp
 # from common import geo
 from indicator import icons
 from indicator.menus.components import PersistentCheckMenuItem
-
+from .auto_switch import to_key
 
 def get_running_db_label_text(db):
     return 'Running DB [%s]' % db
@@ -38,14 +38,17 @@ class RunningDbMenuItem(Gtk.MenuItem):
         item_stop_db = Gtk.MenuItem(label='Stop')
         item_ssh = Gtk.MenuItem(label='SSH')
         item_psql = Gtk.MenuItem(label='PSQL')
+        # item_rm = Gtk.MenuItem(label='Remove')
         item_copy_db = CopyDatabaseMenuItem(app=app)
         item_stop_db.connect('activate', self.stop_db)
         item_ssh.connect('activate', lambda _: geo.run_in_terminal('db ssh'))
         item_psql.connect('activate', lambda _: geo.run_in_terminal('db psql'))
+        # item_rm.connect('activate', lambda _: geo.db(f'rm {self.app.db}'))
         self.stop_menu.append(item_stop_db)
         self.stop_menu.append(item_ssh)
         self.stop_menu.append(item_psql)
         self.stop_menu.append(item_copy_db)
+        # self.stop_menu.append(item_rm)
         self.set_submenu(self.stop_menu)
         self.show_all()
         GLib.timeout_add(2000, self.db_monitor)
@@ -143,6 +146,7 @@ class DbMenu(Gtk.Menu):
 
     def db_monitor(self):
         new_db_names = set(geo.get_geo_db_names())
+        self.app.set_state('dbs', new_db_names)
         if new_db_names != self.db_names:
             self.update_items(new_db_names)
         else:
@@ -332,7 +336,16 @@ class DbMenuItem(Gtk.MenuItem):
             return
         self.set_label(self.name + ' (removing)')
         def run():
+            config_cleanup_required = self.app.db_for_myg_release == self.name
+            # print(f'remove_geo_db: {self.app.db_for_myg_release} == {self.name}')
+            # print('config_cleanup_required: ' + str(config_cleanup_required))
+            release_key = 'DB_FOR_RELEASE_' + to_key(self.app.myg_release)
             geo.db('rm ' + self.name)
+            if config_cleanup_required:
+                print('remove_geo_db: Removing release key: ' + release_key)
+                geo.rm_config(release_key)
+                self.app.db_for_myg_release = ''
+                self.app.set_state('configured_db_for_myg_release', '')
             self.app.item_databases.get_submenu().remove(self)
             self.set_sensitive(False)
             return False
