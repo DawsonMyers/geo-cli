@@ -4855,7 +4855,7 @@ _geo_myg_api_runner() {
     local server="localhost:$sslPort"
 
     local url="https://geotab.github.io/sdk/software/api/runner.html"
-    [[ -n $use_local_api ]] && url="http://localhost:3000/software/api/runner.html"
+    [[ $use_local_api == true ]] && url="http://localhost:3000/software/api/runner.html"
 
     # url encode the parameters.
     server=$(_geo_url_encode "$server")

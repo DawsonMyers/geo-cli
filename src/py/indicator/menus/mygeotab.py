@@ -20,6 +20,8 @@ class MyGeotabMenuItem(Gtk.MenuItem):
     items = {}
     conditional_items = set()
     submenu = None
+    running_items = set()
+    stopped_items = set()
     def __init__(self, app: IndicatorApp):
         super().__init__(label='MyGeotab')
         self.app = app
@@ -51,7 +53,7 @@ class MyGeotabMenuItem(Gtk.MenuItem):
         browser_item = Gtk.MenuItem(label='Open In Browser')
         browser_item.connect('activate', lambda _: webbrowser.open('https://localhost:10001', new=2))
         api_item = Gtk.MenuItem(label='Open API Runner')
-        api_item.connect('activate', lambda _: geo.run_in_terminal('myg api-runner', title=self.make_titles('API Runner')))
+        api_item.connect('activate', lambda _: geo.run('myg api'))
         clean_item = Gtk.MenuItem(label='Clean')
         clean_item.connect('activate', lambda _: geo.run_in_terminal('myg clean --interactive', stay_open_after=False))
         submenu.append(start_item)
@@ -61,7 +63,7 @@ class MyGeotabMenuItem(Gtk.MenuItem):
         submenu.append(stop_item)
         submenu.append(restart_item)
         submenu.append(browser_item)
-        # submenu.append(api_item)
+        submenu.append(api_item)
         self.set_submenu(submenu)
         submenu.show_all()
         self.items = {
@@ -75,6 +77,19 @@ class MyGeotabMenuItem(Gtk.MenuItem):
             "api": api_item,
         }
         
+        self.running_items = {
+            stop_item,
+            restart_item,
+            browser_item,
+            api_item
+        }
+        self.stopped_items = {
+            start_item,
+            build_item,
+            build_sln_item,
+            clean_item
+        }
+        
     def start_or_restart_myg(self, cmd):
         title = self.make_titles('MyGeotab', include_version=True)
         geo.run_in_terminal(f'myg {cmd}', title=title)
@@ -82,24 +97,16 @@ class MyGeotabMenuItem(Gtk.MenuItem):
     def monitor(self):
         is_running = geo.run('myg is-running')
         if is_running:
-            self.items['start'].hide()
-            self.items['build'].hide()
-            self.items['build_sln'].hide()
-            self.items['clean'].hide()
-            
-            self.items['stop'].show()
-            self.items['restart'].show()
-            self.items['browser'].show()
-            # self.items['api'].show()
+            self.show_running_items()
         else:
-            self.items['start'].show()
-            self.items['build'].show()
-            self.items['build_sln'].show()
-            self.items['clean'].show()
-            
-            self.items['stop'].hide()
-            self.items['restart'].hide()
-            self.items['browser'].hide()
-            # self.items['api'].hide()
+            self.show_stopped_items()
         return True
+    
+    def show_running_items(self):
+        [item.show() for item in self.running_items]
+        [item.hide() for item in self.stopped_items]
+    
+    def show_stopped_items(self):
+        [item.hide() for item in self.running_items]
+        [item.show() for item in self.stopped_items]
 
