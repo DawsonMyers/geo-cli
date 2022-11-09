@@ -1429,7 +1429,7 @@ function geo_db_init() {
 
         # Get MyGeotab admin password.
         echo
-        log::detail "Using the default password $(txt_underline passwordpassword) is easiest, but you can change it if you like."
+        log::detail "Using the default password $(txt_underline passwordpassword) is easiest, but you can change it if you like. $(txt_underline 'Note:') This should $(txt_underline NOT) be a sensitive password (like the one for your email) since it is stored as plain text on this machine."
         if [[ -z $password ]]; then
             get_password
         else
@@ -4188,55 +4188,11 @@ geo_dev() {
             git tag -a "v$geo_cli_version" -m "geo-cli $geo_cli_version"
             git push origin "v$geo_cli_version"
             ;;
-        api | runner | api-runner )
-            _geo_dev_open_api_runner
-            ;;
         * )
             log::Error "Unknown argument: '$1'"
+            return 1
             ;;
     esac
-}
-
-_geo_dev_open_api_runner() {
-    local use_local_api=$(geo_get USE_LOCAL_API)
-    local username=$(geo_get DB_USER)
-    local password=$(geo_get DB_PASSWORD)
-    local database=geotabdemo
-
-    local container_name=$(_geo_get_running_container_name)
-    
-    [[ -z $container_name ]] && log::Error 'No container running' && return 1
-    
-    # Check if there is a specific user username/password that was saved when the db was created.
-    local db_username=$(geo_get "${container_name}_username")
-    local db_password=$(geo_get "${container_name}_password")
-    local db_name=$(geo_get "${container_name}_database")
-    
-    # Use the versioned credentials if they exist.
-    username=${db_username:-$username}
-    password=${db_password:-$password}
-    database=${db_name:-$database}
-
-    # Use default credentials if none exist.
-    [[ -z $username ]] && username="$USER@geotab.com"
-    [[ -z $password ]] && password=passwordpassword
-
-    # local webPort=$(xmlstarlet sel -t -v //WebServerSettings/WebPort ~/GEOTAB/Checkmate/server.config)
-    local sslPort=$(xmlstarlet sel -t -v //WebServerSettings/WebSSLPort ~/GEOTAB/Checkmate/server.config)
-    local server="localhost:$sslPort"
-
-    local url="https://geotab.github.io/sdk/software/api/runner.html"
-    [[ -n $use_local_api ]] && url="http://localhost:3000/software/api/runner.html"
-
-    # url encode the parameters.
-    server=$(_geo_url_encode "$server")
-    database=$(_geo_url_encode "$database")
-    username=$(_geo_url_encode "$username")
-    password=$(_geo_url_encode "$password")
-    local params="server=$server&database=$database&username=$username&password=$password"
-    params=$(base64 <<<$params)
-    echo $params
-    google-chrome "$url?$params#"
 }
 
 _geo_url_encode() {
@@ -4860,8 +4816,56 @@ geo_myg() {
                 fi
             )
             ;;
-
+        api | runner | api-runner )
+            _geo_myg_api_runner
+            ;;
+        * )
+            log::Error "Unknown argument: '$1'"
+            return 1
+            ;;
     esac
+}
+
+_geo_myg_api_runner() {
+    local use_local_api=$(geo_get USE_LOCAL_API)
+    local username=$(geo_get DB_USER)
+    local password=$(geo_get DB_PASSWORD)
+    local database=geotabdemo
+
+    local container_name=$(_geo_get_running_container_name)
+    
+    [[ -z $container_name ]] && log::Error 'No container running' && return 1
+    
+    # Check if there is a specific user username/password that was saved when the db was created.
+    local db_username=$(geo_get "${container_name}_username")
+    local db_password=$(geo_get "${container_name}_password")
+    local db_name=$(geo_get "${container_name}_database")
+    
+    # Use the versioned credentials if they exist.
+    username=${db_username:-$username}
+    password=${db_password:-$password}
+    database=${db_name:-$database}
+
+    # Use default credentials if none exist.
+    [[ -z $username ]] && username="$USER@geotab.com"
+    [[ -z $password ]] && password=passwordpassword
+
+    # local webPort=$(xmlstarlet sel -t -v //WebServerSettings/WebPort ~/GEOTAB/Checkmate/server.config)
+    local sslPort=$(xmlstarlet sel -t -v //WebServerSettings/WebSSLPort ~/GEOTAB/Checkmate/server.config)
+    local server="localhost:$sslPort"
+
+    local url="https://geotab.github.io/sdk/software/api/runner.html"
+    [[ -n $use_local_api ]] && url="http://localhost:3000/software/api/runner.html"
+
+    # url encode the parameters.
+    server=$(_geo_url_encode "$server")
+    database=$(_geo_url_encode "$database")
+    username=$(_geo_url_encode "$username")
+    password=$(_geo_url_encode "$password")
+    local params="server=$server&database=$database&username=$username&password=$password"
+    params=$(base64 <<<$params)
+    echo $params
+    google-chrome "$url?$params#"
 }
 
 _geo_myg_is_running() {
