@@ -490,6 +490,7 @@ _geo_copy_pgAdmin_server_config() {
         # Replace : with \: to escape it (required format for passfiles).
         export iap_password="${2//:/\\:}"
         # export iap_database="$3"
+        export iap_database="postgres"
         shift 3
         # shift 2
     fi
