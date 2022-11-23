@@ -692,8 +692,8 @@ _geo_db_start() {
 
         #  Restore db user password in server.config
         local db_user_password=$(geo_get "${container_name}_db_user_password")
-        if _geo_terminal_cmd_exists xmlstarlet && [[ -n $db_user_password ]]; then
-            xmlstarlet ed --inplace -u "//LoginSettings/Password" -v "$db_user_password" "~/GEOTAB/Checkmate/server.config"
+        if _geo_terminal_cmd_exists xmlstarlet && [[ -n $db_user_password && -f "$HOME/GEOTAB/Checkmate/server.config" ]]; then
+            xmlstarlet ed --inplace -u "//LoginSettings/Password" -v "$db_user_password" "$HOME/GEOTAB/Checkmate/server.config"
         fi
 
     else
@@ -981,15 +981,15 @@ _geo_db_psql() {
 _geo_validate_server_config() {
     ! _geo_terminal_cmd_exists xmlstarlet && return 1;
     local server_config="$HOME/GEOTAB/Checkmate/server.config"
-    local webPort=$(xmlstarlet sel -t -v //WebServerSettings/WebPort ~/GEOTAB/Checkmate/server.config)
-    local sslPort=$(xmlstarlet sel -t -v //WebServerSettings/WebSSLPort ~/GEOTAB/Checkmate/server.config)
+    local webPort=$(xmlstarlet sel -t -v //WebServerSettings/WebPort "$server_config")
+    local sslPort=$(xmlstarlet sel -t -v //WebServerSettings/WebSSLPort "$server_config")
 
     if [[ $webPort == 80 || $sslPort == 443 ]]; then
         xmlstarlet ed --inplace -u "//WebServerSettings/WebPort" -v 10000 -u "//WebServerSettings/WebSSLPort" -v 10001 "$server_config" && \
             log::status "Setting server.config WebPort & WebSSLPort to correct values. From ($webPort, $sslPort) to (10000, 10001)." || \
             log::Error "Failed to update server.config with correct WebPort & WebSSLPort. Current values are ($webPort, $sslPort)."
     fi
-    # xmlstarlet ed --inplace -u "//WebSSLPort" -v 10001 ~/GEOTAB/Checkmate/server.config
+    # xmlstarlet ed --inplace -u "//WebSSLPort" -v 10001 "$HOME/GEOTAB/Checkmate/server.config"
 
 }
 
@@ -1485,7 +1485,7 @@ function geo_db_init() {
         geo_set "${container_name}_database" "$db_name"
 
         if _geo_terminal_cmd_exists xmlstarlet; then
-            local db_user_password=$(xmlstarlet sel -t -v //LoginSettings/Password ~/GEOTAB/Checkmate/server.config)
+            local db_user_password=$(xmlstarlet sel -t -v //LoginSettings/Password "$HOME/GEOTAB/Checkmate/server.config")
             [[ -n $db_user_password ]] && geo_set "${container_name}_db_user_password" "$db_user_password"
         fi
         
@@ -4851,8 +4851,8 @@ _geo_myg_api_runner() {
     [[ -z $username ]] && username="$USER@geotab.com"
     [[ -z $password ]] && password=passwordpassword
 
-    # local webPort=$(xmlstarlet sel -t -v //WebServerSettings/WebPort ~/GEOTAB/Checkmate/server.config)
-    local sslPort=$(xmlstarlet sel -t -v //WebServerSettings/WebSSLPort ~/GEOTAB/Checkmate/server.config)
+    # local webPort=$(xmlstarlet sel -t -v //WebServerSettings/WebPort "$HOME/GEOTAB/Checkmate/server.config")
+    local sslPort=$(xmlstarlet sel -t -v //WebServerSettings/WebSSLPort "$HOME/GEOTAB/Checkmate/server.config")
     local server="localhost:$sslPort"
 
     local url="https://geotab.github.io/sdk/software/api/runner.html"
