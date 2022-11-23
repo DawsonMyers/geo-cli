@@ -4786,7 +4786,6 @@ geo_myg() {
 }
 
 _geo_run_myg_gw(){
-
     local db_name=""
     local is_valid_db_name=true
     

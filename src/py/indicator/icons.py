@@ -7,10 +7,14 @@ GEO_CLI = os.path.join(INDICATOR_DIR, 'res', 'geo-cli-logo.png')
 GREEN_PATH = os.path.join(INDICATOR_DIR, 'res', 'geo-icon-green.svg')
 # A geo-cli db is running AND an instance MyGeotab is running.
 GREEN_MYG_PATH = os.path.join(INDICATOR_DIR, 'res', 'geo-icon-green-myg.svg')
+GREEN_GW_PATH = os.path.join(INDICATOR_DIR, 'res', 'geo-icon-green-gw.svg')
+GREEN_MYG_GW_PATH = os.path.join(INDICATOR_DIR, 'res', 'geo-icon-green-myg-gw.svg')
 # A geo-cli db is running AND there is an update available.
 GREEN_UPDATE_PATH = os.path.join(INDICATOR_DIR, 'res', 'geo-icon-green-update.svg')
 # A geo-cli db is running AND there is an update available AND an instance MyGeotab is running.
 GREEN_UPDATE_MYG_PATH = os.path.join(INDICATOR_DIR, 'res', 'geo-icon-green-update-myg.svg')
+GREEN_UPDATE_GW_PATH = os.path.join(INDICATOR_DIR, 'res', 'geo-icon-green-update-gw.svg')
+GREEN_UPDATE_MYG_GW_PATH = os.path.join(INDICATOR_DIR, 'res', 'geo-icon-green-update-myg-gw.svg')
 
 # Red icons mean that NO geo-cli db is running. The variants of if are to communicate additional state information.
 RED_PATH = os.path.join(INDICATOR_DIR, 'res', 'geo-icon-red.svg')
@@ -20,6 +24,11 @@ RED_MYG_PATH = os.path.join(INDICATOR_DIR, 'res', 'geo-icon-red-myg.svg')
 RED_UPDATE_PATH = os.path.join(INDICATOR_DIR, 'res', 'geo-icon-red-update.svg')
 # NO geo-cli db is running AND there is an update available AND an instance MyGeotab is running.
 RED_UPDATE_MYG_PATH = os.path.join(INDICATOR_DIR, 'res', 'geo-icon-red-update-myg.svg')
+
+RED_GW_PATH = os.path.join(INDICATOR_DIR, 'res', 'geo-icon-red-gw.svg')
+RED_MYG_GW_PATH = os.path.join(INDICATOR_DIR, 'res', 'geo-icon-red-myg-gw.svg')
+RED_UPDATE_GW_PATH = os.path.join(INDICATOR_DIR, 'res', 'geo-icon-red-update-gw.svg')
+RED_UPDATE_MYG_GW_PATH = os.path.join(INDICATOR_DIR, 'res', 'geo-icon-red-update-myg-gw.svg')
 
 # Not used at the moment.
 GREY_PATH = os.path.join(INDICATOR_DIR, 'res', 'geo-icon-grey.svg')
@@ -32,6 +41,19 @@ RED = 'red'
 GREEN = 'green'
 ORANGE = 'orange'
 
+class IconPaths():
+    def __init__(self, normal, myg, gw, update, myg_update, gw_update, myg_gw, update_myg_gw):
+        self.normal = normal
+        self.myg = myg
+        self.gw = gw
+        self.update = update
+        self.myg_update = myg_update
+        self.gw_update = gw_update
+        self.myg_gw = myg_gw
+        self.update_myg_gw = update_myg_gw
+        
+green_icon_paths = IconPaths(GREEN_PATH, GREEN_MYG_PATH, GREEN_GW_PATH, GREEN_UPDATE_PATH, GREEN_UPDATE_MYG_PATH, GREEN_UPDATE_GW_PATH, GREEN_MYG_GW_PATH, GREEN_UPDATE_MYG_GW_PATH)
+red_icon_paths = IconPaths(RED_PATH, RED_MYG_PATH, RED_GW_PATH, RED_UPDATE_PATH, RED_UPDATE_MYG_PATH, RED_UPDATE_GW_PATH, RED_MYG_GW_PATH, RED_UPDATE_MYG_GW_PATH)
 
 class IconManager:
     def __init__(self, indicator):
@@ -59,7 +81,7 @@ class IconManager:
         message = ''
         if self.cur_icon == RED:
             # img_path = RED_UPDATE_PATH if self.update_available else RED_PATH
-            img_path = self.get_state_icon_path(RED_PATH, RED_MYG_PATH, RED_UPDATE_PATH, RED_UPDATE_MYG_PATH)
+            img_path = self.get_state_icon_path(red_icon_paths)
             message = 'geo-cli: No DB running'
             # self.indicator.set_icon_full(img_path, "geo-cli: No DB running")
         elif self.cur_icon == GREEN:
@@ -68,7 +90,7 @@ class IconManager:
             #     img_path = GREEN_MYG_UPDATE_PATH if self.myg_running else GREEN_UPDATE_PATH
             # else:
             #     img_path = GREEN_MYG_PATH if self.myg_running else GREEN_PATH
-            img_path = self.get_state_icon_path(GREEN_PATH, GREEN_MYG_PATH, GREEN_UPDATE_PATH, GREEN_UPDATE_MYG_PATH)
+            img_path = self.get_state_icon_path(green_icon_paths)
             message = 'geo-cli: DB running'
             # self.indicator.set_icon_full(img_path, 'geo-cli: DB running')
             # self.indicator.set_attention_icon_full(img_path, 'geo-cli: DB running')
@@ -79,6 +101,7 @@ class IconManager:
         
         # Only set icon if it's changed.
         if img_path != self.cur_icon_path:
+            self.cur_icon_path = img_path
             self.indicator.set_icon_full(img_path, message)
 
     def set_icon(self, icon_type):
@@ -87,8 +110,20 @@ class IconManager:
         if icon_changed:
             self.update_icon()
             
-    def get_state_icon_path(self, icon, icon_myg, icon_update, icon_myg_update):
+    def get_state_icon_path(self, icons):
         if self.update_available:
-                return icon_myg_update if self.myg_running else icon_update
-        return icon_myg if self.myg_running else icon
-            
+            if self.myg_running and self.gateway_running:
+                return icons.update_myg_gw
+            if self.myg_running:
+                return icons.update_myg
+            if self.gateway_running:
+                return icons.update_gw
+            return icons.normal
+        if self.myg_running and self.gateway_running:
+            return icons.myg_gw
+        if self.myg_running:
+            return icons.myg
+        if self.gateway_running:
+            return icons.gw
+        return icons.normal
+
