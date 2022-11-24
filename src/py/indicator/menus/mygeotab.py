@@ -97,8 +97,10 @@ class MyGeotabMenuItem(Gtk.MenuItem):
     def monitor(self):
         is_running = geo.run('myg is-running')
         if is_running:
+            self.app.icon_manager.set_myg_running(True)
             self.show_running_items()
         else:
+            self.app.icon_manager.set_myg_running(False)
             self.show_stopped_items()
         return True
     
