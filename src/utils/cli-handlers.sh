@@ -4879,63 +4879,6 @@ _geo_myg_start() {
 }
 
 #######################################################################################################################
-COMMANDS+=('edit')
-geo_edit_doc() {
-    doc_cmd 'edit <file>'
-        doc_cmd_desc 'Opens up files for editing.'
-    doc_cmd_options_title
-        doc_cmd_option '-e, --editor <editor_cmd>'
-        doc_cmd_option_desc 'Sets the editor to open the files in (e.g. code, nano). VS Code (code) is the default editor.'
-    doc_cmd_sub_cmds_title
-        doc_cmd_sub_cmd 'server.config'
-            doc_cmd_sub_cmd_desc 'Opens "~/GEOTAB/Checkmate/server.config" for editing.'
-        doc_cmd_sub_cmd 'bashrc'
-            doc_cmd_sub_cmd_desc 'Opens "~/.bashrc" for editing.'
-        doc_cmd_sub_cmd 'gitlab-ci'
-            doc_cmd_sub_cmd_desc 'Opens "~/GEOTAB/Checkmate/server.config" for editing.'
-
-    doc_cmd_examples_title
-        doc_cmd_example "geo edit server.config"
-        doc_cmd_example "geo edit --editor nano server.config"
-}
-geo_edit() {
-    local editor=$(geo_get EDITOR)
-    [[ $1 == -e || $1 == --editor ]] && editor=$2 && shift 2
-    local file="$1"
-    local file_path=
-    local dev_repo=$(geo_get DEV_REPO_DIR)
-    if [[ -z $editor ]]; then
-        log::hint "You can set the default editor using: ""$(log::code -u 'geo set EDITOR <editor_command>')"
-        if _geo_terminal_cmd_exists code; then
-            editor=code
-        elif _geo_terminal_cmd_exists nano; then
-            editor=nano
-        fi
-    fi
-    case "$file" in
-        server.config | server | sconf | scf )
-            file_path="${HOME}/GEOTAB/Checkmate/server.config"
-            ;;
-        *bashrc | brc | rc )
-            file_path="${HOME}/.bashrc"
-            ;;
-        ci | cicd | *gitlab-ci* | git-ci )
-            file_path="${dev_repo}/.gitlab-ci.yml"
-            ;;
-        cfg | geo.config | gconf )
-            file_path="${HOME}/.geo-cli/.geo.conf"
-            ;;
-        * )
-            log::Error "Arugument '$file' is invalid."
-            return 1
-            ;;
-    esac
-    [[ ! -f $file_path ]] && log::Error "File not found at: $file_path" && return 1
-    
-    log::debug "$editor '$file_path'"
-    $editor "$file_path"
-}
-#######################################################################################################################
 COMMANDS+=('gw')
 geo_gw_doc() {
     doc_cmd 'gw [subcommand | options]'
@@ -4986,7 +4929,7 @@ geo_gw() {
             ;;
         stop )
             ! _geo_gw_is_running && log::Error "Gateway is not running" && return 1
-            local myg_running_lock_file="$HOME/.geo-cli/tmp/myg/myg-running.lock"
+            local gw_running_lock_file="$HOME/.geo-cli/tmp/gw/gw-running.lock"
             kill $(pgrep CheckmateServer) || log::Error "Failed to stop Gateway" && return 1
             log::success "Done"
             ;;
@@ -5070,7 +5013,7 @@ geo_gw() {
             )
             ;;
         api | runner | api-runner )
-            _geo_myg_api_runner
+            _geo_gw_api_runner
             ;;
         * )
             log::Error "Unknown argument: '$1'"
@@ -5079,11 +5022,53 @@ geo_gw() {
     esac
 }
 
+_geo_gw_api_runner() {
+    local use_local_api=$(geo_get USE_LOCAL_API)
+    local username=$(geo_get DB_USER)
+    local password=$(geo_get DB_PASSWORD)
+    local database=geotabdemo
+
+    local container_name=$(_geo_get_running_container_name)
+    
+    [[ -z $container_name ]] && log::Error 'No container running' && return 1
+    
+    # Check if there is a specific user username/password that was saved when the db was created.
+    local db_username=$(geo_get "${container_name}_username")
+    local db_password=$(geo_get "${container_name}_password")
+    local db_name=$(geo_get "${container_name}_database")
+    
+    # Use the versioned credentials if they exist.
+    username=${db_username:-$username}
+    password=${db_password:-$password}
+    database=${db_name:-$database}
+
+    # Use default credentials if none exist.
+    [[ -z $username ]] && username="$USER@geotab.com"
+    [[ -z $password ]] && password=passwordpassword
+
+    # local webPort=$(xmlstarlet sel -t -v //WebServerSettings/WebPort "$HOME/GEOTAB/Checkmate/server.config")
+    local sslPort=$(xmlstarlet sel -t -v //WebServerSettings/WebSSLPort "$HOME/GEOTAB/Checkmate/server.config")
+    local server="localhost:$sslPort"
+
+    local url="https://geotab.github.io/sdk/software/api/runner.html"
+    [[ $use_local_api == true ]] && url="http://localhost:3000/software/api/runner.html"
+
+    # url encode the parameters.
+    server=$(_geo_url_encode "$server")
+    database=$(_geo_url_encode "$database")
+    username=$(_geo_url_encode "$username")
+    password=$(_geo_url_encode "$password")
+    local params="server=$server&database=$database&username=$username&password=$password"
+    params=$(base64 <<<$params)
+    echo $params
+    google-chrome "$url?$params#"
+}
+
 _geo_gw_is_running() {
-    local myg_running_lock_file="$HOME/.geo-cli/tmp/myg/myg-running.lock"
+    local gw_running_lock_file="$HOME/.geo-cli/tmp/gw/gw-running.lock"
     # Open a file descriptor on the lock file.
-    [[ ! -f $myg_running_lock_file ]] && return 1
-    exec {lock_fd}<> "$myg_running_lock_file"
+    [[ ! -f gw_running_lock_file ]] && return 1
+    exec {lock_fd}<> "gw_running_lock_file"
 
     ! flock -w 0 $lock_fd || { eval "exec $lock_fd>&-";  return 1; }
     # Unlock the file.
@@ -5097,13 +5082,13 @@ _geo_gw_start() {
     local restarting=false
     [[ $1 == -r ]] && restarting=true
     export myg_core_proj="$(_geo_get_mygeotab_csproj_path)"
-    local myg_running_lock_file="$HOME/.geo-cli/tmp/myg/myg-running.lock"
-    mkdir -p "$(dirname $myg_running_lock_file)"
-    [[ ! -f $myg_running_lock_file ]] && touch "$myg_running_lock_file"
+    local gw_running_lock_file="$HOME/.geo-cli/tmp/gw/gw-running.lock"
+    mkdir -p "$(dirname $gw_running_lock_file)"
+    [[ ! -f gw_running_lock_file ]] && touch "gw_running_lock_file"
     local proc_id=
 
     # Open a file descriptor on the lock file.
-    exec {lock_fd}<> "$myg_running_lock_file"
+    exec {lock_fd}<> "gw_running_lock_file"
     local wait_time=2
     export lock_file_fd=$lock_file
 
