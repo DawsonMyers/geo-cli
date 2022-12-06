@@ -90,7 +90,7 @@ class GatewayMenuItem(Gtk.MenuItem):
         geo.run_in_terminal(f'gw {cmd}', title=title)
 
     def monitor(self):
-        is_running = geo.run('gateway is-running')
+        is_running = geo.run('gw is-running')
         if is_running:
             self.app.icon_manager.set_gateway_running(True)
             self.show_running_items()

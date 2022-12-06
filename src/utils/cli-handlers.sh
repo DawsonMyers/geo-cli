@@ -5012,56 +5012,11 @@ geo_gw() {
                 fi
             )
             ;;
-        api | runner | api-runner )
-            _geo_gw_api_runner
-            ;;
         * )
             log::Error "Unknown argument: '$1'"
             return 1
             ;;
     esac
-}
-
-_geo_gw_api_runner() {
-    local use_local_api=$(geo_get USE_LOCAL_API)
-    local username=$(geo_get DB_USER)
-    local password=$(geo_get DB_PASSWORD)
-    local database=geotabdemo
-
-    local container_name=$(_geo_get_running_container_name)
-    
-    [[ -z $container_name ]] && log::Error 'No container running' && return 1
-    
-    # Check if there is a specific user username/password that was saved when the db was created.
-    local db_username=$(geo_get "${container_name}_username")
-    local db_password=$(geo_get "${container_name}_password")
-    local db_name=$(geo_get "${container_name}_database")
-    
-    # Use the versioned credentials if they exist.
-    username=${db_username:-$username}
-    password=${db_password:-$password}
-    database=${db_name:-$database}
-
-    # Use default credentials if none exist.
-    [[ -z $username ]] && username="$USER@geotab.com"
-    [[ -z $password ]] && password=passwordpassword
-
-    # local webPort=$(xmlstarlet sel -t -v //WebServerSettings/WebPort "$HOME/GEOTAB/Checkmate/server.config")
-    local sslPort=$(xmlstarlet sel -t -v //WebServerSettings/WebSSLPort "$HOME/GEOTAB/Checkmate/server.config")
-    local server="localhost:$sslPort"
-
-    local url="https://geotab.github.io/sdk/software/api/runner.html"
-    [[ $use_local_api == true ]] && url="http://localhost:3000/software/api/runner.html"
-
-    # url encode the parameters.
-    server=$(_geo_url_encode "$server")
-    database=$(_geo_url_encode "$database")
-    username=$(_geo_url_encode "$username")
-    password=$(_geo_url_encode "$password")
-    local params="server=$server&database=$database&username=$username&password=$password"
-    params=$(base64 <<<$params)
-    echo $params
-    google-chrome "$url?$params#"
 }
 
 _geo_gw_is_running() {
