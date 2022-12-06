@@ -4,6 +4,6 @@ from .update import UpdateMenuItem
 from .help import HelpMenuItem
 from .access_request import AccessRequestMenuItem
 from .mygeotab import MyGeotabMenuItem
-
+from .gateway import GatewayMenuItem
 
 
