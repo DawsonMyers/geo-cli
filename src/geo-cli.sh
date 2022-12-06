@@ -89,7 +89,8 @@ function geo()
     #   geo h
     #   geo -h
     #   geo --help
-    if [[ $cmd =~ ^-*h(elp)? ]]; then
+    re='^-{1,2}h(elp)?$'
+    if [[ $cmd =~ $re ]]; then
         log::detail -bu 'Available commands:'
         geo_help
         _geo_show_msg_if_outdated
