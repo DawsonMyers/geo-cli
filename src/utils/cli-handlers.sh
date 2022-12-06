@@ -4935,6 +4935,260 @@ geo_edit() {
     log::debug "$editor '$file_path'"
     $editor "$file_path"
 }
+#######################################################################################################################
+COMMANDS+=('gw')
+geo_gw_doc() {
+    doc_cmd 'gw [subcommand | options]'
+        doc_cmd_desc 'Performs various tasks related to building and running Gateway.'
+    doc_cmd_sub_cmds_title
+        doc_cmd_sub_cmd "start"
+            doc_cmd_sub_cmd_desc "Starts Gateway."
+        doc_cmd_sub_cmd 'build'
+            doc_cmd_sub_cmd_desc "Builds MyGeotab.Core: Gateway.Debug.Core"
+        doc_cmd_sub_cmd 'clean'
+            doc_cmd_sub_cmd_desc "Runs $(txt_underline git clean -Xfd) if the Development repo."
+        doc_cmd_sub_cmd 'stop'
+            doc_cmd_sub_cmd_desc "Stops the running CheckmateServer (Gateway) instance."
+        doc_cmd_sub_cmd 'restart'
+            doc_cmd_sub_cmd_desc "Restarts the running CheckmateServer (Gateway) instance."
+    doc_cmd_examples_title
+        doc_cmd_example "geo gw start"
+        doc_cmd_example "geo gw clean"
+}
+geo_gw() {
+    local cmd="$1"
+    shift
+    local dev_repo=$(geo_get DEV_REPO_DIR)
+    local myg_dir="$dev_repo/Checkmate"
+    local myg_core_proj="$(_geo_get_mygeotab_csproj_path)"
+    [[ ! -f $myg_core_proj ]] && Error "Cannot find csproj file at: $myg_core_proj" && return 1
+
+    case "$cmd" in
+        build )
+            local project_path="$myg_dir"
+            local project='MyGeotab.Core.csproj'
+            case "$1" in
+                sln )
+                    project="MyGeotab.Core.sln"
+                    ;;
+                test | tests )
+                    project="MyGeotab.Core.Tests.csproj"
+                    project_path+="/MyGeotab.Core.Tests"
+                    ;;
+            esac
+            log::status -b "Building $project"
+            local build_command="dotnet build \"$project_path/$project\""
+            log::debug "$build_command"
+            if ! $build_command; then
+                log::Error "Building $project failed"
+                return 1;
+            fi
+            ;;
+        stop )
+            ! _geo_gw_is_running && log::Error "Gateway is not running" && return 1
+            local myg_running_lock_file="$HOME/.geo-cli/tmp/myg/myg-running.lock"
+            kill $(pgrep CheckmateServer) || log::Error "Failed to stop Gateway" && return 1
+            log::success "Done"
+            ;;
+        restart )
+            ! _geo_gw_is_running && log::Error "Gateway is not running" && return 1
+            local checkmate_pid=$(pgrep CheckmateServer)
+            # log::debug "Checkmate server PID: $checkmate_pid"
+            kill $checkmate_pid  || { log::Error "Failed to restart Gateway"; return 1; }
+            
+            log::status -n "Waiting for Gateway to stop..."
+            local wait_count=0
+            while pgrep CheckmateServer > /dev/null; do
+                log::status -n '.'
+                (( wait_count++ >= 10 )) \
+                    && log::Error "CheckmateServer failed to stop within 10 seconds" && return 1
+                sleep 1
+            done
+            echo
+            echo
+            _geo_gw_is_running && log::Error "Gateway is still running" && return 1
+            _geo_gw_start -r
+            log::success "Done"
+            ;;
+        start )
+            _geo_gw_start
+            ;;
+        is-running )
+            local checkmate_pid=$(pgrep CheckmateServer)
+            [[ -z $checkmate_pid ]] && return 1;
+            echo -n $checkmate_pid
+            ;;
+        stop )
+            local checkmate_pid=$(pgrep CheckmateServer)
+            [[ -z $checkmate_pid ]] && log::Error "CheckmateServer isn't running." && return 1;
+            
+            kill $checkmate_pid \
+                 && log::success "CheckmateServer stopped" \
+                 || log::Error "Failed to stop CheckmateServer"
+            ;;
+        clean )
+            (
+                local opened_by_ui=false
+                [[ $2 == --interactive ]] && opened_by_ui=true
+                close_after_clean()
+                { 
+                    # Count down from 5 to allow the user time to keep the terminal open.
+                    for i in $(seq 5 -1 0); do
+                        log::status -n "$i.."
+                        sleep 1
+                    done
+                    kill $1
+                    exit
+                }
+                cd "$dev_repo"
+                log::status -b "Cleanning the Development repo"
+                log::debug "\ngit clean -Xfd -e '!.idea'"
+                if git clean -Xfd -e '!.idea'; then
+                    echo
+                    log::success "Done"
+                    if $opened_by_ui; then
+                        log::status "\nClosing in 5 seconds..."
+                        log::info "\nPress Enter to stay open"
+                        # Start in background, if it's not killed (via user input) it will exit.
+                        close_after_clean $$ &
+                        local pid=$!
+                        
+                        read
+                        # Kill the close_after_clean process to prevent it from exiting.
+                        kill $pid
+
+                        log::info "\nPress Enter again to exit"
+                        # Wait here until the user presses enter to exit.
+                        read
+                    fi
+                else
+                    log::Error "Git failed to clean the Development repo."
+                    log::info "\nPress Enter to exit"
+                    # Wait here until the user presses enter to exit.
+                    read
+                fi
+            )
+            ;;
+        api | runner | api-runner )
+            _geo_myg_api_runner
+            ;;
+        * )
+            log::Error "Unknown argument: '$1'"
+            return 1
+            ;;
+    esac
+}
+
+_geo_gw_is_running() {
+    local myg_running_lock_file="$HOME/.geo-cli/tmp/myg/myg-running.lock"
+    # Open a file descriptor on the lock file.
+    [[ ! -f $myg_running_lock_file ]] && return 1
+    exec {lock_fd}<> "$myg_running_lock_file"
+
+    ! flock -w 0 $lock_fd || { eval "exec $lock_fd>&-";  return 1; }
+    # Unlock the file.
+    flock -u $lock_fd
+    # Close the file descriptor.
+    eval "exec $lock_fd>&-"
+    return
+}
+
+_geo_gw_start() {
+    local restarting=false
+    [[ $1 == -r ]] && restarting=true
+    export myg_core_proj="$(_geo_get_mygeotab_csproj_path)"
+    local myg_running_lock_file="$HOME/.geo-cli/tmp/myg/myg-running.lock"
+    mkdir -p "$(dirname $myg_running_lock_file)"
+    [[ ! -f $myg_running_lock_file ]] && touch "$myg_running_lock_file"
+    local proc_id=
+
+    # Open a file descriptor on the lock file.
+    exec {lock_fd}<> "$myg_running_lock_file"
+    local wait_time=2
+    export lock_file_fd=$lock_file
+
+    if ! flock -w $wait_time $lock_fd; then
+        log::debug ' Can not get lock on file'
+        eval "exec $lock_fd>&-"
+        return 1
+    fi
+   
+    cleanup() {
+        # echo "cleanup"
+        [[ -n $proc_id ]] && kill $proc_id &> /dev/null
+         # Unlock the file.
+        flock -u $lock_fd &> /dev/null
+        # Close the file descriptor.
+        eval "exec $lock_fd>&- &> /dev/null"
+    }
+    trap cleanup INT TERM QUIT EXIT
+
+    log::status -b "Starting Gateway"
+    dotnet run -v m --project "${myg_core_proj}" StoreForwardDebug
+
+     # Unlock the file.
+    flock -u $lock_fd
+    # Close the file descriptor.
+    eval "exec $lock_fd>&-"
+}
+
+#######################################################################################################################
+COMMANDS+=('edit')
+geo_edit_doc() {
+    doc_cmd 'edit <file>'
+        doc_cmd_desc 'Opens up files for editing.'
+    doc_cmd_options_title
+        doc_cmd_option '-e, --editor <editor_cmd>'
+        doc_cmd_option_desc 'Sets the editor to open the files in (e.g. code, nano). VS Code (code) is the default editor.'
+    doc_cmd_sub_cmds_title
+        doc_cmd_sub_cmd 'server.config'
+            doc_cmd_sub_cmd_desc 'Opens "~/GEOTAB/Checkmate/server.config" for editing.'
+        doc_cmd_sub_cmd 'bashrc'
+            doc_cmd_sub_cmd_desc 'Opens "~/.bashrc" for editing.'
+        doc_cmd_sub_cmd 'gitlab-ci'
+            doc_cmd_sub_cmd_desc 'Opens "~/GEOTAB/Checkmate/server.config" for editing.'
+
+    doc_cmd_examples_title
+        doc_cmd_example "geo edit server.config"
+        doc_cmd_example "geo edit --editor nano server.config"
+}
+geo_edit() {
+    local editor=$(geo_get EDITOR)
+    [[ $1 == -e || $1 == --editor ]] && editor=$2 && shift 2
+    local file="$1"
+    local file_path=
+    local dev_repo=$(geo_get DEV_REPO_DIR)
+    if [[ -z $editor ]]; then
+        log::hint "You can set the default editor using: ""$(log::code -u 'geo set EDITOR <editor_command>')"
+        if _geo_terminal_cmd_exists code; then
+            editor=code
+        elif _geo_terminal_cmd_exists nano; then
+            editor=nano
+        fi
+    fi
+    case "$file" in
+        server.config | server | sconf | scf )
+            file_path="${HOME}/GEOTAB/Checkmate/server.config"
+            ;;
+        *bashrc | brc | rc )
+            file_path="${HOME}/.bashrc"
+            ;;
+        ci | cicd | *gitlab-ci* | git-ci )
+            file_path="${dev_repo}/.gitlab-ci.yml"
+            ;;
+        cfg | geo.config | gconf )
+            file_path="${HOME}/.geo-cli/.geo.conf"
+            ;;
+        * )
+            log::Error "Arugument '$file' is invalid."
+            return 1
+            ;;
+    esac
+    [[ ! -f $file_path ]] && log::Error "File not found at: $file_path" && return 1
+    
+    log::debug "$editor '$file_path'"
+    $editor "$file_path"
+}
 
 #######################################################################################################################
 # COMMANDS+=('command')
