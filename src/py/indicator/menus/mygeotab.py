@@ -57,7 +57,7 @@ class MyGeotabMenuItem(Gtk.MenuItem):
         clean_item = Gtk.MenuItem(label='Clean')
         clean_item.connect('activate', lambda _: geo.run_in_terminal('myg clean --interactive', stay_open_after=False))
         run_with_gateway_item = Gtk.MenuItem(label='Run With Gateway')
-        # run_with_gateway_item.connect('activate', lambda _: geo.run_in_terminal('myg clean --interactive', stay_open_after=False))
+        run_with_gateway_item.connect('activate', lambda _: geo.run_in_terminal('myg gw'))
         submenu.append(start_item)
         submenu.append(build_item)
         submenu.append(build_sln_item)

@@ -4776,6 +4776,8 @@ geo_myg() {
         api | runner | api-runner )
             _geo_myg_api_runner
             ;;
+        gw )
+            // code to run myg with gw
         * )
             log::Error "Unknown argument: '$1'"
             return 1
