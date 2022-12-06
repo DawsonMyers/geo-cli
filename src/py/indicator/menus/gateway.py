@@ -45,7 +45,7 @@ class GatewayMenuItem(Gtk.MenuItem):
         stop_item = Gtk.MenuItem(label='Stop')
         stop_item.connect('activate', lambda _: geo.run('gw stop'))
         restart_item = Gtk.MenuItem(label='Restart')
-        restart_item.connect('activate', lambda _: self.start_or_restart_myg('restart'))
+        restart_item.connect('activate', lambda _: self.start_or_restart_gateway('restart'))
         build_item = Gtk.MenuItem(label='Build')
         build_item.connect('activate', lambda _: geo.run_in_terminal('gw build'))
         build_sln_item = Gtk.MenuItem(label='Build Solution')
@@ -92,10 +92,10 @@ class GatewayMenuItem(Gtk.MenuItem):
     def monitor(self):
         is_running = geo.run('gateway is-running')
         if is_running:
-            self.app.icon_manager.set_myg_running(True)
+            self.app.icon_manager.set_gateway_running(True)
             self.show_running_items()
         else:
-            self.app.icon_manager.set_myg_running(False)
+            self.app.icon_manager.set_gateway_running(False)
             self.show_stopped_items()
         return True
     
