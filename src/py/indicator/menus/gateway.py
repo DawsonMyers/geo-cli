@@ -40,29 +40,26 @@ class GatewayMenuItem(Gtk.MenuItem):
     def build_submenu(self, app):
         self.submenu = submenu = Gtk.Menu()
 
-        start_item = Gtk.MenuItem(label='Start')#
-        # start_item.connect('activate', lambda _: self.start_or_restart_myg('start'))
+        start_item = Gtk.MenuItem(label='Start')
+        start_item.connect('activate', lambda _: self.start_or_restart_gateway('start'))
         stop_item = Gtk.MenuItem(label='Stop')
-        # stop_item.connect('activate', lambda _: geo.run('myg stop'))
+        stop_item.connect('activate', lambda _: geo.run('gw stop'))
         restart_item = Gtk.MenuItem(label='Restart')
-        # restart_item.connect('activate', lambda _: self.start_or_restart_myg('restart'))
-        build_item = Gtk.MenuItem(label='Build')#
-        # build_item.connect('activate', lambda _: geo.run_in_terminal('myg build'))
-        build_sln_item = Gtk.MenuItem(label='Build Solution')#
-        # build_sln_item.connect('activate', lambda _: geo.run_in_terminal('myg build sln'))
-        browser_item = Gtk.MenuItem(label='Open In Browser')
-        # browser_item.connect('activate', lambda _: webbrowser.open('https://localhost:10001', new=2))
+        restart_item.connect('activate', lambda _: self.start_or_restart_myg('restart'))
+        build_item = Gtk.MenuItem(label='Build')
+        build_item.connect('activate', lambda _: geo.run_in_terminal('gw build'))
+        build_sln_item = Gtk.MenuItem(label='Build Solution')
+        build_sln_item.connect('activate', lambda _: geo.run_in_terminal('gw build sln'))
         api_item = Gtk.MenuItem(label='Open API Runner')
-        # api_item.connect('activate', lambda _: geo.run('myg api'))
-        clean_item = Gtk.MenuItem(label='Clean')#
-        # clean_item.connect('activate', lambda _: geo.run_in_terminal('myg clean --interactive', stay_open_after=False))
+        api_item.connect('activate', lambda _: geo.run('myg api'))
+        clean_item = Gtk.MenuItem(label='Clean')
+        clean_item.connect('activate', lambda _: geo.run_in_terminal('gw clean --interactive', stay_open_after=False))
         submenu.append(start_item)
         submenu.append(build_item)
         submenu.append(build_sln_item)
         submenu.append(clean_item)
         submenu.append(stop_item)
         submenu.append(restart_item)
-        submenu.append(browser_item)
         submenu.append(api_item)
         self.set_submenu(submenu)
         submenu.show_all()
@@ -73,14 +70,12 @@ class GatewayMenuItem(Gtk.MenuItem):
             "clean": clean_item,
             "stop": stop_item,
             "restart": restart_item,
-            "browser": browser_item,
             "api": api_item,
         }
         
         self.running_items = {
             stop_item,
             restart_item,
-            browser_item,
             api_item
         }
         self.stopped_items = {
@@ -90,9 +85,9 @@ class GatewayMenuItem(Gtk.MenuItem):
             clean_item
         }
         
-    def start_or_restart_myg(self, cmd):
+    def start_or_restart_gateway(self, cmd):
         title = self.make_titles('Gateway', include_version=True)
-        geo.run_in_terminal(f'myg {cmd}', title=title)
+        geo.run_in_terminal(f'gw {cmd}', title=title)
 
     def monitor(self):
         is_running = geo.run('gateway is-running')

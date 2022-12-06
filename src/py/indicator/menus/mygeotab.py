@@ -56,10 +56,13 @@ class MyGeotabMenuItem(Gtk.MenuItem):
         api_item.connect('activate', lambda _: geo.run('myg api'))
         clean_item = Gtk.MenuItem(label='Clean')
         clean_item.connect('activate', lambda _: geo.run_in_terminal('myg clean --interactive', stay_open_after=False))
+        run_with_gateway_item = Gtk.MenuItem(label='Run With Gateway')
+        # run_with_gateway_item.connect('activate', lambda _: geo.run_in_terminal('myg clean --interactive', stay_open_after=False))
         submenu.append(start_item)
         submenu.append(build_item)
         submenu.append(build_sln_item)
         submenu.append(clean_item)
+        submenu.append(run_with_gateway_item)
         submenu.append(stop_item)
         submenu.append(restart_item)
         submenu.append(browser_item)
@@ -75,6 +78,7 @@ class MyGeotabMenuItem(Gtk.MenuItem):
             "restart": restart_item,
             "browser": browser_item,
             "api": api_item,
+            "run_with_gateway": run_with_gateway_item
         }
         
         self.running_items = {
@@ -87,7 +91,8 @@ class MyGeotabMenuItem(Gtk.MenuItem):
             start_item,
             build_item,
             build_sln_item,
-            clean_item
+            clean_item,
+            run_with_gateway_item
         }
         
     def start_or_restart_myg(self, cmd):
