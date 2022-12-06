@@ -50,8 +50,6 @@ class GatewayMenuItem(Gtk.MenuItem):
         build_item.connect('activate', lambda _: geo.run_in_terminal('gw build'))
         build_sln_item = Gtk.MenuItem(label='Build Solution')
         build_sln_item.connect('activate', lambda _: geo.run_in_terminal('gw build sln'))
-        api_item = Gtk.MenuItem(label='Open API Runner')
-        api_item.connect('activate', lambda _: geo.run('myg api'))
         clean_item = Gtk.MenuItem(label='Clean')
         clean_item.connect('activate', lambda _: geo.run_in_terminal('gw clean --interactive', stay_open_after=False))
         submenu.append(start_item)
@@ -60,7 +58,6 @@ class GatewayMenuItem(Gtk.MenuItem):
         submenu.append(clean_item)
         submenu.append(stop_item)
         submenu.append(restart_item)
-        submenu.append(api_item)
         self.set_submenu(submenu)
         submenu.show_all()
         self.items = {
@@ -69,14 +66,12 @@ class GatewayMenuItem(Gtk.MenuItem):
             "build_sln": build_sln_item,
             "clean": clean_item,
             "stop": stop_item,
-            "restart": restart_item,
-            "api": api_item,
+            "restart": restart_item
         }
         
         self.running_items = {
             stop_item,
-            restart_item,
-            api_item
+            restart_item
         }
         self.stopped_items = {
             start_item,
