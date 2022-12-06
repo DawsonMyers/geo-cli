@@ -39,6 +39,7 @@ class IconManager:
         self.cur_icon = RED
         self.update_available = False
         self.myg_running = False
+        self.gateway_running = False
         self.cur_icon_path = None
         self.update_icon()
 
@@ -48,6 +49,10 @@ class IconManager:
 
     def set_myg_running(self, myg_running):
         self.myg_running = myg_running
+        self.update_icon()
+
+    def set_gateway_running(self, gateway_running):
+        self.gateway_running = gateway_running
         self.update_icon()
 
     def update_icon(self):
