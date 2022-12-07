@@ -892,12 +892,12 @@ _geo_db_psql() {
             query="$arg"
             docker_options=''
             psql_options='-c'
-            script_path="$GEO_CLI_SCRIPT_DIR/$query".sql
+            # script_path="$GEO_CLI_SCRIPT_DIR/$query".sql
 
-            log::debug $script_path
-            if [[ -f $script_path ]]; then
-                query="$(cat $script_path | sed "s/'/\'/g")"
-            fi
+            # log::debug $script_path
+            # if [[ -f $script_path ]]; then
+            #     query="$(cat $script_path | sed "s/'/\'/g")"
+            # fi
             ;;
         --*)
             option="${option#--}"
@@ -914,47 +914,47 @@ _geo_db_psql() {
     done
 
     # This isn't currently working
-    log::debug $script_param_count
-    if (( script_param_count > 0 )); then
-        param_definitions="$(echo "$query" | grep '^--- ' | sed 's/--- //g')"
-        param_names="$(sed 's/=.*//g' <<<"$param_definitions")"
-        param_names_array=()
-        default_param_values="$(sed 's/.*=//g' <<<"$param_definitions")"
-        default_param_values_array=()
-        declare -A param_lookup
-        # Extract param names and values.
-        default_param_count=0
-        while read -r line; do
-            param_names_array+=("$line")
-            ((default_param_count++))
-        done <<<"$param_names"
-        while read -r line; do
-            default_param_values_array+=("$line")
-        done <<<"$default_param_values"
+    # log::debug $script_param_count
+    # if (( script_param_count > 0 )); then
+    #     param_definitions="$(echo "$query" | grep '^--- ' | sed 's/--- //g')"
+    #     param_names="$(sed 's/=.*//g' <<<"$param_definitions")"
+    #     param_names_array=()
+    #     default_param_values="$(sed 's/.*=//g' <<<"$param_definitions")"
+    #     default_param_values_array=()
+    #     declare -A param_lookup
+    #     # Extract param names and values.
+    #     default_param_count=0
+    #     while read -r line; do
+    #         param_names_array+=("$line")
+    #         ((default_param_count++))
+    #     done <<<"$param_names"
+    #     while read -r line; do
+    #         default_param_values_array+=("$line")
+    #     done <<<"$default_param_values"
 
-        for ((i = 0; i < default_param_count; i++)); do
-            key="${param_names_array[$i]}"
-            value="${default_param_values_array[$i]}"
-            param_lookup["$key"]="$value"
-        done
-        for key in "${!cli_param_lookup[@]}"; do
-            value="${cli_param_lookup[$key]}"
-            param_lookup["$key"]="$value"
-        done
+    #     for ((i = 0; i < default_param_count; i++)); do
+    #         key="${param_names_array[$i]}"
+    #         value="${default_param_values_array[$i]}"
+    #         param_lookup["$key"]="$value"
+    #     done
+    #     for key in "${!cli_param_lookup[@]}"; do
+    #         value="${cli_param_lookup[$key]}"
+    #         param_lookup["$key"]="$value"
+    #     done
 
-        # log::debug "$query"
+    #     # log::debug "$query"
 
-        # Remove all comments and empty lines.
-        query="$(sed -e 's/--.*//g' -e '/^$/d' <<<"$query")"
-        for key in "${!param_lookup[@]}"; do
-            value="${param_lookup[$key]}"
-            [[ -v cli_param_lookup["$key"] ]] && value="${cli_param_lookup[$key]}"
-            log::debug "value=$value    key=$key"
-            query="$(sed "s/{{$key}}/$value/g" <<<"$query")"
-        done
-        query="$(echo "$query" | tr '\n' ' ')"
-        # log::debug "$query"
-    fi
+    #     # Remove all comments and empty lines.
+    #     query="$(sed -e 's/--.*//g' -e '/^$/d' <<<"$query")"
+    #     for key in "${!param_lookup[@]}"; do
+    #         value="${param_lookup[$key]}"
+    #         [[ -v cli_param_lookup["$key"] ]] && value="${cli_param_lookup[$key]}"
+    #         log::debug "value=$value    key=$key"
+    #         query="$(sed "s/{{$key}}/$value/g" <<<"$query")"
+    #     done
+    #     query="$(echo "$query" | tr '\n' ' ')"
+    #     # log::debug "$query"
+    # fi
 
     # Assign default values for sql user/passord.
     [[ -z $db_name ]] && db_name=geotabdemo
@@ -971,8 +971,24 @@ _geo_db_psql() {
     fi
 
     if [[ -n $query ]]; then
-        log::debug "docker exec $docker_options -e PGPASSWORD=$sql_password $running_container_id /bin/bash -c \"psql -U $sql_user -h localhost -p 5432 -d $db_name '$psql_options $query'\""
-        eval "docker exec $docker_options -e PGPASSWORD=$sql_password $running_container_id /bin/bash -c \"psql -U $sql_user -h localhost -p 5432 -d $db_name '$psql_options $query'\""
+        # args=(
+        #     "docker exec"
+        #     $docker_options
+        #     -e
+        #     PGPASSWORD=$sql_password
+        #     $running_container_id
+        #     /bin/bash
+        #     -c
+        #     "\"psql -U $sql_user -h localhost -p 5432 -d $db_name '$psql_options $query'\""
+        # )
+        # log::debug "${args[@]}"
+        log::debug "docker exec $docker_options -e PGPASSWORD=$sql_password $running_container_id /bin/bash -c \"psql -U geotabuser -h localhost -p 5432 -d geotabdemo \"$psql_options $query\""
+        # log::debug "docker exec $docker_options -e PGPASSWORD=$sql_password $running_container_id /bin/bash -c \"psql -U $sql_user -h localhost -p 5432 -d $db_name '$psql_options $query'\""
+        # docker exec $docker_options -e PGPASSWORD=$sql_password $running_container_id /bin/bash -c "psql -U $sql_user -h localhost -p 5432 -d $db_name '$psql_options $query'\""
+        docker exec $docker_options -e PGPASSWORD=$sql_password $running_container_id /bin/bash -c "psql -U geotabuser -h localhost -p 5432 -d geotabdemo \"$psql_options $query\""
+        # docker exec -e PGPASSWORD=vircom43 94563ab3da3e /bin/bash -c "psql -U geotabuser -h localhost -p 5432 -d geotabdemo \"$psql_options $query\""
+
+        # eval "docker exec $docker_options -e PGPASSWORD=$sql_password $running_container_id /bin/bash -c \"psql -U $sql_user -h localhost -p 5432 -d $db_name '$psql_options $query'\""
     else
         docker exec -it -e PGPASSWORD=$sql_password $running_container_id psql -U $sql_user -h localhost -p 5432 -d $db_name
     fi
