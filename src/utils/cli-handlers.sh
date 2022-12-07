@@ -4777,12 +4777,40 @@ geo_myg() {
             _geo_myg_api_runner
             ;;
         gw )
-            // code to run myg with gw
+            # cd "$GEO_CLI_SRC_DIR/utils"
+            # bash myg-with-gateway.sh
+            _geo_run_myg_gw
+            ;;
         * )
             log::Error "Unknown argument: '$1'"
             return 1
             ;;
     esac
+}
+
+_geo_run_myg_gw(){
+
+local db_name=
+
+prompt_for_db_name() {
+        while [[ -z $db_name ]]; do
+            prompt_for_info -v db_name "Enter an alphanumeric name (including .-_) for the new company: "
+            # log::debug "db_version: $db_version"
+            # Parse any options supplied by the user.
+            local options_regex='-([[:alpha:]]+) .*'
+            if [[ $db_name =~ $options_regex ]]; then
+
+                log::debug "db_name: $db_name"
+            fi
+            db_name=$(_geo_make_alphanumeric "$db_name")
+        done
+        # log::debug $db_version
+    }
+
+prompt_for_db_name
+
+geo_db start -d $db_name -p
+
 }
 
 _geo_myg_api_runner() {
