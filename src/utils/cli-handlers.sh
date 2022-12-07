@@ -200,17 +200,17 @@ geo_db_doc() {
     doc_cmd_sub_cmd 'bash'
         doc_cmd_sub_cmd_desc 'Open a bash session with the running geo-cli db container.'
 
-    doc_cmd_sub_cmd 'script <add|edit|ls|rm> <script_name>'
-        doc_cmd_sub_cmd_desc "Add, edit, list, or remove scripts that can be run with $(log::txt_italic geo db psql -q script_name)."
-        doc_cmd_sub_options_title
-            doc_cmd_sub_sub_cmd 'add'
-                doc_cmd_sub_sub_cmd_desc 'Adds a new script and opens it in a text editor.'
-            doc_cmd_sub_sub_cmd 'edit'
-                doc_cmd_sub_sub_cmd_desc 'Opens an existing script in a text editor.'
-            doc_cmd_sub_sub_cmd 'ls'
-                doc_cmd_sub_option_desc 'Lists existing scripts.'
-            doc_cmd_sub_sub_cmd 'rm'
-                doc_cmd_sub_sub_cmd_desc 'Removes a script.'
+    # doc_cmd_sub_cmd 'script <add|edit|ls|rm> <script_name>'
+    #     doc_cmd_sub_cmd_desc "Add, edit, list, or remove scripts that can be run with $(log::txt_italic geo db psql -q script_name)."
+    #     doc_cmd_sub_options_title
+    #         doc_cmd_sub_sub_cmd 'add'
+    #             doc_cmd_sub_sub_cmd_desc 'Adds a new script and opens it in a text editor.'
+    #         doc_cmd_sub_sub_cmd 'edit'
+    #             doc_cmd_sub_sub_cmd_desc 'Opens an existing script in a text editor.'
+    #         doc_cmd_sub_sub_cmd 'ls'
+    #             doc_cmd_sub_option_desc 'Lists existing scripts.'
+    #         doc_cmd_sub_sub_cmd 'rm'
+    #             doc_cmd_sub_sub_cmd_desc 'Removes a script.'
 
     doc_cmd_examples_title
     doc_cmd_example 'geo db start 2004'
@@ -4198,12 +4198,15 @@ geo_dev() {
             )
             ;;
         tag )
-            [[ $USER != dawsonmyers ]] && log::Error "This feature is for internal purposes only."
-            local geo_cli_version=$(cat "$GEO_CLI_DIR/version.txt")
-            [[ -z "$geo_cli_version" ]] && log::Error "Tag is empty" && return 1
-            log::debug "git tag -a v$geo_cli_version -m 'geo-cli $geo_cli_version'"
-            git tag -a "v$geo_cli_version" -m "geo-cli $geo_cli_version"
-            git push origin "v$geo_cli_version"
+            (
+                cd "$geo_cli_dir"
+                [[ $USER != dawsonmyers ]] && log::Error "This feature is for internal purposes only."
+                local geo_cli_version=$(cat "$GEO_CLI_DIR/version.txt")
+                [[ -z "$geo_cli_version" ]] && log::Error "Tag is empty" && return 1
+                log::debug "git tag -a v$geo_cli_version -m 'geo-cli $geo_cli_version'"
+                git tag -a "v$geo_cli_version" -m "geo-cli $geo_cli_version"
+                git push origin "v$geo_cli_version"
+            )
             ;;
         * )
             log::Error "Unknown argument: '$1'"
