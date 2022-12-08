@@ -982,10 +982,10 @@ _geo_db_psql() {
         #     "\"psql -U $sql_user -h localhost -p 5432 -d $db_name '$psql_options $query'\""
         # )
         # log::debug "${args[@]}"
-        log::debug "docker exec $docker_options -e PGPASSWORD=$sql_password $running_container_id /bin/bash -c \"psql -U geotabuser -h localhost -p 5432 -d geotabdemo \"$psql_options $query\""
+        log::debug "docker exec $docker_options -e PGPASSWORD=$sql_password $running_container_id /bin/bash -c \"psql -U geotabuser -h localhost -p 5432 -d $db_name \"$psql_options $query\""
         # log::debug "docker exec $docker_options -e PGPASSWORD=$sql_password $running_container_id /bin/bash -c \"psql -U $sql_user -h localhost -p 5432 -d $db_name '$psql_options $query'\""
         # docker exec $docker_options -e PGPASSWORD=$sql_password $running_container_id /bin/bash -c "psql -U $sql_user -h localhost -p 5432 -d $db_name '$psql_options $query'\""
-        docker exec $docker_options -e PGPASSWORD=$sql_password $running_container_id /bin/bash -c "psql -U geotabuser -h localhost -p 5432 -d geotabdemo \"$psql_options $query\""
+        docker exec $docker_options -e PGPASSWORD=$sql_password $running_container_id /bin/bash -c "psql -U geotabuser -h localhost -p 5432 -d $db_name \"$psql_options $query\""
         # docker exec -e PGPASSWORD=vircom43 94563ab3da3e /bin/bash -c "psql -U geotabuser -h localhost -p 5432 -d geotabdemo \"$psql_options $query\""
 
         # eval "docker exec $docker_options -e PGPASSWORD=$sql_password $running_container_id /bin/bash -c \"psql -U $sql_user -h localhost -p 5432 -d $db_name '$psql_options $query'\""
@@ -4790,70 +4790,68 @@ geo_myg() {
 
 _geo_run_myg_gw(){
 
-# local db_name=
+local db_name=
 
-# prompt_for_db_name() {
-#         while [[ -z $db_name ]]; do
-#             prompt_for_info -v db_name "Enter an alphanumeric name (including .-_) for the new company: "
-#             # log::debug "db_version: $db_version"
-#             # Parse any options supplied by the user.
-#             local options_regex='-([[:alpha:]]+) .*'
-#             if [[ $db_name =~ $options_regex ]]; then
+prompt_for_db_name() {
+        while [[ -z $db_name ]]; do
+            prompt_for_info -v db_name "Enter an alphanumeric name (including .-_) for the new company: "
+            # log::debug "db_version: $db_version"
+            # Parse any options supplied by the user.
+            local options_regex='-([[:alpha:]]+) .*'
+            if [[ $db_name =~ $options_regex ]]; then
 
-#                 log::debug "db_name: $db_name"
-#             fi
-#             db_name=$(_geo_make_alphanumeric "$db_name")
-#         done
-#         # log::debug $db_version
-#     }
+                log::debug "db_name: $db_name"
+            fi
+            db_name=$(_geo_make_alphanumeric "$db_name")
+        done
+        # log::debug $db_version
+    }
 
-# prompt_for_db_name
+prompt_for_db_name
 
-# geo_db start -d $db_name -p
+geo_db start -d $db_name -p
 
-# # geo_db psql -d $db_name -q "INSERT INTO public.vehicle (iid, sserialno, ihardwareid, sdescription, iproductid, svin, slicenseplate, slicensestate, scomments, isecstodownload, dtignoredownload, iworktimesheaderid, stimezoneid, sparameters, ienginetypeid, irowversion, senginevin, dtactivefrom, dtactiveto) VALUES (1, 'GV0100000001', 1, 'DeviceSimulator', 81, '', '', '', '', 86400, '1986-01-01 00:00:00', 1, 'America/New_York', '{"major": 14, "minor": 20, "autoHos": "AUTO", "channel": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "version": "0000000000000004", "activeTo": "2050-01-01T00:00:00.000Z", "rpmValue": 3500, "pinDevice": true, "activeFrom": "2020-12-03T19:38:13.727Z", "speedingOn": 100.0, "gpsOffDelay": 0, "idleMinutes": 3, "speedingOff": 90.0, "channelCount": 1, "licensePlate": "", "licenseState": "", "disableBuzzer": false, "isAuxInverted": [false, false, false, false, false, false, false, false], "ensureHotStart": false, "goTalkLanguage": "English", "immobilizeUnit": false, "odometerFactor": 1.0, "odometerOffset": 0.0, "auxWarningSpeed": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "enableBeepOnRpm": false, "frequencyOffset": 1, "isAuxIgnTrigger": [false, false, false, false], "customParameters": [], "enableAuxWarning": [false, false, false, false, false, false, false, false], "enableBeepOnIdle": false, "engineHourOffset": 0, "fuelTankCapacity": 0.0, "immobilizeArming": 30, "isSpeedIndicator": false, "minAccidentSpeed": 4.0, "parameterVersion": 1, "isAidedGpsEnabled": false, "isReverseDetectOn": false, "enableSpeedWarning": false, "rfParameterVersion": 0, "disableSleeperBerth": false, "enableMustReprogram": false, "seatbeltWarningSpeed": 10.0, "maxSecondsBetweenLogs": 200.0, "isIoxConnectionEnabled": true, "isRfUploadOnWhenMoving": false, "brakingWarningThreshold": -34, "isActiveTrackingEnabled": false, "parameterVersionOnDevice": 0, "corneringWarningThreshold": 26, "isDriverSeatbeltWarningOn": false, "enableControlExternalRelay": false, "externalDeviceShutDownDelay": 0, "accelerationWarningThreshold": 24, "enableBeepOnDangerousDriving": false, "isPassengerSeatbeltWarningOn": false, "accelerometerThresholdWarningFactor": 0, "isExternalDevicePowerControlSupported": true}', 9999, 5, '?', '2020-12-03T19:38:13.727Z', '2050-01-01T00:00:00.000Z')"
+# only insert if db does not exist
 
-# # geo_db psql -d $db_name -q "INSERT INTO public.nodevehicle (inodeid, ivehicleid, gid) VALUES (9998, 1, '52bc3790-01b4-47ef-9853-255589e30997')"
+geo_db psql -d $db_name -q "INSERT INTO public.vehicle (iid, sserialno, ihardwareid, sdescription, iproductid, svin, slicenseplate, slicensestate, scomments, isecstodownload, dtignoredownload, iworktimesheaderid, stimezoneid, sparameters, ienginetypeid, irowversion, senginevin, dtactivefrom, dtactiveto) VALUES (1, 'GV0100000001', 1, 'DeviceSimulator', 81, '', '', '', '', 86400, '1986-01-01 00:00:00', 1, 'America/New_York', '{\\\"major\\\": 14, \\\"minor\\\": 20, \\\"autoHos\\\": \\\"AUTO\\\", \\\"channel\\\": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], \\\"version\\\": \\\"0000000000000004\\\", \\\"activeTo\\\": \\\"2050-01-01T00:00:00.000Z\\\", \\\"rpmValue\\\": 3500, \\\"pinDevice\\\": true, \\\"activeFrom\\\": \\\"2020-12-03T19:38:13.727Z\\\", \\\"speedingOn\\\": 100.0, \\\"gpsOffDelay\\\": 0, \\\"idleMinutes\\\": 3, \\\"speedingOff\\\": 90.0, \\\"channelCount\\\": 1, \\\"licensePlate\\\": \\\"\\\", \\\"licenseState\\\": \\\"\\\", \\\"disableBuzzer\\\": false, \\\"isAuxInverted\\\": [false, false, false, false, false, false, false, false], \\\"ensureHotStart\\\": false, \\\"goTalkLanguage\\\": \\\"English\\\", \\\"immobilizeUnit\\\": false, \\\"odometerFactor\\\": 1.0, \\\"odometerOffset\\\": 0.0, \\\"auxWarningSpeed\\\": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], \\\"enableBeepOnRpm\\\": false, \\\"frequencyOffset\\\": 1, \\\"isAuxIgnTrigger\\\": [false, false, false, false], \\\"customParameters\\\": [], \\\"enableAuxWarning\\\": [false, false, false, false, false, false, false, false], \\\"enableBeepOnIdle\\\": false, \\\"engineHourOffset\\\": 0, \\\"fuelTankCapacity\\\": 0.0, \\\"immobilizeArming\\\": 30, \\\"isSpeedIndicator\\\": false, \\\"minAccidentSpeed\\\": 4.0, \\\"parameterVersion\\\": 1, \\\"isAidedGpsEnabled\\\": false, \\\"isReverseDetectOn\\\": false, \\\"enableSpeedWarning\\\": false, \\\"rfParameterVersion\\\": 0, \\\"disableSleeperBerth\\\": false, \\\"enableMustReprogram\\\": false, \\\"seatbeltWarningSpeed\\\": 10.0, \\\"maxSecondsBetweenLogs\\\": 200.0, \\\"isIoxConnectionEnabled\\\": true, \\\"isRfUploadOnWhenMoving\\\": false, \\\"brakingWarningThreshold\\\": -34, \\\"isActiveTrackingEnabled\\\": false, \\\"parameterVersionOnDevice\\\": 0, \\\"corneringWarningThreshold\\\": 26, \\\"isDriverSeatbeltWarningOn\\\": false, \\\"enableControlExternalRelay\\\": false, \\\"externalDeviceShutDownDelay\\\": 0, \\\"accelerationWarningThreshold\\\": 24, \\\"enableBeepOnDangerousDriving\\\": false, \\\"isPassengerSeatbeltWarningOn\\\": false, \\\"accelerometerThresholdWarningFactor\\\": 0, \\\"isExternalDevicePowerControlSupported\\\": true}', 9999, 5, '?', '2020-12-03T19:38:13.727Z', '2050-01-01T00:00:00.000Z')"
 
-# local server_config="$HOME/GEOTAB/Checkmate/server.config"
-# local store_config="$HOME/GEOTAB/Checkmate/storeforward.config"
+geo_db psql -d $db_name -q "INSERT INTO public.nodevehicle (inodeid, ivehicleid, gid) VALUES (9998, 1, '52bc3790-01b4-47ef-9853-255589e30997')"
 
-# xmlstarlet ed --inplace -u "//WebServerSettings/WebPort" -v 10000 -u "//WebServerSettings/WebSSLPort" -v 10001 "$server_config"
+local server_config="$HOME/GEOTAB/Checkmate/server.config"
+local store_config="$HOME/GEOTAB/Checkmate/storeforward.config"
 
-# xmlstarlet ed --inplace -u "//WebServerSettings/ServiceSettings/ServerSettings[DatabaseSettingsInternal[ConnectedSqlServerDatabase='$db_name']]/LiveSettings/ServerAddress" -v localhost -u "//WebServerSettings/ServiceSettings/ServerSettings[DatabaseSettingsInternal[ConnectedSqlServerDatabase='$db_name']]/LiveSettings/ServerPort" -v 3982 "$server_config"
+xmlstarlet ed --inplace -u "//WebServerSettings/WebPort" -v 10000 -u "//WebServerSettings/WebSSLPort" -v 10001 "$server_config"
 
-# xmlstarlet ed --inplace -u "//StoreForwardSettings/Type" -v Developer -u "//WebServerSettings/WebSSLPort" -v 10001 "$store_config"
+xmlstarlet ed --inplace -u "//WebServerSettings/ServiceSettings/ServerSettings[DatabaseSettingsInternal[ConnectedSqlServerDatabase='$db_name']]/LiveSettings/ServerAddress" -v 127.0.0.1 -u "//WebServerSettings/ServiceSettings/ServerSettings[DatabaseSettingsInternal[ConnectedSqlServerDatabase='$db_name']]/LiveSettings/ServerPort" -v 3982 "$server_config"
 
-# xmlstarlet ed --inplace -u "//StoreForwardSettings/GatewayWebServerSettings/WebPort" -v 10002 -u "//StoreForwardSettings/GatewayWebServerSettings/WebSSLPort" -v 10003 "$store_config"
+xmlstarlet ed --inplace -u "//StoreForwardSettings/Type" -v Developer -u "//WebServerSettings/WebSSLPort" -v 10001 "$store_config"
 
-# xmlstarlet ed --inplace -u "//StoreForwardSettings/CertifiedConnectionsOnly" -v false "$store_config"
+xmlstarlet ed --inplace -u "//StoreForwardSettings/GatewayWebServerSettings/WebPort" -v 10002 -u "//StoreForwardSettings/GatewayWebServerSettings/WebSSLPort" -v 10003 "$store_config"
 
-# xmlstarlet ed --inplace -d "//StoreForwardSettings/ClientListenerEndPoints/IPEndPoint" "$store_config"
+xmlstarlet ed --inplace -u "//StoreForwardSettings/CertifiedConnectionsOnly" -v false "$store_config"
 
-# xmlstarlet ed --inplace -s "//StoreForwardSettings/ClientListenerEndPoints" -t elem -n IPEndPoint -v "" "$store_config"
+xmlstarlet ed --inplace -d "//StoreForwardSettings/ClientListenerEndPoints/IPEndPoint" "$store_config"
 
-
-# xmlstarlet ed --inplace -s "//StoreForwardSettings/ClientListenerEndPoints/IPEndPoint" -t elem -n Address -v 0.0.0.0 "$store_config"
-
-# xmlstarlet ed --inplace -s "//StoreForwardSettings/ClientListenerEndPoints/IPEndPoint" -t elem -n Port -v 3982 "$store_config"
-
-# geo_myg build
-
-# local dev_repo=$(geo_get DEV_REPO_DIR)
-
-# sudo cp $dev_repo/gitlab-ci/dockerfiles/MygTestContainer/geotabcommoncertroot.crt /usr/local/share/ca-certificates/root.crt
-
-# # sudo update-ca-certificates
-# echo -e '#!/bin/sh\n echo hello' > abc.sh
-# chmod +x abc.sh
-# gnome-terminal -- ./abc.sh
-
-gnome-terminal -e "bash -c '$GEO_CLI_SRC_DIR/geo-cli.sh myg start; sleep 3'"
-
-#geo_gw start
+xmlstarlet ed --inplace -s "//StoreForwardSettings/ClientListenerEndPoints" -t elem -n IPEndPoint -v "" "$store_config"
 
 
-# #geo_myg start
+xmlstarlet ed --inplace -s "//StoreForwardSettings/ClientListenerEndPoints/IPEndPoint" -t elem -n Address -v 0.0.0.0 "$store_config"
+
+xmlstarlet ed --inplace -s "//StoreForwardSettings/ClientListenerEndPoints/IPEndPoint" -t elem -n Port -v 3982 "$store_config"
+
+geo_myg build
+
+local dev_repo=$(geo_get DEV_REPO_DIR)
+
+# verify it runs only once
+
+sudo cp $dev_repo/gitlab-ci/dockerfiles/MygTestContainer/geotabcommoncertroot.crt /usr/local/share/ca-certificates/myggatewayroot.crt
+
+sudo update-ca-certificates
+
+gnome-terminal -e "bash -c '$GEO_CLI_SRC_DIR/geo-cli.sh gw start; sleep 3'"
+
+geo_myg start
 
 }
 
