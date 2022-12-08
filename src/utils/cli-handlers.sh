@@ -3602,6 +3602,7 @@ geo_id() {
             log::warn "Use 'geo id help' for usage info."
             return 1
         fi
+        echo -n $id
     }
 
     if [[ $interactive == true || $use_clipboard == true ]]; then
@@ -3641,6 +3642,21 @@ geo_id() {
             geo_id $prompt_return
             echo
         done
+        return
+    fi
+
+    if [[ $# -gt 1 ]]; then
+        ids=()
+        res=
+        for _id in "$@"; do
+            res=$(convert_id $_id)
+            if [[ -n $res ]]; then
+                ids+=($res)
+                $format_output && log::detail -b $res || echo $res
+            fi
+        done
+        echo -n "${ids[@]}" | xclip -selection c
+        [[ $format_output == true ]] && log::info "copied to clipboard"
         return
     fi
 
