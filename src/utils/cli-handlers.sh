@@ -4844,6 +4844,13 @@ geo_myg build
 local dev_repo=$(geo_get DEV_REPO_DIR)
 
 # verify it runs only once
+if [[ ! -f /usr/local/share/ca-certificates/myggatewayroot.crt ]]; then
+  echo "copying cert"
+
+  sudo cp $dev_repo/gitlab-ci/dockerfiles/MygTestContainer/geotabcommoncertroot.crt /usr/local/share/ca-certificates/myggatewayroot.crt
+
+  sudo update-ca-certificates
+fi
 
 sudo cp $dev_repo/gitlab-ci/dockerfiles/MygTestContainer/geotabcommoncertroot.crt /usr/local/share/ca-certificates/myggatewayroot.crt
 
