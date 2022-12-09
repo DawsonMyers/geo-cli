@@ -1743,26 +1743,30 @@ geo_ar_doc() {
                             an access request) and then connects to the server over SSH. The port is saved and used when you SSH to the server using $(log::green 'geo ar ssh').
                             This command will be saved and re-used next time you call the command without any arguments (i.e. $(log::green geo ar tunnel))"
             doc_cmd_sub_options_title
-            doc_cmd_sub_option '-s'
-            doc_cmd_sub_option_desc "Only start the IAP tunnel without SSHing into it."
-            doc_cmd_sub_option '-l'
-            doc_cmd_sub_option_desc "List and choose from previous IAP tunnel commands."
-            doc_cmd_sub_option '-p <port>'
-            doc_cmd_sub_option_desc "Specifies the port to open the IAP tunnel on. This port must be greater than 1024 and not be in use."
-            doc_cmd_sub_option '-L'
-            doc_cmd_sub_option_desc "Bind local port 5433 to 5432 on remote host (through IAP tunnel). You can connect to the remote Postgres database 
-                    using this port (5433) in pgAdmin. Note: you can also open up an ssh session to this server by opening another terminal and running
-                     $(log::green  geo ar ssh)"
+                doc_cmd_sub_option '-s'
+                    doc_cmd_sub_option_desc "Only start the IAP tunnel without SSHing into it."
+                doc_cmd_sub_option '-l'
+                    doc_cmd_sub_option_desc "List and choose from previous IAP tunnel commands."
+                doc_cmd_sub_option '-p <port>'
+                    doc_cmd_sub_option_desc "Specifies the port to open the IAP tunnel on. This port must be greater than 1024 and not be in use."
+                doc_cmd_sub_option '-P <port>'
+                    doc_cmd_sub_option_desc "Specifies the local port to bind to port 5432 on the remote system (this can be used instead of the -L option). This port defaults to 5433. This port must be greater than 1024 and not be in use."
+                doc_cmd_sub_option '-L'
+                    doc_cmd_sub_option_desc "Bind local port 5433 to 5432 on remote host (through IAP tunnel). You can connect to the remote Postgres database 
+                        using this port (5433) in pgAdmin. Note: you can also open up an ssh session to this server by opening another terminal and running
+                        $(log::green  geo ar ssh)"
             # doc_cmd_sub_option_desc "Starts an SSH session to the server immediately after opening up the IAP tunnel."
         doc_cmd_sub_cmd 'ssh'
             doc_cmd_sub_cmd_desc "SSH into a server through the IAP tunnel started with $(log::green 'geo ar ssh')."
             doc_cmd_sub_options_title
-            doc_cmd_sub_option '-p <port>'
-            doc_cmd_sub_option_desc "The port to use when connecting to the server. This value is optional since the port that the IAP tunnel was opened on using $(log::green 'geo ar ssh') is used as the default value"
-            doc_cmd_sub_option '-u <user>'
-            doc_cmd_sub_option_desc "The user to use when connecting to the server. This value is optional since the username stored in \$USER is used as the default value. The value supplied here will be stored and reused next time you call the command"
-            doc_cmd_sub_option '-L'
-            doc_cmd_sub_option_desc "Bind local port 5433 to 5432 on remote host (through IAP tunnel). You can connect to the remote Postgres database 
+                doc_cmd_sub_option '-p <port>'
+                    doc_cmd_sub_option_desc "The port to use when connecting to the server. This value is optional since the port that the IAP tunnel was opened on using $(log::green 'geo ar ssh') is used as the default value"
+                doc_cmd_sub_option '-P <port>'
+                    doc_cmd_sub_option_desc "Specifies the local port to bind to port 5432 on the remote system (this can be used instead of the -L option). This port defaults to 5433. This port must be greater than 1024 and not be in use."
+                doc_cmd_sub_option '-u <user>'
+                    doc_cmd_sub_option_desc "The user to use when connecting to the server. This value is optional since the username stored in \$USER is used as the default value. The value supplied here will be stored and reused next time you call the command"
+                doc_cmd_sub_option '-L'
+                    doc_cmd_sub_option_desc "Bind local port 5433 to 5432 on remote host (through IAP tunnel). You can connect to the remote Postgres database 
                     using this port (5433) in pgAdmin. Note: you can also open up an ssh session to this server by opening another terminal and running
                      $(log::green  geo ar ssh)"
     doc_cmd_examples_title
@@ -1829,8 +1833,9 @@ geo_ar() {
                 local start_ssh='true'
                 local prompt_for_cmd='false'
                 local list_previous_cmds='false'
-                local bind_myadmin_port='false'
+                local bind_db_port='false'
                 local port=
+                local bind_port=
                 local user=
                 
                 
@@ -1842,7 +1847,7 @@ geo_ar() {
                 #         --prompt ) prompt_for_cmd=true ;;
                 #         -l ) list_previous_cmds=true ;;
                 #         -p ) port=$2 && shift ;;
-                #         -L ) bind_myadmin_port=true ;;
+                #         -L ) bind_db_port=true ;;
                 #         * ) log::Error "Unknown option '$1'" && return 1 ;;
                 #     esac
                 #     shift
@@ -1850,12 +1855,13 @@ geo_ar() {
 
                 # TODO Add support for user argument.
                 local OPTIND
-                while getopts "slLp:u:" opt; do
+                while getopts "slLpP:u:" opt; do
                     case "${opt}" in
                         s ) start_ssh=  ;;
                         l ) list_previous_cmds=true ;;
-                        L ) bind_myadmin_port=true ;;
+                        L ) bind_db_port=true ;;
                         p ) port="$OPTARG" ;;
+                        P ) bind_port="$OPTARG"; bind_db_port=true ;;
                         u ) user="$OPTARG" ;;
                         : )
                             log::Error "Option '${opt}' expects an argument."
@@ -1869,7 +1875,7 @@ geo_ar() {
                 done
                 shift $((OPTIND - 1))
 
-                if $bind_myadmin_port; then
+                if $bind_db_port; then
                     show_iap_password_prompt_message
                     # echo
                     # log::hint "Leave the password and database empty if you will be manually updating an existing server in pgAdmin."
@@ -2037,10 +2043,11 @@ geo_ar() {
                     # log::debug "tunnel"
 
                     # log::debug "iap_skip_password: $iap_skip_password"
-                    # log::debug "bind_myadmin_port: $bind_myadmin_port"  
-                    if $bind_myadmin_port; then
+                    # log::debug "bind_db_port: $bind_db_port"  
+                    if $bind_db_port; then
                         opts+='L'
                         $iap_skip_password && opts+='s'
+                        [[ -n $bind_port ]] && opts+=" -L $bind_port"
                     fi
 
                     local username_option=
@@ -2065,10 +2072,11 @@ geo_ar() {
             local user=$(geo_get AR_USER)
             [[ -z $user ]] && user="$USER"
             local port=$(geo_get AR_PORT)
+            local bind_port=5433
             local option_count=0
             local save='true'
             local loop=true
-            local bind_myadmin_port=false
+            local bind_db_port=false
             local iap_skip_password=false
 
             # while [[ ${1:0:1} == - ]]; do
@@ -2083,7 +2091,7 @@ geo_ar() {
             # done
 
             local OPTIND
-            while getopts "nrLsp:u:" opt; do
+            while getopts "nrLspP:u:" opt; do
                 case "${opt}" in
                     # Don't save port/user if -n (no save) option supplied. This option is used in geo ar tunnel so that re-opening
                     # an SSH session doesn't overwrite the most recent port (from the newest IAP tunnel, which may be different from this one).
@@ -2091,8 +2099,9 @@ geo_ar() {
                     # The -r option will cause the ssh tunnel to run ('r' for run) once and then return without looping.
                     r ) loop=false ;;
                     p ) port="$OPTARG" ;;
+                    P ) bind_port="$OPTARG"; bind_db_port=true ;;
                     u ) user="$OPTARG" ;;
-                    L ) bind_myadmin_port=true ;;
+                    L ) bind_db_port=true ;;
                     s ) iap_skip_password=true ;;
                     : )
                         log::Error "Option '${opt}' expects an argument."
@@ -2108,8 +2117,8 @@ geo_ar() {
 
             [[ -z $port ]] && log::Error "No port found. Add a port with the -p <port> option." && return 1
             # log::debug "iap_skip_password: $iap_skip_password"
-            # log::debug "bind_myadmin_port: $bind_myadmin_port"
-            if $bind_myadmin_port && ! $iap_skip_password; then
+            # log::debug "bind_db_port: $bind_db_port"
+            if $bind_db_port && ! $iap_skip_password; then
                 show_iap_password_prompt_message
                 
                 # log::hint "Leave the password and database empty if you will be manually updating an existing server in pgAdmin."
@@ -2136,10 +2145,10 @@ geo_ar() {
                 geo_set AR_PORT "$port"
             fi
 
-            local bind_cmd="ssh -L 127.0.0.1:5433:localhost:5432 -N $user@127.0.0.1 -p $port"
+            local bind_cmd="ssh -L 127.0.0.1:$bind_port:localhost:5432 -N $user@127.0.0.1 -p $port"
             local cmd="ssh $user@localhost -p $port"
 
-            if $bind_myadmin_port; then
+            if $bind_db_port; then
                 # log::status -b "Binding local port 5433 to 5432 on remote host (through IAP tunnel)"
                 # log::info "geo-cli can configure pgAdmin to connect to Postgres over the IAP tunnel."
                 # log::info "Enter your Access Request password below to update the password file for the MyGeotab Over IAP server in pgAdmin, or leave it blank if you already have a server in pgAdmin and plan to update its password manually."
