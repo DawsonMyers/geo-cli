@@ -1767,8 +1767,8 @@ geo_ar_doc() {
                     doc_cmd_sub_option_desc "The user to use when connecting to the server. This value is optional since the username stored in \$USER is used as the default value. The value supplied here will be stored and reused next time you call the command"
                 doc_cmd_sub_option '-L'
                     doc_cmd_sub_option_desc "Bind local port 5433 to 5432 on remote host (through IAP tunnel). You can connect to the remote Postgres database 
-                    using this port (5433) in pgAdmin. Note: you can also open up an ssh session to this server by opening another terminal and running
-                     $(log::green  geo ar ssh)"
+                        using this port (5433) in pgAdmin. Note: you can also open up an ssh session to this server by opening another terminal and running
+                        $(log::green  geo ar ssh)"
     doc_cmd_examples_title
         doc_cmd_example 'geo ar tunnel -s gcloud compute start-iap-tunnel gceseropst4-20220109062647 22 --project=geotab-serverops --zone=projects/709472407379/zones/northamerica-northeast1-b'
         doc_cmd_example 'geo ar ssh'
@@ -1779,7 +1779,7 @@ geo_ar_doc() {
 geo_ar() {
     # ssh -L 127.0.0.1:5433:localhost:5432 -N <username>@127.0.0.1 -p <port from IAP>
     show_iap_password_prompt_message() {
-        log::status -bu "Binding local port 5433 to 5432 on remote host (through IAP tunnel)"
+        log::status -bu "Binding local port ${bind_port:-5432} to 5432 on remote host (through IAP tunnel)"
         echo
         log::info "$(txt_underline geo-cli) can configure pgAdmin to connect to Postgres over the IAP tunnel."
         log::info "Enter your Access Request password below to update the password file for the $(txt_underline MyGeotab Over IAP) server in pgAdmin, $(txt_underline OR) leave it blank if you already have a server in pgAdmin and plan to update its password manually."
@@ -1841,21 +1841,8 @@ geo_ar() {
                 
                 [[ $@ =~ --prompt ]] && prompt_for_cmd=true && shift
 
-                # while [[ $1 =~ ^- ]]; do
-                #     case "$1" in
-                #         -s ) start_ssh= ;;
-                #         --prompt ) prompt_for_cmd=true ;;
-                #         -l ) list_previous_cmds=true ;;
-                #         -p ) port=$2 && shift ;;
-                #         -L ) bind_db_port=true ;;
-                #         * ) log::Error "Unknown option '$1'" && return 1 ;;
-                #     esac
-                #     shift
-                # done
-
-                # TODO Add support for user argument.
                 local OPTIND
-                while getopts "slLpP:u:" opt; do
+                while getopts "slLp:P:u:" opt; do
                     case "${opt}" in
                         s ) start_ssh=  ;;
                         l ) list_previous_cmds=true ;;
@@ -1877,21 +1864,6 @@ geo_ar() {
 
                 if $bind_db_port; then
                     show_iap_password_prompt_message
-                    # echo
-                    # log::hint "Leave the password and database empty if you will be manually updating an existing server in pgAdmin."
-                    # log::detail "Enter - in any of the following inputs to re-use the last value used."
-                    # local iap_password_prompt="Access Request password:\n> "
-                    # local iap_db_prompt="Database:\n> "
-
-                    # prompt_for_info_n -v iap_password "$iap_password_prompt"
-                    # prompt_for_info_n -v iap_db "$iap_db_prompt"
-                    # populate_prev_value_if_requested AR_PASSWORD iap_password
-                    # populate_prev_value_if_requested AR_DATABASE iap_db
-
-                    # iap_skip_password=true
-                    # if [[ -n $iap_password ]]; then
-                    #     _geo_copy_pgAdmin_server_config --iap "$iap_password" "$iap_db" "$user"
-                    # fi
                 fi
 
                 local gcloud_cmd="$*"
@@ -1901,19 +1873,15 @@ geo_ar() {
                     ! $reuse_msg_shown && log::detail "Enter '-' below to re-use the last gcloud command used."
                     prompt_for_info -v gcloud_cmd "$prompt_txt"
                     populate_prev_value_if_requested AR_IAP_CMD gcloud_cmd
-                    # gcloud_cmd="$prompt_return"
                 fi
 
                 if [[ $list_previous_cmds == true ]]; then
                     local prev_commands=$(_geo_ar_get_cmd_tags | tr '\n' ' ')
-                    # log::debug "$prev_commands"
                     if [[ -n $prev_commands ]]; then
                         log::status -bi 'Enter the number for the gcloud IAP command you want to use:'
                         select tag in $prev_commands; do
                             [[ -z $tag ]] && log::warn "Invalid command number" && continue
                             gcloud_cmd=$(_geo_ar_get_cmd_from_tag $tag)
-                            # log::debug "gcloud_cmd: $gcloud_cmd"
-                            # log::debug "tag: $tag"
                             break
                         done
                     else
@@ -1921,16 +1889,13 @@ geo_ar() {
                     fi
                 fi
 
-                # log::debug $gcloud_cmd
                 [[ -z $gcloud_cmd ]] && gcloud_cmd="$(geo_get AR_IAP_CMD)"
                 [[ -z $gcloud_cmd ]] && log::Error 'The gcloud compute start-iap-tunnel command (copied from MyAdmin for your access request) is required.' && return 1
 
-                
                 while [[ ! $gcloud_cmd =~ ^$expected_cmd_start ]]; do
                     ! $reuse_msg_shown && log::warn -b "The command must start with 'gcloud compute start-iap-tunnel'" && reuse_msg_shown=true
                     prompt_for_info -v gcloud_cmd "$prompt_txt"
                     populate_prev_value_if_requested AR_IAP_CMD gcloud_cmd
-                    # gcloud_cmd="$prompt_return"
                 done
 
                 geo_set AR_IAP_CMD "$gcloud_cmd"
@@ -1976,14 +1941,18 @@ geo_ar() {
                 local connection_file=""
                 [[ $gcloud_cmd =~ $regex ]] && ar_request_name="${BASH_REMATCH[1]}"
                 [[ -n $open_port ]] && connection_file="$geo_tmp_ar_dir/${ar_request_name}__${open_port}"
+                local tmp_output_file="/tmp/geo-ar-tunnel-$RANDOM.txt"
 
                 if [[ $start_ssh ]]; then
                     cleanup() {
                         echo
                         # log::status 'Closing IAP tunnel'
-                        kill %1
+                        # Kill any remaining jobs.
+                        for job_pid in `jobs -p`; do kill $job_pid &> /dev/null; done
                         # Remove the temporary output file if it exists.
                         [[ -f $tmp_output_file ]] && rm $tmp_output_file
+                        # Remove the connection file if it exists.
+                        [[ -f $connection_file ]] && rm $connection_file
                         exit
                     }
                     # Catch signals and run cleanup function to make sure the IAP tunnel is closed.
@@ -1992,7 +1961,7 @@ geo_ar() {
                     # Find the port by opening the IAP tunnel without specifying the port, then get the port number from the output of the gcloud command.
                     if [[ -z $open_port ]]; then
                         log::status "Finding open port..."
-                        local tmp_output_file="/tmp/geo-ar-tunnel-$RANDOM.txt"
+                        
                         $gcloud_cmd &> >(tee -a $tmp_output_file) &
                         local attapts=0
 
@@ -2015,7 +1984,6 @@ geo_ar() {
                         done
                         [[ -z $open_port ]] && log::Error 'Open port could not be found' && return 1
                         geo_set AR_PORT "$open_port"
-                        # log::status -bu '\nOpening IAP tunnel'
                         log::info "Using port: '$open_port' to open IAP tunnel"
                         log::info "Note: the port is saved and will be used when you call '$(log::txt_italic geo ar ssh)'"
                         echo
@@ -2040,21 +2008,20 @@ geo_ar() {
                     sleep 5
                     
                     local opts='-n'
-                    # log::debug "tunnel"
 
-                    # log::debug "iap_skip_password: $iap_skip_password"
-                    # log::debug "bind_db_port: $bind_db_port"  
                     if $bind_db_port; then
                         opts+='L'
                         $iap_skip_password && opts+='s'
-                        [[ -n $bind_port ]] && opts+=" -L $bind_port"
+                        [[ -n $bind_port ]] && opts+=" -P $bind_port "
                     fi
 
                     local username_option=
-                    [[ -n $user ]] && username_option="-u $user"
+                    [[ -n $user ]] && username_option=" -u $user "
+
                     # Continuously ask the user to re-open the ssh session (until ctrl + C is pressed, killing the tunnel).
                     # This allows users to easily re-connect to the server after the session times out.
                     # The -n option tells geo ar ssh not to store the port; the -p option specifies the ssh port.
+                    log::debug geo_ar ssh $opts -p $open_port $username_option
                     geo_ar ssh $opts -p $open_port $username_option
 
                     fg
@@ -2079,19 +2046,8 @@ geo_ar() {
             local bind_db_port=false
             local iap_skip_password=false
 
-            # while [[ ${1:0:1} == - ]]; do
-            #     # log::debug "option $1"
-            #     # Don't save port/user if -n (no save) option supplied. This option is used in geo ar tunnel so that re-opening
-            #     # an SSH session doesn't overwrite the most recent port (from the newest IAP tunnel, which may be different from this one).
-            #     [[ $1 == '-n' ]] && save= && shift
-            #     # The -r option will cause the ssh tunnel to run ('r' for run) once and then return without looping.
-            #     [[ $1 == '-r' ]] && loop=false && shift
-            #     [[ $1 == '-p' ]] && port=$2 && shift 2 && ((option_count++))
-            #     [[ $1 == '-u' ]] && user=$2 && shift 2 && ((option_count++))
-            # done
-
             local OPTIND
-            while getopts "nrLspP:u:" opt; do
+            while getopts "nrLsp:P:u:" opt; do
                 case "${opt}" in
                     # Don't save port/user if -n (no save) option supplied. This option is used in geo ar tunnel so that re-opening
                     # an SSH session doesn't overwrite the most recent port (from the newest IAP tunnel, which may be different from this one).
@@ -2116,21 +2072,9 @@ geo_ar() {
             shift $((OPTIND - 1))
 
             [[ -z $port ]] && log::Error "No port found. Add a port with the -p <port> option." && return 1
-            # log::debug "iap_skip_password: $iap_skip_password"
-            # log::debug "bind_db_port: $bind_db_port"
+            
             if $bind_db_port && ! $iap_skip_password; then
                 show_iap_password_prompt_message
-                
-                # log::hint "Leave the password and database empty if you will be manually updating an existing server in pgAdmin."
-                # local iap_password_prompt="Access Request password:\n> "
-                # local iap_db_prompt="Database:\n> "
-                # prompt_for_info_n -v iap_password "$iap_password_prompt"
-                # prompt_for_info_n -v iap_db "$iap_db_prompt"
-                # if [[ -z $iap_password ]]; then
-                #     iap_skip_password=true
-                # else
-                #     _geo_copy_pgAdmin_server_config --iap "$iap_password" "$iap_db" "$user"
-                # fi
             fi
 
             echo
@@ -2173,15 +2117,11 @@ geo_ar() {
                 log::info "  Name: MyGeotab IAP (or whatever you want)"
                 log::info "  Connection tab"
                 log::info "    Host: localhost"
-                log::info "    Port: 5433"
+                log::info "    Port: $bind_port"
                 log::info "    Maintenance database: postgres"
                 log::info "    Username: $user"
                 log::info "    Password: the one you got from MyAdmin when you created the Access Request"              
 
-                # log::info "    Host: localhost"
-                # log::info "    Port: 5433"
-                # log::info "    username: $user"
-                # log::info "    Password: <the password you got from MyAdmin when you created the Access Request>"
                 log::hint "\nYou can also open another terminal and start an ssh session with ther server using $(txt_underline geo ar ssh)"
                 cmd="$bind_cmd"
             fi
@@ -2223,6 +2163,7 @@ geo_ar() {
     esac
 }
 
+# Create a lock file so that the UI can see how many open IAP tunnels there are.
 run_command_with_lock_file() {
     local lock_file="$1"
     local lock_file_content="$2"
@@ -2232,6 +2173,7 @@ run_command_with_lock_file() {
     trap '' EXIT
     (
         cleanup() {
+            # Unlock file descriptor.
             flock -u "$FD"
             [[ -f $lock_file ]] && { rm "$lock_file" || log::Error "Failed to remove lock file"; }
             # log::warn "run_command_with_lock_file: cleaned up successfully after interrupt"
@@ -2325,36 +2267,6 @@ _geo_ar_get_cmd_count() {
     local count=$(echo $cmds | awk -F '@' '{ print NF }')
     echo $count
 }
-
-# pa() {
-#     echo "$@"
-#     # while getopts "p:u:" options ; do
-#     #     echo "$optname + $options + $OPTARG + $1"
-#     #     case "${options}" in
-#     #         p) echo "p: $OPTARG" ;;
-#     #         u) echo "u: $OPTARG" ;;
-#     #         # \?)
-#     #         #     log::Error "Invalid option: -$OPTARG"
-#     #         #     return 1
-#     #         #     ;;
-#     #         :) # If expected argument omitted:
-#     #             echo "Error: -${OPTARG} requires an argument."
-#     #             ;;
-#     #         *) log::warn "Unknown argument " ;;
-#     #     esac
-#     # done
-# while getopts ":pu" opt; do
-#   case ${opt} in
-#     u ) echo "process option h"
-#       ;;
-#     p ) echo  "process option t"
-#       ;;
-#     \? ) echo "Usage: cmd [-h] [-t]"
-#       ;;
-#   esac
-# done
-# }
-#  pa -p 234 -u dawson
 
 #######################################################################################################################
 COMMANDS+=('stop')
