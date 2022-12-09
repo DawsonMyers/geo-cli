@@ -292,6 +292,7 @@ def main():
     retry_count = 0
     retry = True
     delay = 5
+    # Gtk.init()
     while retry and retry_count < 20:
         try:
             indicator = IndicatorApp()
