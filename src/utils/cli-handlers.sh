@@ -4650,7 +4650,7 @@ geo_myg_doc() {
         doc_cmd_sub_cmd 'build'
             doc_cmd_sub_cmd_desc "Builds MyGeotab.Core."
         doc_cmd_sub_cmd 'clean'
-            doc_cmd_sub_cmd_desc "Runs $(txt_underline git clean -Xfd) if the Development repo."
+            doc_cmd_sub_cmd_desc "Runs $(txt_underline git clean -Xfd) in the Development repo."
         doc_cmd_sub_cmd 'stop'
             doc_cmd_sub_cmd_desc "Stops the running CheckmateServer (MyGeotab) instance."
         doc_cmd_sub_cmd 'restart'
@@ -4690,7 +4690,6 @@ geo_myg() {
             ;;
         stop )
             ! _geo_myg_is_running && log::Error "MyGeotab is not running" && return 1
-            local myg_running_lock_file="$HOME/.geo-cli/tmp/myg/myg-running.lock"
             kill $(pgrep CheckmateServer) || log::Error "Failed to stop MyGeotab" && return 1
             log::success "Done"
             ;;
@@ -4777,8 +4776,6 @@ geo_myg() {
             _geo_myg_api_runner
             ;;
         gw )
-            # cd "$GEO_CLI_SRC_DIR/utils"
-            # bash myg-with-gateway.sh
             _geo_run_myg_gw
             ;;
         * )
@@ -4903,8 +4900,8 @@ _geo_myg_api_runner() {
 
 _geo_myg_is_running() {
     local myg_running_lock_file="$HOME/.geo-cli/tmp/myg/myg-running.lock"
-    # Open a file descriptor on the lock file.
     [[ ! -f $myg_running_lock_file ]] && return 1
+    # Open a file descriptor on the lock file.
     exec {lock_fd}<> "$myg_running_lock_file"
 
     ! flock -w 0 $lock_fd || { eval "exec $lock_fd>&-";  return 1; }
@@ -4965,7 +4962,7 @@ geo_gw_doc() {
         doc_cmd_sub_cmd 'build'
             doc_cmd_sub_cmd_desc "Builds MyGeotab.Core: Gateway.Debug.Core"
         doc_cmd_sub_cmd 'clean'
-            doc_cmd_sub_cmd_desc "Runs $(txt_underline git clean -Xfd) if the Development repo."
+            doc_cmd_sub_cmd_desc "Runs $(txt_underline git clean -Xfd) in the Development repo."
         doc_cmd_sub_cmd 'stop'
             doc_cmd_sub_cmd_desc "Stops the running CheckmateServer (Gateway) instance."
         doc_cmd_sub_cmd 'restart'
@@ -5005,7 +5002,6 @@ geo_gw() {
             ;;
         stop )
             ! _geo_gw_is_running && log::Error "Gateway is not running" && return 1
-            local gw_running_lock_file="$HOME/.geo-cli/tmp/gw/gw-running.lock"
             kill $(pgrep CheckmateServer) || log::Error "Failed to stop Gateway" && return 1
             log::success "Done"
             ;;
@@ -5036,14 +5032,6 @@ geo_gw() {
             local checkmate_pid=$(pgrep CheckmateServer)
             [[ -z $checkmate_pid ]] && return 1;
             echo -n $checkmate_pid
-            ;;
-        stop )
-            local checkmate_pid=$(pgrep CheckmateServer)
-            [[ -z $checkmate_pid ]] && log::Error "CheckmateServer isn't running." && return 1;
-            
-            kill $checkmate_pid \
-                 && log::success "CheckmateServer stopped" \
-                 || log::Error "Failed to stop CheckmateServer"
             ;;
         clean )
             (
@@ -5097,8 +5085,8 @@ geo_gw() {
 
 _geo_gw_is_running() {
     local gw_running_lock_file="$HOME/.geo-cli/tmp/gw/gw-running.lock"
-    # Open a file descriptor on the lock file.
     [[ ! -f gw_running_lock_file ]] && return 1
+    # Open a file descriptor on the lock file.
     exec {lock_fd}<> "gw_running_lock_file"
 
     ! flock -w 0 $lock_fd || { eval "exec $lock_fd>&-";  return 1; }
