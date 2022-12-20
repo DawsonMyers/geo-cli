@@ -135,7 +135,7 @@ log::info "$(log::fmt_text_and_indent_after_first_line "$step3" 3 3)"
 echo
 
 echo -n ' ⭐  '
-log::hint -nbu " Like geo-cli? " && log::hint -n " Add a start to the repo:\n"
+log::hint -nbu " Like geo-cli? " && log::hint -n " Add a star to the repo:\n"
 log::code  -n '      * '
 log::link ' https://git.geotab.com/dawsonmyers/geo-cli'
 # log::hint -fn "Join the geo-cli Chat Space to report bugs, share feature ideas, and stay informed about new features:"
