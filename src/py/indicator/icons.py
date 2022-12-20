@@ -118,7 +118,7 @@ class IconManager:
                 return icons.update_myg
             if self.gateway_running:
                 return icons.update_gw
-            return icons.normal
+            return icons.update
         if self.myg_running and self.gateway_running:
             return icons.myg_gw
         if self.myg_running:
