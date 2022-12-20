@@ -11,11 +11,17 @@
     <!-- Green lower LEFT corner.  Shows that an instance of MyGeotab is running. -->
 <!--    <circle cx="4.5" cy="27.5" r="4.5" fill="#1990FA"/>-->
     <!-- Green lower LEFT corner.  Shows that an instance of MyGeotab is running. -->
-    <circle cx="4.5" cy="29.5" r="3" fill="#1abc9c"/>
+    <!-- <circle cx="4.5" cy="29.5" r="3" fill="#1abc9c"/> -->
     <!-- Green lower LEFT corner.  Shows that an instance of MyGeotab is running. -->
 <!--    <circle cx="4.5" cy="29.5" r="2" fill="#1abc9c"/>-->
     <!--    Blue middle. Shows that the Gateway is running. -->
-    <circle cx="16" cy="29.5" r="3" fill="#1990FA"/>
+    <!-- <circle cx="16" cy="29.5" r="3" fill="#1990FA"/> -->
+
+    <!-- Green lower LEFT corner.  Shows that an instance of MyGeotab is running. -->
+    <circle cx="4.5" cy="27.5" r="4.5" fill="#1abc9c"/>
+    <!-- Blue lower RIGHT corner. Shows that the Gateway is running.-->
+    <circle cx="28" cy="28" r="4" fill="#1990FA"/>
+
     <!-- Yellow lower LEFT corner. Shows that an instance of MyGeotab is running. -->
     <!-- <circle cx="5" cy="27" r="5" fill="#ebfb0f"/> -->
 
