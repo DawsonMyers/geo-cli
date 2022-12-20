@@ -93,7 +93,27 @@ geo_image_doc() {
     doc_cmd_example 'geo image create'
 }
 geo_image() {
-    case "$1" in
+    local cmd=$1
+    local pg_version=
+        
+    shift
+    local OPTIND
+    while getopts "v:" opt; do
+        case "${opt}" in
+            v ) [[ $OPTARG =~ ^[[:digit:]]+$ ]] && pg_version=$OPTARG ;;
+            : )
+                log::Error "Option '${opt}' expects an argument."
+                return 1
+                ;;
+            \? )
+                log::Error "Invalid option: ${opt}"
+                return 1
+                ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+
+    case "$cmd" in
     rm | remove)
         docker image rm "$IMAGE"
         # if [[ -z $2 ]]; then
@@ -108,9 +128,20 @@ geo_image() {
         local dir=$(geo_get DEV_REPO_DIR)
         dir="${dir}/Checkmate/Docker/postgres"
         local dockerfile="Debug.Dockerfile"
+        
         (
             cd "$dir"
-            docker build --file "$dockerfile" -t "$IMAGE" . && log::success 'geo-cli Postgres image created' || log::warn 'Failed to create geo-cli Postgres image'
+            if [[ -z $pg_version ]]; then
+                docker build --file "$dockerfile" -t "$IMAGE" . && log::success 'geo-cli Postgres image created' || log::warn 'Failed to create geo-cli Postgres image'
+            else
+                log::status "Creating geo-cli Postgres $pg_version image"
+                local dockerfile_contents=$(sed -e "s/ENV POSTGRES_VERSION ../ENV POSTGRES_VERSION $pg_version/g" $dockerfile)
+                local tmp_dockerfile="$dockerfile.pg$pg_version"
+                echo "$dockerfile_contents" > $tmp_dockerfile
+                echo
+                docker build -t "${IMAGE}_${pg_version}" -f $tmp_dockerfile .
+                rm $tmp_dockerfile
+            fi
         )
         return
         ;;
@@ -138,6 +169,8 @@ geo_db_doc() {
                 doc_cmd_sub_option_desc 'Create blank Postgres 12 container.'
             doc_cmd_sub_option '-d <database name>'
                 doc_cmd_sub_option_desc 'Sets the name of the db to be created (only used if initializing it as well).'
+            doc_cmd_sub_option '-v <pg version>'
+                doc_cmd_sub_option_desc 'Sets the Postgres version (e.g. 14) to use when creating the container.'
 
     doc_cmd_sub_cmd 'start [option] [name]'
         doc_cmd_sub_cmd_desc 'Starts (creating if necessary) a versioned db container and volume. If no name is provided,
@@ -149,6 +182,8 @@ geo_db_doc() {
             doc_cmd_sub_option_desc 'Skip building MyGeotab when initializing a new db with geotabdemo. This is faster, but you have to make sure the correct version of MyGeotab has already been built'
         doc_cmd_sub_option '-d <database name>'
                 doc_cmd_sub_option_desc 'Sets the name of the db to be created (only used if initializing it as well).'
+            doc_cmd_sub_option '-v <pg version>'
+                doc_cmd_sub_option_desc 'Sets the Postgres version (e.g. 14) to use when creating the container.'
 
     doc_cmd_sub_cmd 'cp <source_db> <destination_db>'
         doc_cmd_sub_cmd_desc 'Makes a copy of an existing database container.'
@@ -357,13 +392,14 @@ _geo_db_create() {
     local no_prompt=
     local empty_db=false
     local db_name=
+    local pg_version=
     local suppress_info=false
     local dont_prompt_for_db_name_confirmation=false
 
     # local build=false
     local OPTIND
 
-    while getopts "sSyenbd:x" opt; do
+    while getopts "sSyenbd:xv:" opt; do
         case "${opt}" in
             s ) silent=true ;;
             S ) suppress_info=true ;;
@@ -372,6 +408,7 @@ _geo_db_create() {
             e ) empty_db=true && log::status -b 'Creating empty Postgres container';;
             d ) db_name="$OPTARG" ;;
             x ) dont_prompt_for_db_name_confirmation=true ;;
+            v ) pg_version="$OPTARG" ;;
             # b ) build=true ;;
             : )
                 log::Error "Option '${opt}' expects an argument."
@@ -428,6 +465,18 @@ _geo_db_create() {
     if [[ -z $accept_defaults && -z $no_prompt ]] && ! $dont_prompt_for_db_name_confirmation; then
         prompt_continue "Create db container with name $(log::txt_underline ${db_version})? (Y|n): " || return
     fi
+
+    local image_name=$IMAGE
+    if [[ -n $pg_version ]]; then
+        image_name="${IMAGE}_${pg_version}"
+        # Create custom image if it doesn't exist.
+        ! docker image ls | grep "${IMAGE}_${pg_version}" > /dev/null \
+            && geo_image create -v $pg_version
+    fi
+    
+    local using_custom_pg_version=$pg_version
+    pg_version=${pg_version:-12}
+
     log::status -b "Creating volume:"
     log::status "  NAME: $container_name"
     docker volume create "$container_name" >/dev/null &&
@@ -436,20 +485,21 @@ _geo_db_create() {
     log::status -b "Creating container:"
     log::status "  NAME: $container_name"
     # docker run -v $container_name:/var/lib/postgresql/11/main -p 5432:5432 --name=$container_name -d $IMAGE > /dev/null && log::success OK
-    local vol_mount="$container_name:/var/lib/postgresql/12/main"
+    local vol_mount="$container_name:/var/lib/postgresql/$pg_version/main"
     local port=5432:5432
-    local image_name=$IMAGE
+    
     local sql_user=postgres
     local sql_password='!@)(vircom44'
     local hostname=$container_name
 
     if [[ $empty_db == true ]]; then
+        # [[ -z $using_custom_pg_version ]] &&image_name=geo_cli_postgres
         image_name=geo_cli_postgres
         dockerfile="
-            FROM postgres:12
+            FROM postgres:$pg_version
             ENV POSTGRES_USER postgres
             ENV POSTGRES_PASSWORD password
-            RUN mkdir -p /var/lib/postgresql/12/main
+            RUN mkdir -p /var/lib/postgresql/$pg_version/main
         "
         sql_password=password
         docker build -t $image_name - <<< "$dockerfile"
@@ -527,9 +577,10 @@ _geo_db_start() {
     local prompt_for_db=
     local db_version=
     local db_name=
+    local pg_version=
     local OPTIND
 
-    while getopts "ynbphd:" opt; do
+    while getopts "ynbphd:v:" opt; do
         case "${opt}" in
             y ) accept_defaults=true ;;
             n ) no_prompt=true ;;
@@ -537,6 +588,7 @@ _geo_db_start() {
             p ) prompt_for_db=true ;;
             h ) geo_db_doc && return ;;
             d ) db_name="$OPTARG" ;;
+            v ) pg_version="$OPTARG" ;;
             : )
                 log::Error "Option '${opt}' expects an argument."
                 return 1
@@ -604,6 +656,13 @@ _geo_db_start() {
             return 1
         fi
         geo image create
+    fi
+
+    if [[ -n $pg_version ]]; then
+        image_name="${IMAGE}_${pg_version}"
+        # Create custom image if it doesn't exist.
+        ! docker image ls | grep "${IMAGE}_${pg_version}" > /dev/null \
+            && geo_image create -v $pg_version
     fi
 
     geo_set LAST_DB_VERSION "$db_version"
@@ -709,6 +768,7 @@ _geo_db_start() {
         local opts=-sx
         [[ $accept_defaults == true ]] && opts+=y
         [[ $no_prompt == true ]] && opts+=n
+        [[ -n $pg_version ]] && opts+=" -v $pg_version"
 
         # log::debug "db_version: $db_version"
 
