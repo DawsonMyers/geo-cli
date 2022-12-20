@@ -4885,7 +4885,7 @@ _geo_run_myg_gw(){
     fi
     
     # Start GW
-    gnome-terminal -e "bash -c '$GEO_CLI_SRC_DIR/geo-cli.sh gw start; sleep 3'"
+    gnome-terminal --title="Gateway [ geo-cli ]" -e "bash -c '$GEO_CLI_SRC_DIR/geo-cli.sh gw start; sleep 3'"
     
     # Start MYG
     geo_myg start

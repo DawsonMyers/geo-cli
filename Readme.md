@@ -30,6 +30,8 @@ A tool that makes MyGeotab development easier. Specifically, this tool aims to s
       - [Setting up a GitLab Access Token](#setting-up-a-gitlab-access-token)
     - [Quarantining Tests](#quarantining-tests)
     - [Converting MyDecoder JSON Device Data to MyGeotab Log File](#converting-mydecoder-json-device-data-to-mygeotab-log-file)
+    - [Running standalone Gateway](#running-standalone-gateway)
+    - [Running MyG with Gateway](#running-myg-with-gateway)
 - [Add git Hook](#add-git-hook)
 - [`geo-ui` (NEW)](#geo-ui-new)
   - [Databases](#databases)
@@ -366,12 +368,16 @@ You can also convert a JSON file by right clicking on it and selecting the `Scri
 ### Running standalone Gateway
 Run the `geo gw` command with desired options to `build`, `start`, `stop`, `restart` or `clean` a standalone Gateway. These options can also be accessed in the UI menu under `Gateway`. 
 
+> Note: The `geo-ui` icon will contain a blue dot when the Gateway is running and/or a green dot when MyGeotab is running.
+
 ![geo ui](res/ui/geo-ui-standalone-gw.png)
 
 ### Running MyG with Gateway
-Run the `geo myg gw` command to run MyG along with Gateway. This will create an empty database with the provided \<databaseName> and insert a device to the vehicle table, update the server.config and storeforward.config with required changes and copy certs. 
+Run the `geo myg gw` command to run MyG along with Gateway. This will create an empty database with the provided \<databaseName>, insert a device into the vehicle table, update the server.config and storeforward.config with required changes, and copy certs (may require sudo login). 
 
 Similarly, you can also access the `Run with Gateway` option under `MyGeotab` in the UI menu. 
+
+> You can restart a MyGeotab and Gateway configuration at a later date by clicking on the `MyGeotab > Run with Gateway` menu item and then typing in the same company name and database container name when prompted.
 
 ![geo ui](res/ui/geo-ui-myg-with-gw.png)
 
@@ -379,10 +385,10 @@ Once you have MyG and GW running, send a multilog message to the device using [d
 ```
 python3 deviceConnectAndListen_2.py activate
 ```
-To verify the connection, open https://127.0.0.1:10001/\<databaseName>, and go to Engine & Maintenance > Engine & Device > Measurements, apply filter for the current date and you should see 1 command listed. 
+To verify the connection, open https://127.0.0.1:10001/\<databaseName> via the `MyGeotab > Open In Browser` `geo-ui` menu item. Then, navigate to `Engine & Maintenance > Engine & Device > Measurements` in the web UI and apply a filter for the current date. You should now see one command listed as shown in the image below: 
 ![geo ui](res/ui/engine-measurements.png)
 
-> Note: If no command is listed, you might also want to check if using port 443 is enforced and update to allow using port other than 443. 
+> Note: If no command is listed, you might also want to check if using port 443 is enforced and update to allow using a port other than 443. 
 
 # Add git Hook
 Run the `geo init git-hook` command to add the prepare-commit-msg git hook that prepends the MYG issue number to each commit you make. It parses the issue number from the branch name.
