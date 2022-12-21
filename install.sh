@@ -134,9 +134,17 @@ log::info "$(log::fmt_text_and_indent_after_first_line "$step2" 3 3)"
 log::info "$(log::fmt_text_and_indent_after_first_line "$step3" 3 3)"
 echo
 
+echo -n ' ⭐  '
+log::hint -nbu " Like geo-cli? " && log::hint -n " Add a start to the repo:\n"
+log::code  -n '      * '
+log::link ' https://git.geotab.com/dawsonmyers/geo-cli'
 # log::hint -fn "Join the geo-cli Chat Space to report bugs, share feature ideas, and stay informed about new features:"
-echo -n '✨ '
-log::hint -nbu " Join the geo-cli Chat Space " && log::hint -n " to report bugs, share feature ideas, and stay informed about new features: "
+# echo -n ' ✨ '
+echo
+echo -n ' 💬  '
+log::hint -nbu " Join the geo-cli Chat Space " && log::hint " to report bugs, share feature ideas, and stay"
+log::hint "     informed about new features:"
+log::code  -n '      * '
 log::link ' https://chat.google.com/room/AAAAo9gDWgg?cls=7'
 
 python3 -m pip install setproctitle &> /dev/null
