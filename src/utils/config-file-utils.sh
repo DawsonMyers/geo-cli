@@ -26,7 +26,7 @@ cfg_write() { # path, key, value
 cfg_read() { # path, key -> value
     local file="$1"
     local key=$(echo "$2" | cfg_key_lookup_escape)
-    test -f "$file" && grep "^$key=" "$file" | sed "s/^$key=//" | tail -1 | cfg_value_unescape
+    test -f "$file" && grep -a "^$key=" "$file" | sed "s/^$key=//" | tail -1 | cfg_value_unescape
 }
 
 cfg_delete() { # path, key
@@ -38,5 +38,5 @@ cfg_delete() { # path, key
 cfg_haskey() { # path, key
     local file="$1"
     local key=$(echo "$2" | cfg_key_lookup_escape)
-    test -f "$file" && grep "^$key=" "$file" >/dev/null
+    test -f "$file" && grep -a "^$key=" "$file" >/dev/null
 }
