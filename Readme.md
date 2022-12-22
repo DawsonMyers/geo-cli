@@ -363,6 +363,27 @@ You can also convert a JSON file by right clicking on it and selecting the `Scri
 
 > Note: This feature is only available for MYG 9.0 and above, so you must have a compatible version of MYG checked out for it to work.
 
+### Running standalone Gateway
+Run the `geo gw` command with desired options to `build`, `start`, `stop`, `restart` or `clean` a standalone Gateway. These options can also be accessed in the UI menu under `Gateway`. 
+
+![geo ui](res/ui/geo-ui-standalone-gw.png)
+
+### Running MyG with Gateway
+Run the `geo myg gw` command to run MyG along with Gateway. This will create an empty database with the provided \<databaseName> and insert a device to the vehicle table, update the server.config and storeforward.config with required changes and copy certs. 
+
+Similarly, you can also access the `Run with Gateway` option under `MyGeotab` in the UI menu. 
+
+![geo ui](res/ui/geo-ui-myg-with-gw.png)
+
+Once you have MyG and GW running, send a multilog message to the device using [deviceConnectAndListen_2.py](https://git.geotab.com/foxteam/utilities/-/blob/develop/hardware/deviceConnectAndListen_2.py): 
+```
+python3 deviceConnectAndListen_2.py activate
+```
+To verify the connection, open https://127.0.0.1:10001/\<databaseName>, and go to Engine & Maintenance > Engine & Device > Measurements, apply filter for the current date and you should see 1 command listed. 
+![geo ui](res/ui/engine-measurements.png)
+
+Note: If no command is listed, you might also want to check if using port 443 is enforced and update to allow using port other than 443. 
+
 # Add git Hook
 Run the `geo init git-hook` command to add the prepare-commit-msg git hook that prepends the MYG issue number to each commit you make. It parses the issue number from the branch name.
 ![git-hook](res/geo-init-git-hook.png)

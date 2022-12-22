@@ -4719,7 +4719,7 @@ geo_myg() {
         is-running )
             local checkmate_pid=$(pgrep CheckmateServer)
             [[ -z $checkmate_pid ]] && return 1;
-            echo -n $checkmate_pid
+            _geo_myg_is_running && echo -n $checkmate_pid
             ;;
         stop )
             local checkmate_pid=$(pgrep CheckmateServer)
@@ -5026,12 +5026,14 @@ geo_gw() {
             log::success "Done"
             ;;
         start )
+            # Create a empty database with container
+            geo_db start -d $db_name -p
             _geo_gw_start
             ;;
         is-running )
             local checkmate_pid=$(pgrep CheckmateServer)
             [[ -z $checkmate_pid ]] && return 1;
-            echo -n $checkmate_pid
+            _geo_gw_is_running && echo -n $checkmate_pid
             ;;
         clean )
             (
