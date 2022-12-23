@@ -382,7 +382,7 @@ python3 deviceConnectAndListen_2.py activate
 To verify the connection, open https://127.0.0.1:10001/\<databaseName>, and go to Engine & Maintenance > Engine & Device > Measurements, apply filter for the current date and you should see 1 command listed. 
 ![geo ui](res/ui/engine-measurements.png)
 
-Note: If no command is listed, you might also want to check if using port 443 is enforced and update to allow using port other than 443. 
+> Note: If no command is listed, you might also want to check if using port 443 is enforced and update to allow using port other than 443. 
 
 # Add git Hook
 Run the `geo init git-hook` command to add the prepare-commit-msg git hook that prepends the MYG issue number to each commit you make. It parses the issue number from the branch name.

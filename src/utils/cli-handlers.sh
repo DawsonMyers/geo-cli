@@ -4690,12 +4690,12 @@ geo_myg() {
             ;;
         stop )
             ! _geo_myg_is_running && log::Error "MyGeotab is not running" && return 1
-            kill $(pgrep CheckmateServer) || log::Error "Failed to stop MyGeotab" && return 1
+            kill $(_get_myg_pid) || log::Error "Failed to stop MyGeotab" && return 1
             log::success "Done"
             ;;
         restart )
             ! _geo_myg_is_running && log::Error "MyGeotab is not running" && return 1
-            local checkmate_pid=$(pgrep CheckmateServer)
+            local checkmate_pid=$(_get_myg_pid)
             # log::debug "Checkmate server PID: $checkmate_pid"
             kill $checkmate_pid  || { log::Error "Failed to restart MyGeotab"; return 1; }
             
@@ -4717,9 +4717,8 @@ geo_myg() {
             _geo_myg_start
             ;;
         is-running )
-            local checkmate_pid=$(pgrep CheckmateServer)
-            [[ -z $checkmate_pid ]] && return 1;
-            _geo_myg_is_running && echo -n $checkmate_pid
+            _get_myg_pid || echo "MyG is not running" && return 1
+            echo -n $(_get_myg_pid)
             ;;
         stop )
             local checkmate_pid=$(pgrep CheckmateServer)
@@ -4785,6 +4784,14 @@ geo_myg() {
     esac
 }
 
+_get_myg_pid() {
+    # local myg_pid=$(ps -fp $(pgrep CheckmateServer)|grep 'CheckmateServer login'|awk -F ' ' '{print $2}')
+    # [[ -z $myg_pid ]] && return 1;
+    # echo $myg_pid
+    set -o pipefail
+    ps -fp $(pgrep CheckmateServer)|grep 'CheckmateServer login'|awk -F ' ' '{print $2}'
+}
+
 _geo_run_myg_gw(){
     local db_name=""
     local is_valid_db_name=true
@@ -4816,7 +4823,7 @@ _geo_run_myg_gw(){
     done
     
     # Create a empty database with container
-    geo_db start -d $db_name -p
+    geo_db start -d $db_name -py
     
     # Only insert if db does not exist
     geo_db psql -d $db_name -q "INSERT INTO public.vehicle (iid, sserialno, ihardwareid, sdescription, iproductid, svin, slicenseplate, slicensestate, scomments, isecstodownload, dtignoredownload, iworktimesheaderid, stimezoneid, sparameters, ienginetypeid, irowversion, senginevin, dtactivefrom, dtactiveto) VALUES (1, 'GV0100000001', 1, 'DeviceSimulator', 81, '', '', '', '', 86400, '1986-01-01 00:00:00', 1, 'America/New_York', '{\\\"major\\\": 14, \\\"minor\\\": 20, \\\"autoHos\\\": \\\"AUTO\\\", \\\"channel\\\": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], \\\"version\\\": \\\"0000000000000004\\\", \\\"activeTo\\\": \\\"2050-01-01T00:00:00.000Z\\\", \\\"rpmValue\\\": 3500, \\\"pinDevice\\\": true, \\\"activeFrom\\\": \\\"2020-12-03T19:38:13.727Z\\\", \\\"speedingOn\\\": 100.0, \\\"gpsOffDelay\\\": 0, \\\"idleMinutes\\\": 3, \\\"speedingOff\\\": 90.0, \\\"channelCount\\\": 1, \\\"licensePlate\\\": \\\"\\\", \\\"licenseState\\\": \\\"\\\", \\\"disableBuzzer\\\": false, \\\"isAuxInverted\\\": [false, false, false, false, false, false, false, false], \\\"ensureHotStart\\\": false, \\\"goTalkLanguage\\\": \\\"English\\\", \\\"immobilizeUnit\\\": false, \\\"odometerFactor\\\": 1.0, \\\"odometerOffset\\\": 0.0, \\\"auxWarningSpeed\\\": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], \\\"enableBeepOnRpm\\\": false, \\\"frequencyOffset\\\": 1, \\\"isAuxIgnTrigger\\\": [false, false, false, false], \\\"customParameters\\\": [], \\\"enableAuxWarning\\\": [false, false, false, false, false, false, false, false], \\\"enableBeepOnIdle\\\": false, \\\"engineHourOffset\\\": 0, \\\"fuelTankCapacity\\\": 0.0, \\\"immobilizeArming\\\": 30, \\\"isSpeedIndicator\\\": false, \\\"minAccidentSpeed\\\": 4.0, \\\"parameterVersion\\\": 1, \\\"isAidedGpsEnabled\\\": false, \\\"isReverseDetectOn\\\": false, \\\"enableSpeedWarning\\\": false, \\\"rfParameterVersion\\\": 0, \\\"disableSleeperBerth\\\": false, \\\"enableMustReprogram\\\": false, \\\"seatbeltWarningSpeed\\\": 10.0, \\\"maxSecondsBetweenLogs\\\": 200.0, \\\"isIoxConnectionEnabled\\\": true, \\\"isRfUploadOnWhenMoving\\\": false, \\\"brakingWarningThreshold\\\": -34, \\\"isActiveTrackingEnabled\\\": false, \\\"parameterVersionOnDevice\\\": 0, \\\"corneringWarningThreshold\\\": 26, \\\"isDriverSeatbeltWarningOn\\\": false, \\\"enableControlExternalRelay\\\": false, \\\"externalDeviceShutDownDelay\\\": 0, \\\"accelerationWarningThreshold\\\": 24, \\\"enableBeepOnDangerousDriving\\\": false, \\\"isPassengerSeatbeltWarningOn\\\": false, \\\"accelerometerThresholdWarningFactor\\\": 0, \\\"isExternalDevicePowerControlSupported\\\": true}', 9999, 5, '?', '2020-12-03T19:38:13.727Z', '2050-01-01T00:00:00.000Z')"
@@ -5001,12 +5008,12 @@ geo_gw() {
             ;;
         stop )
             ! _geo_gw_is_running && log::Error "Gateway is not running" && return 1
-            kill $(pgrep CheckmateServer) || log::Error "Failed to stop Gateway" && return 1
+            kill $(_get_gw_pid) || log::Error "Failed to stop Gateway" && return 1
             log::success "Done"
             ;;
         restart )
             ! _geo_gw_is_running && log::Error "Gateway is not running" && return 1
-            local checkmate_pid=$(pgrep CheckmateServer)
+            local checkmate_pid=$(_get_gw_pid)
             # log::debug "Checkmate server PID: $checkmate_pid"
             kill $checkmate_pid  || { log::Error "Failed to restart Gateway"; return 1; }
             
@@ -5025,14 +5032,13 @@ geo_gw() {
             log::success "Done"
             ;;
         start )
-            # Create a empty database with container
+            # Create an empty database with container
             geo_db start -d $db_name -p
             _geo_gw_start
             ;;
         is-running )
-            local checkmate_pid=$(pgrep CheckmateServer)
-            [[ -z $checkmate_pid ]] && return 1;
-            _geo_gw_is_running && echo -n $checkmate_pid
+            _get_gw_pid || echo "MyG is not running" && return 1
+            echo -n $(_get_gw_pid)
             ;;
         clean )
             (
@@ -5082,6 +5088,11 @@ geo_gw() {
             return 1
             ;;
     esac
+}
+
+_get_gw_pid() {
+    set -o pipefail
+    ps -fp $(pgrep CheckmateServer)|grep 'CheckmateServer StoreForwardDebug'|awk -F ' ' '{print $2}'
 }
 
 _geo_gw_is_running() {
