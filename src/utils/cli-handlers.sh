@@ -5037,7 +5037,7 @@ geo_gw() {
             _geo_gw_start
             ;;
         is-running )
-            _get_gw_pid || echo "MyG is not running" && return 1
+            #_get_gw_pid || echo "Gateway is not running" && return 1
             echo -n $(_get_gw_pid)
             ;;
         clean )
