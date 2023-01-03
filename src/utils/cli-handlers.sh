@@ -4717,8 +4717,9 @@ geo_myg() {
             _geo_myg_start
             ;;
         is-running )
-            _get_myg_pid || echo "MyG is not running" && return 1
-            echo -n $(_get_myg_pid)
+            [[ -z $(_get_myg_pid) ]] && return 1
+            # _get_myg_pid || log::Error "MyG is not running" && return 1
+            log::success $(_get_myg_pid)
             ;;
         stop )
             local checkmate_pid=$(pgrep CheckmateServer)
@@ -5037,8 +5038,8 @@ geo_gw() {
             _geo_gw_start
             ;;
         is-running )
-            #_get_gw_pid || echo "Gateway is not running" && return 1
-            echo -n $(_get_gw_pid)
+            [[ -z $(_get_gw_pid) ]] && return 1
+            log::success $(_get_gw_pid)
             ;;
         clean )
             (
