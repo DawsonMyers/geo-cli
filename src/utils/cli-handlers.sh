@@ -4717,17 +4717,8 @@ geo_myg() {
             _geo_myg_start
             ;;
         is-running )
-            [[ -z $(_get_myg_pid) ]] && return 1
-            # _get_myg_pid || log::Error "MyG is not running" && return 1
+            [[ -z $(_get_myg_pid) ]] && log::Error "MyG is not running" && return 1
             log::success $(_get_myg_pid)
-            ;;
-        stop )
-            local checkmate_pid=$(pgrep CheckmateServer)
-            [[ -z $checkmate_pid ]] && log::Error "CheckmateServer isn't running." && return 1;
-            
-            kill $checkmate_pid \
-                 && log::success "CheckmateServer stopped" \
-                 || log::Error "Failed to stop CheckmateServer"
             ;;
         clean )
             (
@@ -5038,7 +5029,7 @@ geo_gw() {
             _geo_gw_start
             ;;
         is-running )
-            [[ -z $(_get_gw_pid) ]] && return 1
+            [[ -z $(_get_gw_pid) ]] && log::Error "GW is not running" && return 1
             log::success $(_get_gw_pid)
             ;;
         clean )
