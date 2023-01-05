@@ -4693,9 +4693,8 @@ geo_myg() {
             ;;
         stop-myg-gw )
             ! _geo_myg_is_running_with_gw && log::Error "MyGeotab is not running with Gateway" && return 1
-            _geo_gw_is_running && kill $(_get_gw_pid) || { log::Error "Failed to stop Gateway"; return 1; }
-            _geo_myg_is_running && kill $(_get_myg_pid) ||  { log::Error "Failed to stop MyGeotab"; return 1; }
-            # _geo_gw_stop || log::Error "Failed to stop Gateway" && return 1
+            _geo_gw_stop
+            _geo_myg_stop
             log::success "Done"
             ;;
         restart )
@@ -4789,7 +4788,7 @@ geo_myg() {
 _geo_myg_stop() {
     ! _geo_myg_is_running && log::Error "MyGeotab is not running" && return 1
     kill $(_get_myg_pid) || { log::Error "Failed to stop MyGeotab"; return 1; }
-    log::success "Done"
+    log::success "MyG stopped"
 }
 
 _get_myg_pid() {
@@ -4805,7 +4804,6 @@ _geo_run_myg_gw(){
 
     # Open a file descriptor on the lock file and store the FD number in myg_gw_lock_fd.
     exec {myg_gw_lock_fd}<> $myg_gw_running_lock_file
-    echo "File descriptor $myg_gw_lock_fd"
     local wait_time=2
     export lock_file_fd=$lock_file
 
@@ -4892,7 +4890,6 @@ _geo_run_myg_gw(){
     # Start MYG
     geo_myg start
 
-    echo "Unlocking file $myg_gw_lock_fd"
     # Unlock the file.
     flock -u $myg_gw_lock_fd
     # Close the file descriptor.
@@ -5136,7 +5133,7 @@ geo_gw() {
 _geo_gw_stop() {
     ! _geo_gw_is_running && log::Error "Gateway is not running" && return 1
     kill $(_get_gw_pid) || { log::Error "Failed to stop Gateway"; return 1; }
-    log::success "Done"
+    log::success "Gateway stopped"
 }
 
 _get_gw_pid() {
@@ -5146,17 +5143,6 @@ _get_gw_pid() {
 
 _geo_gw_is_running() {
     check_is_running "$HOME/.geo-cli/tmp/gw/gw-running.lock"
-    # local gw_running_lock_file="$HOME/.geo-cli/tmp/gw/gw-running.lock"
-    # [[ ! -f $gw_running_lock_file ]] && return 1
-    # # Open a file descriptor on the lock file.
-    # exec {lock_fd}<> $gw_running_lock_file
-
-    # ! flock -w 0 $lock_fd || { eval "exec $lock_fd>&-";  return 1; }
-    # # Unlock the file.
-    # flock -u $lock_fd
-    # # Close the file descriptor.
-    # eval "exec $lock_fd>&-"
-    # return
 }
 
 _geo_gw_start() {
