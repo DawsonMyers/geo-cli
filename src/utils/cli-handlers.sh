@@ -4693,6 +4693,11 @@ geo_myg() {
             kill $(_get_myg_pid) || log::Error "Failed to stop MyGeotab" && return 1
             log::success "Done"
             ;;
+        stop-myg-gw )
+            ! (_geo_myg_is_running && _geo_gw_is_running) && log::Error "MyGeotab is not running with Gateway" && return 1
+            kill $(_get_myg_pid) && kill $(_get_gw_pid)|| log::Error "Failed to stop MyGeotab and Gateway" && return 1
+            log::success "Done"
+            ;;
         restart )
             ! _geo_myg_is_running && log::Error "MyGeotab is not running" && return 1
             local checkmate_pid=$(_get_myg_pid)
@@ -4777,14 +4782,39 @@ geo_myg() {
 }
 
 _get_myg_pid() {
-    # local myg_pid=$(ps -fp $(pgrep CheckmateServer)|grep 'CheckmateServer login'|awk -F ' ' '{print $2}')
-    # [[ -z $myg_pid ]] && return 1;
-    # echo $myg_pid
     set -o pipefail
     ps -fp $(pgrep CheckmateServer)|grep 'CheckmateServer login'|awk -F ' ' '{print $2}'
 }
 
 _geo_run_myg_gw(){
+    export myg_core_proj="$(_geo_get_mygeotab_csproj_path)"
+    local myg_gw_running_lock_file="$HOME/.geo-cli/tmp/myg/myg-gw-running.lock"
+    mkdir -p "$(dirname $myg_gw_running_lock_file)"
+    [[ ! -f $myg_gw_running_lock_file ]] && touch $myg_gw_running_lock_file
+    local proc_id=
+
+    # Open a file descriptor on the lock file and store the FD number in myg_gw_lock_fd.
+    exec {myg_gw_lock_fd}<> $myg_gw_running_lock_file
+    echo "File descriptor $myg_gw_lock_fd"
+    local wait_time=2
+    export lock_file_fd=$lock_file
+
+    if ! flock -w $wait_time $myg_gw_lock_fd; then
+        log::debug ' Can not get lock on file'
+        eval "exec $myg_gw_lock_fd>&-"
+        return 1
+    fi
+
+    cleanup() {
+        # echo "cleanup"
+        [[ -n $proc_id ]] && kill $proc_id &> /dev/null
+        # Unlock the file.
+        flock -u $myg_gw_lock_fd &> /dev/null
+        # Close the file descriptor.
+        eval "exec $myg_gw_lock_fd>&- &> /dev/null"
+    }
+    trap cleanup INT TERM QUIT EXIT
+    
     local db_name=""
     local is_valid_db_name=true
     
@@ -4852,6 +4882,11 @@ _geo_run_myg_gw(){
     # Start MYG
     geo_myg start
 
+    echo "Unlocking file $myg_gw_lock_fd"
+    # Unlock the file.
+    flock -u $myg_gw_lock_fd
+    # Close the file descriptor.
+    eval "exec $myg_gw_lock_fd>&-"
 }
 
 _geo_myg_api_runner() {
@@ -5089,9 +5124,9 @@ _get_gw_pid() {
 
 _geo_gw_is_running() {
     local gw_running_lock_file="$HOME/.geo-cli/tmp/gw/gw-running.lock"
-    [[ ! -f gw_running_lock_file ]] && return 1
+    [[ ! -f $gw_running_lock_file ]] && return 1
     # Open a file descriptor on the lock file.
-    exec {lock_fd}<> "gw_running_lock_file"
+    exec {lock_fd}<> $gw_running_lock_file
 
     ! flock -w 0 $lock_fd || { eval "exec $lock_fd>&-";  return 1; }
     # Unlock the file.
@@ -5107,17 +5142,17 @@ _geo_gw_start() {
     export myg_core_proj="$(_geo_get_mygeotab_csproj_path)"
     local gw_running_lock_file="$HOME/.geo-cli/tmp/gw/gw-running.lock"
     mkdir -p "$(dirname $gw_running_lock_file)"
-    [[ ! -f gw_running_lock_file ]] && touch "gw_running_lock_file"
+    [[ ! -f $gw_running_lock_file ]] && touch $gw_running_lock_file
     local proc_id=
 
     # Open a file descriptor on the lock file.
-    exec {lock_fd}<> "gw_running_lock_file"
+    exec {gw_lock_fd}<> $gw_running_lock_file
     local wait_time=2
     export lock_file_fd=$lock_file
 
-    if ! flock -w $wait_time $lock_fd; then
+    if ! flock -w $wait_time $gw_lock_fd; then
         log::debug ' Can not get lock on file'
-        eval "exec $lock_fd>&-"
+        eval "exec $gw_lock_fd>&-"
         return 1
     fi
    
@@ -5125,9 +5160,9 @@ _geo_gw_start() {
         # echo "cleanup"
         [[ -n $proc_id ]] && kill $proc_id &> /dev/null
          # Unlock the file.
-        flock -u $lock_fd &> /dev/null
+        flock -u $gw_lock_fd &> /dev/null
         # Close the file descriptor.
-        eval "exec $lock_fd>&- &> /dev/null"
+        eval "exec $gw_lock_fd>&- &> /dev/null"
     }
     trap cleanup INT TERM QUIT EXIT
 
@@ -5135,9 +5170,9 @@ _geo_gw_start() {
     dotnet run -v m --project "${myg_core_proj}" StoreForwardDebug
 
      # Unlock the file.
-    flock -u $lock_fd
+    flock -u $gw_lock_fd
     # Close the file descriptor.
-    eval "exec $lock_fd>&-"
+    eval "exec $gw_lock_fd>&-"
 }
 
 #######################################################################################################################
