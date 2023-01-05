@@ -4689,13 +4689,13 @@ geo_myg() {
             fi
             ;;
         stop )
-            ! _geo_myg_is_running && log::Error "MyGeotab is not running" && return 1
-            kill $(_get_myg_pid) || log::Error "Failed to stop MyGeotab" && return 1
-            log::success "Done"
+            _geo_myg_stop
             ;;
         stop-myg-gw )
-            ! (_geo_myg_is_running && _geo_gw_is_running) && log::Error "MyGeotab is not running with Gateway" && return 1
-            kill $(_get_myg_pid) && kill $(_get_gw_pid)|| log::Error "Failed to stop MyGeotab and Gateway" && return 1
+            ! _geo_myg_is_running_with_gw && log::Error "MyGeotab is not running with Gateway" && return 1
+            _geo_gw_is_running && kill $(_get_gw_pid) || { log::Error "Failed to stop Gateway"; return 1; }
+            _geo_myg_is_running && kill $(_get_myg_pid) ||  { log::Error "Failed to stop MyGeotab"; return 1; }
+            # _geo_gw_stop || log::Error "Failed to stop Gateway" && return 1
             log::success "Done"
             ;;
         restart )
@@ -4724,6 +4724,11 @@ geo_myg() {
         is-running )
             [[ -z $(_get_myg_pid) ]] && log::Error "MyG is not running" && return 1
             log::success $(_get_myg_pid)
+            ;;
+        is-running-with-gw )
+            ! _geo_myg_is_running_with_gw && log::Error "MyG is not running with GW" && return 1
+            log::success "Running MyG: $(_get_myg_pid)"
+            log::success "Running GW: $(_get_gw_pid)"
             ;;
         clean )
             (
@@ -4775,10 +4780,16 @@ geo_myg() {
             _geo_run_myg_gw
             ;;
         * )
-            log::Error "Unknown argument: '$1'"
+            log::Error "Unknown argument: '$cmd'"
             return 1
             ;;
     esac
+}
+
+_geo_myg_stop() {
+    ! _geo_myg_is_running && log::Error "MyGeotab is not running" && return 1
+    kill $(_get_myg_pid) || { log::Error "Failed to stop MyGeotab"; return 1; }
+    log::success "Done"
 }
 
 _get_myg_pid() {
@@ -4787,7 +4798,6 @@ _get_myg_pid() {
 }
 
 _geo_run_myg_gw(){
-    export myg_core_proj="$(_geo_get_mygeotab_csproj_path)"
     local myg_gw_running_lock_file="$HOME/.geo-cli/tmp/myg/myg-gw-running.lock"
     mkdir -p "$(dirname $myg_gw_running_lock_file)"
     [[ ! -f $myg_gw_running_lock_file ]] && touch $myg_gw_running_lock_file
@@ -4931,11 +4941,11 @@ _geo_myg_api_runner() {
     google-chrome "$url?$params#"
 }
 
-_geo_myg_is_running() {
-    local myg_running_lock_file="$HOME/.geo-cli/tmp/myg/myg-running.lock"
-    [[ ! -f $myg_running_lock_file ]] && return 1
+check_is_running() {
+    local running_lock_file=$1
+    [[ ! -f $running_lock_file ]] && return 1
     # Open a file descriptor on the lock file.
-    exec {lock_fd}<> "$myg_running_lock_file"
+    exec {lock_fd}<> "$running_lock_file"
 
     ! flock -w 0 $lock_fd || { eval "exec $lock_fd>&-";  return 1; }
     # Unlock the file.
@@ -4943,6 +4953,14 @@ _geo_myg_is_running() {
     # Close the file descriptor.
     eval "exec $lock_fd>&-"
     return
+}
+
+_geo_myg_is_running() {
+    check_is_running "$HOME/.geo-cli/tmp/myg/myg-running.lock"
+}
+
+_geo_myg_is_running_with_gw() {
+    check_is_running "$HOME/.geo-cli/tmp/myg/myg-gw-running.lock"
 }
 
 _geo_myg_start() {
@@ -5034,9 +5052,7 @@ geo_gw() {
             fi
             ;;
         stop )
-            ! _geo_gw_is_running && log::Error "Gateway is not running" && return 1
-            kill $(_get_gw_pid) || log::Error "Failed to stop Gateway" && return 1
-            log::success "Done"
+            _geo_gw_stop
             ;;
         restart )
             ! _geo_gw_is_running && log::Error "Gateway is not running" && return 1
@@ -5111,10 +5127,16 @@ geo_gw() {
             )
             ;;
         * )
-            log::Error "Unknown argument: '$1'"
+            log::Error "Unknown argument: '$cmd'"
             return 1
             ;;
     esac
+}
+
+_geo_gw_stop() {
+    ! _geo_gw_is_running && log::Error "Gateway is not running" && return 1
+    kill $(_get_gw_pid) || { log::Error "Failed to stop Gateway"; return 1; }
+    log::success "Done"
 }
 
 _get_gw_pid() {
@@ -5123,17 +5145,18 @@ _get_gw_pid() {
 }
 
 _geo_gw_is_running() {
-    local gw_running_lock_file="$HOME/.geo-cli/tmp/gw/gw-running.lock"
-    [[ ! -f $gw_running_lock_file ]] && return 1
-    # Open a file descriptor on the lock file.
-    exec {lock_fd}<> $gw_running_lock_file
+    check_is_running "$HOME/.geo-cli/tmp/gw/gw-running.lock"
+    # local gw_running_lock_file="$HOME/.geo-cli/tmp/gw/gw-running.lock"
+    # [[ ! -f $gw_running_lock_file ]] && return 1
+    # # Open a file descriptor on the lock file.
+    # exec {lock_fd}<> $gw_running_lock_file
 
-    ! flock -w 0 $lock_fd || { eval "exec $lock_fd>&-";  return 1; }
-    # Unlock the file.
-    flock -u $lock_fd
-    # Close the file descriptor.
-    eval "exec $lock_fd>&-"
-    return
+    # ! flock -w 0 $lock_fd || { eval "exec $lock_fd>&-";  return 1; }
+    # # Unlock the file.
+    # flock -u $lock_fd
+    # # Close the file descriptor.
+    # eval "exec $lock_fd>&-"
+    # return
 }
 
 _geo_gw_start() {
