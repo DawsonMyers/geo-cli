@@ -982,10 +982,10 @@ _geo_db_psql() {
         #     "\"psql -U $sql_user -h localhost -p 5432 -d $db_name '$psql_options $query'\""
         # )
         # log::debug "${args[@]}"
-        log::debug "docker exec $docker_options -e PGPASSWORD=$sql_password $running_container_id /bin/bash -c \"psql -U geotabuser -h localhost -p 5432 -d geotabdemo \"$psql_options $query\""
+        log::debug "docker exec $docker_options -e PGPASSWORD=$sql_password $running_container_id /bin/bash -c \"psql -U geotabuser -h localhost -p 5432 -d $db_name \"$psql_options $query\""
         # log::debug "docker exec $docker_options -e PGPASSWORD=$sql_password $running_container_id /bin/bash -c \"psql -U $sql_user -h localhost -p 5432 -d $db_name '$psql_options $query'\""
         # docker exec $docker_options -e PGPASSWORD=$sql_password $running_container_id /bin/bash -c "psql -U $sql_user -h localhost -p 5432 -d $db_name '$psql_options $query'\""
-        docker exec $docker_options -e PGPASSWORD=$sql_password $running_container_id /bin/bash -c "psql -U geotabuser -h localhost -p 5432 -d geotabdemo \"$psql_options $query\""
+        docker exec $docker_options -e PGPASSWORD=$sql_password $running_container_id /bin/bash -c "psql -U geotabuser -h localhost -p 5432 -d $db_name \"$psql_options $query\""
         # docker exec -e PGPASSWORD=vircom43 94563ab3da3e /bin/bash -c "psql -U geotabuser -h localhost -p 5432 -d geotabdemo \"$psql_options $query\""
 
         # eval "docker exec $docker_options -e PGPASSWORD=$sql_password $running_container_id /bin/bash -c \"psql -U $sql_user -h localhost -p 5432 -d $db_name '$psql_options $query'\""
@@ -4650,7 +4650,7 @@ geo_myg_doc() {
         doc_cmd_sub_cmd 'build'
             doc_cmd_sub_cmd_desc "Builds MyGeotab.Core."
         doc_cmd_sub_cmd 'clean'
-            doc_cmd_sub_cmd_desc "Runs $(txt_underline git clean -Xfd) if the Development repo."
+            doc_cmd_sub_cmd_desc "Runs $(txt_underline git clean -Xfd) in the Development repo."
         doc_cmd_sub_cmd 'stop'
             doc_cmd_sub_cmd_desc "Stops the running CheckmateServer (MyGeotab) instance."
         doc_cmd_sub_cmd 'restart'
@@ -4689,14 +4689,17 @@ geo_myg() {
             fi
             ;;
         stop )
-            ! _geo_myg_is_running && log::Error "MyGeotab is not running" && return 1
-            local myg_running_lock_file="$HOME/.geo-cli/tmp/myg/myg-running.lock"
-            kill $(pgrep CheckmateServer) || log::Error "Failed to stop MyGeotab" && return 1
+            _geo_myg_stop
+            ;;
+        stop-myg-gw )
+            ! _geo_myg_is_running_with_gw && log::Error "MyGeotab is not running with Gateway" && return 1
+            _geo_gw_stop
+            _geo_myg_stop
             log::success "Done"
             ;;
         restart )
             ! _geo_myg_is_running && log::Error "MyGeotab is not running" && return 1
-            local checkmate_pid=$(pgrep CheckmateServer)
+            local checkmate_pid=$(_get_myg_pid)
             # log::debug "Checkmate server PID: $checkmate_pid"
             kill $checkmate_pid  || { log::Error "Failed to restart MyGeotab"; return 1; }
             
@@ -4718,17 +4721,13 @@ geo_myg() {
             _geo_myg_start
             ;;
         is-running )
-            local checkmate_pid=$(pgrep CheckmateServer)
-            [[ -z $checkmate_pid ]] && return 1;
-            echo -n $checkmate_pid
+            [[ -z $(_get_myg_pid) ]] && log::Error "MyG is not running" && return 1
+            log::success $(_get_myg_pid)
             ;;
-        stop )
-            local checkmate_pid=$(pgrep CheckmateServer)
-            [[ -z $checkmate_pid ]] && log::Error "CheckmateServer isn't running." && return 1;
-            
-            kill $checkmate_pid \
-                 && log::success "CheckmateServer stopped" \
-                 || log::Error "Failed to stop CheckmateServer"
+        is-running-with-gw )
+            ! _geo_myg_is_running_with_gw && log::Error "MyG is not running with GW" && return 1
+            log::success "Running MyG: $(_get_myg_pid)"
+            log::success "Running GW: $(_get_gw_pid)"
             ;;
         clean )
             (
@@ -4776,11 +4775,125 @@ geo_myg() {
         api | runner | api-runner )
             _geo_myg_api_runner
             ;;
+        gw )
+            _geo_run_myg_gw
+            ;;
         * )
-            log::Error "Unknown argument: '$1'"
+            log::Error "Unknown argument: '$cmd'"
             return 1
             ;;
     esac
+}
+
+_geo_myg_stop() {
+    ! _geo_myg_is_running && log::Error "MyGeotab is not running" && return 1
+    kill $(_get_myg_pid) || { log::Error "Failed to stop MyGeotab"; return 1; }
+    log::success "MyG stopped"
+}
+
+_get_myg_pid() {
+    set -o pipefail
+    ps -fp $(pgrep CheckmateServer)|grep 'CheckmateServer login'|awk -F ' ' '{print $2}'
+}
+
+_geo_run_myg_gw(){
+    local myg_gw_running_lock_file="$HOME/.geo-cli/tmp/myg/myg-gw-running.lock"
+    mkdir -p "$(dirname $myg_gw_running_lock_file)"
+    [[ ! -f $myg_gw_running_lock_file ]] && touch $myg_gw_running_lock_file
+    local proc_id=
+
+    # Open a file descriptor on the lock file and store the FD number in myg_gw_lock_fd.
+    exec {myg_gw_lock_fd}<> $myg_gw_running_lock_file
+    local wait_time=2
+    export lock_file_fd=$lock_file
+
+    if ! flock -w $wait_time $myg_gw_lock_fd; then
+        log::debug ' Can not get lock on file'
+        eval "exec $myg_gw_lock_fd>&-"
+        return 1
+    fi
+
+    cleanup() {
+        # echo "cleanup"
+        [[ -n $proc_id ]] && kill $proc_id &> /dev/null
+        # Unlock the file.
+        flock -u $myg_gw_lock_fd &> /dev/null
+        # Close the file descriptor.
+        eval "exec $myg_gw_lock_fd>&- &> /dev/null"
+    }
+    trap cleanup INT TERM QUIT EXIT
+    
+    local db_name=""
+    local is_valid_db_name=true
+    
+    prompt_for_db_name() {
+        while [[ -z $db_name ]]; do
+            prompt_for_info -v db_name "Enter an alphanumeric name (including .-_) for the new company: "
+            # Parse any options supplied by the user.
+            local options_regex='-([[:alpha:]]+) .*'
+            if [[ $db_name =~ $options_regex ]]; then
+                log::debug "db_name: $db_name"
+            fi
+            db_name=$(_geo_make_alphanumeric "$db_name")
+            if [[ $db_name == "geotabdemo" ]]; then
+                is_valid_db_name=false
+                break
+            else
+                is_valid_db_name=true
+            fi
+        done
+    }
+    
+    # Get the db name from user until it is not geotabdemo
+    prompt_for_db_name
+    while [ $is_valid_db_name == false ]; do
+        log::Error 'Please provide any other name than geotabdemo for database'
+        db_name=""
+        prompt_for_db_name
+    done
+    
+    # Create a empty database with container
+    geo_db start -d $db_name -py
+    
+    # Only insert if db does not exist
+    geo_db psql -d $db_name -q "INSERT INTO public.vehicle (iid, sserialno, ihardwareid, sdescription, iproductid, svin, slicenseplate, slicensestate, scomments, isecstodownload, dtignoredownload, iworktimesheaderid, stimezoneid, sparameters, ienginetypeid, irowversion, senginevin, dtactivefrom, dtactiveto) VALUES (1, 'GV0100000001', 1, 'DeviceSimulator', 81, '', '', '', '', 86400, '1986-01-01 00:00:00', 1, 'America/New_York', '{\\\"major\\\": 14, \\\"minor\\\": 20, \\\"autoHos\\\": \\\"AUTO\\\", \\\"channel\\\": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], \\\"version\\\": \\\"0000000000000004\\\", \\\"activeTo\\\": \\\"2050-01-01T00:00:00.000Z\\\", \\\"rpmValue\\\": 3500, \\\"pinDevice\\\": true, \\\"activeFrom\\\": \\\"2020-12-03T19:38:13.727Z\\\", \\\"speedingOn\\\": 100.0, \\\"gpsOffDelay\\\": 0, \\\"idleMinutes\\\": 3, \\\"speedingOff\\\": 90.0, \\\"channelCount\\\": 1, \\\"licensePlate\\\": \\\"\\\", \\\"licenseState\\\": \\\"\\\", \\\"disableBuzzer\\\": false, \\\"isAuxInverted\\\": [false, false, false, false, false, false, false, false], \\\"ensureHotStart\\\": false, \\\"goTalkLanguage\\\": \\\"English\\\", \\\"immobilizeUnit\\\": false, \\\"odometerFactor\\\": 1.0, \\\"odometerOffset\\\": 0.0, \\\"auxWarningSpeed\\\": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], \\\"enableBeepOnRpm\\\": false, \\\"frequencyOffset\\\": 1, \\\"isAuxIgnTrigger\\\": [false, false, false, false], \\\"customParameters\\\": [], \\\"enableAuxWarning\\\": [false, false, false, false, false, false, false, false], \\\"enableBeepOnIdle\\\": false, \\\"engineHourOffset\\\": 0, \\\"fuelTankCapacity\\\": 0.0, \\\"immobilizeArming\\\": 30, \\\"isSpeedIndicator\\\": false, \\\"minAccidentSpeed\\\": 4.0, \\\"parameterVersion\\\": 1, \\\"isAidedGpsEnabled\\\": false, \\\"isReverseDetectOn\\\": false, \\\"enableSpeedWarning\\\": false, \\\"rfParameterVersion\\\": 0, \\\"disableSleeperBerth\\\": false, \\\"enableMustReprogram\\\": false, \\\"seatbeltWarningSpeed\\\": 10.0, \\\"maxSecondsBetweenLogs\\\": 200.0, \\\"isIoxConnectionEnabled\\\": true, \\\"isRfUploadOnWhenMoving\\\": false, \\\"brakingWarningThreshold\\\": -34, \\\"isActiveTrackingEnabled\\\": false, \\\"parameterVersionOnDevice\\\": 0, \\\"corneringWarningThreshold\\\": 26, \\\"isDriverSeatbeltWarningOn\\\": false, \\\"enableControlExternalRelay\\\": false, \\\"externalDeviceShutDownDelay\\\": 0, \\\"accelerationWarningThreshold\\\": 24, \\\"enableBeepOnDangerousDriving\\\": false, \\\"isPassengerSeatbeltWarningOn\\\": false, \\\"accelerometerThresholdWarningFactor\\\": 0, \\\"isExternalDevicePowerControlSupported\\\": true}', 9999, 5, '?', '2020-12-03T19:38:13.727Z', '2050-01-01T00:00:00.000Z')"
+    geo_db psql -d $db_name -q "INSERT INTO public.nodevehicle (inodeid, ivehicleid, gid) VALUES (9998, 1, '52bc3790-01b4-47ef-9853-255589e30997')"
+    
+    # Update server.config & storeforward.config
+    local server_config="$HOME/GEOTAB/Checkmate/server.config"
+    local store_config="$HOME/GEOTAB/Checkmate/storeforward.config"
+    
+    xmlstarlet ed --inplace -u "//WebServerSettings/WebPort" -v 10000 -u "//WebServerSettings/WebSSLPort" -v 10001 "$server_config"
+    xmlstarlet ed --inplace -u "//WebServerSettings/ServiceSettings/ServerSettings[DatabaseSettingsInternal[ConnectedSqlServerDatabase='$db_name']]/LiveSettings/ServerAddress" -v 127.0.0.1 -u "//WebServerSettings/ServiceSettings/ServerSettings[DatabaseSettingsInternal[ConnectedSqlServerDatabase='$db_name']]/LiveSettings/ServerPort" -v 3982 "$server_config"
+    xmlstarlet ed --inplace -u "//StoreForwardSettings/Type" -v Developer -u "//WebServerSettings/WebSSLPort" -v 10001 "$store_config"
+    xmlstarlet ed --inplace -u "//StoreForwardSettings/GatewayWebServerSettings/WebPort" -v 10002 -u "//StoreForwardSettings/GatewayWebServerSettings/WebSSLPort" -v 10003 "$store_config"
+    xmlstarlet ed --inplace -u "//StoreForwardSettings/CertifiedConnectionsOnly" -v false "$store_config"
+    xmlstarlet ed --inplace -d "//StoreForwardSettings/ClientListenerEndPoints/IPEndPoint" "$store_config"
+    xmlstarlet ed --inplace -s "//StoreForwardSettings/ClientListenerEndPoints" -t elem -n IPEndPoint -v "" "$store_config"
+    xmlstarlet ed --inplace -s "//StoreForwardSettings/ClientListenerEndPoints/IPEndPoint" -t elem -n Address -v 0.0.0.0 "$store_config"
+    xmlstarlet ed --inplace -s "//StoreForwardSettings/ClientListenerEndPoints/IPEndPoint" -t elem -n Port -v 3982 "$store_config"
+    
+    # Build MYG
+    geo_myg build
+    
+    # Copy certs if not present
+    local dev_repo=$(geo_get DEV_REPO_DIR)
+    if [[ ! -f /usr/local/share/ca-certificates/myggatewayroot.crt ]]; then
+      echo "copying cert"
+      sudo cp $dev_repo/gitlab-ci/dockerfiles/MygTestContainer/geotabcommoncertroot.crt /usr/local/share/ca-certificates/myggatewayroot.crt
+      sudo update-ca-certificates
+    fi
+    
+    # Start GW
+    gnome-terminal --title="Gateway [ geo-cli ]" -e "bash -c '$GEO_CLI_SRC_DIR/geo-cli.sh gw start; sleep 3'"
+    
+    # Start MYG
+    geo_myg start
+
+    # Unlock the file.
+    flock -u $myg_gw_lock_fd
+    # Close the file descriptor.
+    eval "exec $myg_gw_lock_fd>&-"
 }
 
 _geo_myg_api_runner() {
@@ -4825,11 +4938,11 @@ _geo_myg_api_runner() {
     google-chrome "$url?$params#"
 }
 
-_geo_myg_is_running() {
-    local myg_running_lock_file="$HOME/.geo-cli/tmp/myg/myg-running.lock"
+check_is_running() {
+    local running_lock_file=$1
+    [[ ! -f $running_lock_file ]] && return 1
     # Open a file descriptor on the lock file.
-    [[ ! -f $myg_running_lock_file ]] && return 1
-    exec {lock_fd}<> "$myg_running_lock_file"
+    exec {lock_fd}<> "$running_lock_file"
 
     ! flock -w 0 $lock_fd || { eval "exec $lock_fd>&-";  return 1; }
     # Unlock the file.
@@ -4837,6 +4950,14 @@ _geo_myg_is_running() {
     # Close the file descriptor.
     eval "exec $lock_fd>&-"
     return
+}
+
+_geo_myg_is_running() {
+    check_is_running "$HOME/.geo-cli/tmp/myg/myg-running.lock"
+}
+
+_geo_myg_is_running_with_gw() {
+    check_is_running "$HOME/.geo-cli/tmp/myg/myg-gw-running.lock"
 }
 
 _geo_myg_start() {
@@ -4876,6 +4997,191 @@ _geo_myg_start() {
     flock -u $lock_fd
     # Close the file descriptor.
     eval "exec $lock_fd>&-"
+}
+
+#######################################################################################################################
+COMMANDS+=('gw')
+geo_gw_doc() {
+    doc_cmd 'gw [subcommand | options]'
+        doc_cmd_desc 'Performs various tasks related to building and running Gateway.'
+    doc_cmd_sub_cmds_title
+        doc_cmd_sub_cmd "start"
+            doc_cmd_sub_cmd_desc "Starts Gateway."
+        doc_cmd_sub_cmd 'build'
+            doc_cmd_sub_cmd_desc "Builds MyGeotab.Core: Gateway.Debug.Core"
+        doc_cmd_sub_cmd 'clean'
+            doc_cmd_sub_cmd_desc "Runs $(txt_underline git clean -Xfd) in the Development repo."
+        doc_cmd_sub_cmd 'stop'
+            doc_cmd_sub_cmd_desc "Stops the running CheckmateServer (Gateway) instance."
+        doc_cmd_sub_cmd 'restart'
+            doc_cmd_sub_cmd_desc "Restarts the running CheckmateServer (Gateway) instance."
+    doc_cmd_examples_title
+        doc_cmd_example "geo gw start"
+        doc_cmd_example "geo gw clean"
+}
+geo_gw() {
+    local cmd="$1"
+    shift
+    local dev_repo=$(geo_get DEV_REPO_DIR)
+    local myg_dir="$dev_repo/Checkmate"
+    local myg_core_proj="$(_geo_get_mygeotab_csproj_path)"
+    [[ ! -f $myg_core_proj ]] && Error "Cannot find csproj file at: $myg_core_proj" && return 1
+
+    case "$cmd" in
+        build )
+            local project_path="$myg_dir"
+            local project='MyGeotab.Core.csproj'
+            case "$1" in
+                sln )
+                    project="MyGeotab.Core.sln"
+                    ;;
+                test | tests )
+                    project="MyGeotab.Core.Tests.csproj"
+                    project_path+="/MyGeotab.Core.Tests"
+                    ;;
+            esac
+            log::status -b "Building $project"
+            local build_command="dotnet build \"$project_path/$project\""
+            log::debug "$build_command"
+            if ! $build_command; then
+                log::Error "Building $project failed"
+                return 1;
+            fi
+            ;;
+        stop )
+            _geo_gw_stop
+            ;;
+        restart )
+            ! _geo_gw_is_running && log::Error "Gateway is not running" && return 1
+            local checkmate_pid=$(_get_gw_pid)
+            # log::debug "Checkmate server PID: $checkmate_pid"
+            kill $checkmate_pid  || { log::Error "Failed to restart Gateway"; return 1; }
+            
+            log::status -n "Waiting for Gateway to stop..."
+            local wait_count=0
+            while pgrep CheckmateServer > /dev/null; do
+                log::status -n '.'
+                (( wait_count++ >= 10 )) \
+                    && log::Error "CheckmateServer failed to stop within 10 seconds" && return 1
+                sleep 1
+            done
+            echo
+            echo
+            _geo_gw_is_running && log::Error "Gateway is still running" && return 1
+            _geo_gw_start -r
+            log::success "Done"
+            ;;
+        start )
+            # Create an empty database with container
+            geo_db start -d $db_name -p
+            _geo_gw_start
+            ;;
+        is-running )
+            [[ -z $(_get_gw_pid) ]] && log::Error "GW is not running" && return 1
+            log::success $(_get_gw_pid)
+            ;;
+        clean )
+            (
+                local opened_by_ui=false
+                [[ $2 == --interactive ]] && opened_by_ui=true
+                close_after_clean()
+                { 
+                    # Count down from 5 to allow the user time to keep the terminal open.
+                    for i in $(seq 5 -1 0); do
+                        log::status -n "$i.."
+                        sleep 1
+                    done
+                    kill $1
+                    exit
+                }
+                cd "$dev_repo"
+                log::status -b "Cleanning the Development repo"
+                log::debug "\ngit clean -Xfd -e '!.idea'"
+                if git clean -Xfd -e '!.idea'; then
+                    echo
+                    log::success "Done"
+                    if $opened_by_ui; then
+                        log::status "\nClosing in 5 seconds..."
+                        log::info "\nPress Enter to stay open"
+                        # Start in background, if it's not killed (via user input) it will exit.
+                        close_after_clean $$ &
+                        local pid=$!
+                        
+                        read
+                        # Kill the close_after_clean process to prevent it from exiting.
+                        kill $pid
+
+                        log::info "\nPress Enter again to exit"
+                        # Wait here until the user presses enter to exit.
+                        read
+                    fi
+                else
+                    log::Error "Git failed to clean the Development repo."
+                    log::info "\nPress Enter to exit"
+                    # Wait here until the user presses enter to exit.
+                    read
+                fi
+            )
+            ;;
+        * )
+            log::Error "Unknown argument: '$cmd'"
+            return 1
+            ;;
+    esac
+}
+
+_geo_gw_stop() {
+    ! _geo_gw_is_running && log::Error "Gateway is not running" && return 1
+    kill $(_get_gw_pid) || { log::Error "Failed to stop Gateway"; return 1; }
+    log::success "Gateway stopped"
+}
+
+_get_gw_pid() {
+    set -o pipefail
+    ps -fp $(pgrep CheckmateServer)|grep 'CheckmateServer StoreForwardDebug'|awk -F ' ' '{print $2}'
+}
+
+_geo_gw_is_running() {
+    check_is_running "$HOME/.geo-cli/tmp/gw/gw-running.lock"
+}
+
+_geo_gw_start() {
+    local restarting=false
+    [[ $1 == -r ]] && restarting=true
+    export myg_core_proj="$(_geo_get_mygeotab_csproj_path)"
+    local gw_running_lock_file="$HOME/.geo-cli/tmp/gw/gw-running.lock"
+    mkdir -p "$(dirname $gw_running_lock_file)"
+    [[ ! -f $gw_running_lock_file ]] && touch $gw_running_lock_file
+    local proc_id=
+
+    # Open a file descriptor on the lock file.
+    exec {gw_lock_fd}<> $gw_running_lock_file
+    local wait_time=2
+    export lock_file_fd=$lock_file
+
+    if ! flock -w $wait_time $gw_lock_fd; then
+        log::debug ' Can not get lock on file'
+        eval "exec $gw_lock_fd>&-"
+        return 1
+    fi
+   
+    cleanup() {
+        # echo "cleanup"
+        [[ -n $proc_id ]] && kill $proc_id &> /dev/null
+         # Unlock the file.
+        flock -u $gw_lock_fd &> /dev/null
+        # Close the file descriptor.
+        eval "exec $gw_lock_fd>&- &> /dev/null"
+    }
+    trap cleanup INT TERM QUIT EXIT
+
+    log::status -b "Starting Gateway"
+    dotnet run -v m --project "${myg_core_proj}" StoreForwardDebug
+
+     # Unlock the file.
+    flock -u $gw_lock_fd
+    # Close the file descriptor.
+    eval "exec $gw_lock_fd>&-"
 }
 
 #######################################################################################################################

@@ -43,7 +43,9 @@ class MyGeotabMenuItem(Gtk.MenuItem):
         start_item = Gtk.MenuItem(label='Start')
         start_item.connect('activate', lambda _: self.start_or_restart_myg('start'))
         stop_item = Gtk.MenuItem(label='Stop')
-        stop_item.connect('activate', lambda _: geo.run('myg stop'))
+        stop_item.connect('activate', lambda _: geo.run('myg stop'))        
+        stop_myg_gw_item = Gtk.MenuItem(label='Stop MyG and GW')
+        stop_myg_gw_item.connect('activate', lambda _: geo.run('myg stop-myg-gw'))
         restart_item = Gtk.MenuItem(label='Restart')
         restart_item.connect('activate', lambda _: self.start_or_restart_myg('restart'))
         build_item = Gtk.MenuItem(label='Build')
@@ -56,11 +58,15 @@ class MyGeotabMenuItem(Gtk.MenuItem):
         api_item.connect('activate', lambda _: geo.run('myg api'))
         clean_item = Gtk.MenuItem(label='Clean')
         clean_item.connect('activate', lambda _: geo.run_in_terminal('myg clean --interactive', stay_open_after=False))
+        run_with_gateway_item = Gtk.MenuItem(label='Run with Gateway')
+        run_with_gateway_item.connect('activate', lambda _: geo.run_in_terminal('myg gw', title=self.make_titles('MyGeotab', include_version=True)))
         submenu.append(start_item)
         submenu.append(build_item)
         submenu.append(build_sln_item)
         submenu.append(clean_item)
+        submenu.append(run_with_gateway_item)
         submenu.append(stop_item)
+        submenu.append(stop_myg_gw_item)
         submenu.append(restart_item)
         submenu.append(browser_item)
         submenu.append(api_item)
@@ -75,6 +81,8 @@ class MyGeotabMenuItem(Gtk.MenuItem):
             "restart": restart_item,
             "browser": browser_item,
             "api": api_item,
+            "run_with_gateway": run_with_gateway_item,
+            "stop_myg_gw": stop_myg_gw_item
         }
         
         self.running_items = {
@@ -89,19 +97,30 @@ class MyGeotabMenuItem(Gtk.MenuItem):
             build_sln_item,
             clean_item
         }
+        self.stop_myg_gw_item = stop_myg_gw_item
+        self.run_with_gateway_item = run_with_gateway_item
         
     def start_or_restart_myg(self, cmd):
         title = self.make_titles('MyGeotab', include_version=True)
         geo.run_in_terminal(f'myg {cmd}', title=title)
 
     def monitor(self):
-        is_running = geo.run('myg is-running')
-        if is_running:
+        is_myg_running = geo.run('myg is-running')
+        is_running_with_gw = geo.run('myg is-running-with-gw')
+        if is_myg_running:
             self.app.icon_manager.set_myg_running(True)
             self.show_running_items()
         else:
             self.app.icon_manager.set_myg_running(False)
             self.show_stopped_items()
+        if is_running_with_gw:
+            self.stop_myg_gw_item.show()
+            self.run_with_gateway_item.hide()
+            
+        if is_myg_running or is_running_with_gw:
+            self.run_with_gateway_item.hide()
+        if not is_myg_running and not is_running_with_gw:
+            self.run_with_gateway_item.show()
         return True
     
     def show_running_items(self):
@@ -109,6 +128,7 @@ class MyGeotabMenuItem(Gtk.MenuItem):
         [item.hide() for item in self.stopped_items]
     
     def show_stopped_items(self):
+        self.stop_myg_gw_item.hide()
         [item.hide() for item in self.running_items]
         [item.show() for item in self.stopped_items]
 

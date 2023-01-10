@@ -151,7 +151,8 @@ class IndicatorApp(object):
         item_run_tests = Gtk.MenuItem(label='Run Tests')
         item_quarantine_test = Gtk.MenuItem(label='Quarantine Test')
         item_mygeotab = menus.MyGeotabMenuItem(self)
-        
+        item_gateway = menus.GatewayMenuItem(self)
+
         # Run 'geo id -i' in terminal. This causes geo id to run interactively (-i), first trying to convert the contents of the clipboard.
         item_id.connect('activate', lambda _: geo.run_in_terminal('id -i'))
         item_id_clipboard.connect('activate', lambda _: geo.run_in_terminal('id -c', stay_open_after=False))
@@ -181,6 +182,7 @@ class IndicatorApp(object):
         menu.append(item_quarantine_test)
         menu.append(self.build_editor_menu())
         menu.append(item_mygeotab)
+        menu.append(item_gateway)
         menu.append(Gtk.SeparatorMenuItem())
 
         menu.append(item_help)
