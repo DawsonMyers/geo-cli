@@ -128,7 +128,7 @@ echo
 log::info -b "Next step: create a database container and start geotabdemo"
 step1="1. Build MyGeotab.Core in your IDE (required when creating new dbs)"
 step2="2. Run `log::txt_underline 'geo db start <name>'`, where 'name' is any alphanumeric name you want to give this db version (it could be related to the MyGeotab release, e.g., '10.0')."
-step3="3. Start MyGeotab.Core in your IDE"
+step3="3. Start MyGeotab.Core in your IDE or via the MyGeotab > Start UI menu item"
 log::info "$(log::fmt_text_and_indent_after_first_line "$step1" 3 3)"
 log::info "$(log::fmt_text_and_indent_after_first_line "$step2" 3 3)"
 log::info "$(log::fmt_text_and_indent_after_first_line "$step3" 3 3)"
@@ -147,6 +147,7 @@ log::hint "     informed about new features:"
 log::code  -n '      * '
 log::link ' https://chat.google.com/room/AAAAo9gDWgg?cls=7'
 
+# Install setproctitle, which lets us rename the python process for the UI to be 'geo-cli'.
 python3 -m pip install setproctitle &> /dev/null
 
 # # Set up update cron job.

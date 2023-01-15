@@ -234,11 +234,17 @@ make_logger_function yellow Yellow
 log::yellow() {
     _log_yellow "$@"
 }
+log::caution() {
+    _log_yellow "$@"
+}
 log::link() {
     _log_yellow -u "$@"
 }
-log::filepath() {
+log::file() {
     echo "$(_log_purple -n 'file://')$(_log_yellow -u  "$@")"
+}
+log::filepath() {
+    log::file  "$@"
 }
 make_logger_function green Green
 log::green() {

@@ -1,9 +1,14 @@
 # `geo-cli`
-A tool that makes MyGeotab development easier. Specifically, this tool aims to simplify cross-release development by managing various versions of `geotabdemo` Postgres database containers. This allows you to easily switch between release branches without having to worry about database compatibility. In the future, it also aims to simplify other pain points of development by automating them; providing an easy-to-use interface that hides the complexity under the hood.
+A tool that makes MyGeotab development easier. Specifically, this tool aims to simplify cross-release development by managing various versions of `geotabdemo` Postgres database containers. This allows developers to easily switch between release branches without having to worry about database compatibility. 
+The tool has also evolved over the years to include a taskbar UI menu as well as many time-saving features that simplify other pain points of daily development by automating them; providing an easy-to-use interface that hides the complexity under the hood and makes developers more productive.
 
-> `geo-cli` is currently under active development and is updated often. Please contact me on Chat or through email (dawsonmyers@geotab.com) if you have a feature idea or would like to report a bug. You can also join the `geo-cli` Chat space [here](https://chat.google.com/room/AAAAo9gDWgg?cls=7).
 
-> `geo-cli` is only supported on Ubuntu. However, it can be made to work in WSL on Windows if you set up docker for it.
+> `geo-cli` is currently under active development and is updated often. Feel free to make an [MR](https://git.geotab.com/dawsonmyers/geo-cli/-/merge_requests/new) if you would like to contribute improvements or features.
+> **Note:** `geo-cli` *is only supported on Ubuntu*. However, it can be made to work in WSL on Windows if you set up docker for it.
+
+
+> 💬 **Join the geo-cli Chat Space** [here](https://chat.google.com/room/AAAAo9gDWgg?cls=7) (currently with nearly 80 members) to report bugs, share feature ideas, and stay informed about new features. You can also contact me on Chat or through email (dawsonmyers@geotab.com).
+> ⭐ **Like geo-cli?** Add a star to the [repo](https://git.geotab.com/dawsonmyers/geo-cli).
 
 ## Table of Contents
 - [`geo-cli`](#geo-cli)
@@ -14,35 +19,37 @@ A tool that makes MyGeotab development easier. Specifically, this tool aims to s
     - [Install](#install)
     - [Create a Database](#create-a-database)
       - [Import pgAdmin Server for MyGeotab](#import-pgadmin-server-for-mygeotab)
-    - [Copying Databases](#copying-databases)
-    - [List Databases](#list-databases)
-    - [Removing Databases](#removing-databases)
-      - [Remove All Databases](#remove-all-databases)
-    - [Creating Empty Databases](#creating-empty-databases)
-    - [Querying the Database](#querying-the-database)
-    - [Running Analyzers](#running-analyzers)
-    - [Options](#options)
-    - [Connecting to Servers Using IAP Tunnels](#connecting-to-servers-using-iap-tunnels)
-      - [Connect to Remote Database using pgAdmin](#connect-to-remote-database-using-pgadmin)
-    - [Encode/Decode MyGeotab Long and Guid Ids](#encodedecode-mygeotab-long-and-guid-ids)
-      - [Examples](#examples)
-    - [Running Tests](#running-tests)
-      - [Setting up a GitLab Access Token](#setting-up-a-gitlab-access-token)
-    - [Quarantining Tests](#quarantining-tests)
-    - [Converting MyDecoder JSON Device Data to MyGeotab Log File](#converting-mydecoder-json-device-data-to-mygeotab-log-file)
-    - [Running standalone Gateway](#running-standalone-gateway)
-    - [Running MyG with Gateway](#running-myg-with-gateway)
-- [Add git Hook](#add-git-hook)
-- [`geo-ui` (NEW)](#geo-ui-new)
   - [Databases](#databases)
+    - [Copy](#copy)
+    - [List](#list)
+    - [Remove](#remove)
+      - [Remove All](#remove-all)
+    - [Create an Empty Database](#create-an-empty-database)
+    - [Query the Database](#query-the-database)
+  - [Run Pipeline Analyzers](#run-pipeline-analyzers)
+    - [Options](#options)
+  - [Connecting to Servers Using IAP Tunnels](#connecting-to-servers-using-iap-tunnels)
+    - [Connect to Remote Database using pgAdmin](#connect-to-remote-database-using-pgadmin)
+  - [Encode/Decode MyGeotab Long and Guid Ids](#encodedecode-mygeotab-long-and-guid-ids)
+    - [Examples](#examples)
+  - [Run Tests](#run-tests)
+  - [Set up a GitLab Personal Access Token (PAT)](#set-up-a-gitlab-personal-access-token-pat)
+  - [Quarantine Tests](#quarantine-tests)
+  - [Convert MyDecoder JSON Device Data to MyGeotab Log File](#convert-mydecoder-json-device-data-to-mygeotab-log-file)
+  - [Run Gateway](#run-gateway)
+    - [Run Standalone Gateway](#run-standalone-gateway)
+    - [Run MyGeotab with Gateway](#run-mygeotab-with-gateway)
+  - [Add git Hook](#add-git-hook)
+- [`geo-ui` (NEW)](#geo-ui-new)
+  - [Databases](#databases-1)
     - [Running DB](#running-db)
-    - [Databases](#databases-1)
+    - [Databases](#databases-2)
     - [Create Database](#create-database)
-    - [Auto-Switch](#auto-switch)
-      - [Auto-Switch DB](#auto-switch-db)
-      - [Auto-Install npm](#auto-install-npm)
-      - [Auto-Switch server.config](#auto-switch-serverconfig)
-      - [Auto-Clean GeotabDemo Data](#auto-clean-geotabdemo-data)
+  - [Auto-Switch](#auto-switch)
+    - [Auto-Switch DB](#auto-switch-db)
+    - [Auto-Install npm](#auto-install-npm)
+    - [Auto-Switch server.config](#auto-switch-serverconfig)
+    - [Auto-Clean GeotabDemo Data](#auto-clean-geotabdemo-data)
   - [Dev Utilities](#dev-utilities)
     - [Run Analyzers](#run-analyzers)
     - [npm install](#npm-install)
@@ -113,9 +120,9 @@ cd geo-cli
 ```
 And finally, execute the install script
 ```bash
-bash install.sh
+source install.sh
 ```
-> Docker is required for `geo` to work. You will be prompted to install it during the install process if it is missing. You must completely log out and then back in again after a Docker install for the new permissions to take effect.
+> Docker is required for `geo` to work. You will be prompted to install it during the install process if it is missing. **You must completely log out and then back in again after a Docker install for the new permissions to take effect.**
 
 You will be asked to enter the location of Development repo during the install. The tool needs to know where this is so that it knows the location of:
 - The CheckmateServer dll used for initializing `geotabdemo`
@@ -134,7 +141,7 @@ Now you can open a new terminal or run `. ~/.bashrc` to re-source .bashrc in you
 Now that `geo-cli` is installed, you can begin using it for creating and running various database versions for your development needs.
 
 ### Create a Database
-The first thing that you want to do after installing the tool is to create a database. The MyGeotab Postgres database will be created using `CheckmateServer.dll` from the current branch that you have checked out, so you must build MyGeotab before the correct `dll` will be available to `geo-cli`.
+The first thing that you want to do after installing the tool is to create a database. The MyGeotab Postgres database will be created using `CheckmateServer.dll` from the current branch that you have checked out. `geo` will automatically build MyGeotab.Core so that the correct dll will be used for initializing the database.
 
 Next, we will create, initialize, and start your first database. You will have to give it an alphanumeric name to identify it (the MyGeotab release version is usually the best name to use, e.g., `2004`). So, assuming that you're working on a `2004` branch of MyGeotab, a database could be created by entering the following in a terminal:
 ```bash
@@ -146,6 +153,8 @@ The output is shown below:
 
 ![geo db start 2004](res/geo-db-start-3.png)
 
+> You can choose to use a different Postgres version via the `-v <pg_version:int>` argument (e.g. `geo db start -v 14 <db_container_name>`)
+ 
 #### Import pgAdmin Server for MyGeotab
 After creating a `geo-cli` database container, you will be shown instructions on how to import a server configuration into gpAdmin. The following gif demonstrates this process.
 
@@ -153,7 +162,8 @@ After creating a `geo-cli` database container, you will be shown instructions on
 
 > Note: You only have to import the server configuration once. It will work with any `GeotabDemo` database that's running.
 
-### Copying Databases
+## Databases
+### Copy
 You can make a copy of a `geo-cli` database using:
 ```bash
 geo db cp <source> <destination>
@@ -172,14 +182,14 @@ Creating destination database container '8.0-copy'
 
 ```
 
-### List Databases
+### List
 You can list your `geo-cli` databases using:
 ```bash
 geo db ls
 ```
 ![list dbs 1](res/geo-db-ls-1.png)
 
-### Removing Databases
+### Remove
 The following command will remove the `2001` database from `geo-cli`:
 ```bash
 geo db rm 2001
@@ -193,54 +203,58 @@ geo db ls
 
 ![list dbs 2](res/geo-db-ls-2.png)
 
-#### Remove All Databases
+#### Remove All
 You can delete all databases using `geo db rm --all`/`geo db rm -a`. You will be prompted before continuing. Additionally, you can add a filter to the command. For instance, if you wanted to remove all databases that contain the string `test`, you would use `geo db rm -a test`.
 
 ![rm db](res/geo-db-rm-all.png)
 
-### Creating Empty Databases
+### Create an Empty Database
 `geo-cli` can also be used to create empty databases for any use case you may encounter:
 
 ![geo db create](res/geo-db-create-1.png)
 
-This creates a postgres db with the sql admin as **geotabuser** and the password as **vircom43**.
+This creates a MyGeotab postgres db with the sql admin as **geotabuser** and the password as **vircom43**.
 
-If you would like a completely empty Postgres 12 db without any initialization, add the **-e** option to the command, e.g., `geo db create -e <name>`. The default user for Postgres is `postgres` and the password is `password`. This username/password can be used to connect to the db (once started) using pgAdmin.
+If you would like a completely empty Postgres 12 db (or any PG version using the `-v <version:int>` option) without any initialization, add the **-e** option to the command, e.g., `geo db create -e <name>`. 
+
+The default user for the database is `postgres` and the password is `password`. This username/password can be used to connect to the db (once started) using pgAdmin or psql (using `geo db psql`) . This database is just a plain, off-the-shelf Postgres database container (built from the official Postgres docker image), you can use it for anything: to experiment with or even for use with a side project, if you like. `geo-cli` will make sure that only one database container is running at a time, ensuring that the required port, 5432, is always available.
 
 > The `geo db create` command does not start the container after creating it. Use `geo db start <name>` to start it.
 
-### Querying the Database
-`geo db psql` can be used to start an interactive psql session with a running database container. If you just want to run a single query, you can use the `-q` option to specify an sql query:
+### Query the Database
+pgAdmin can be used to interact with the database, or `geo db psql` can be used to start an interactive psql session with a running database container. If you just want to run a single query, you can use the `-q` option to specify a sql query:
 ```bash
 geo db psql -q 'SELECT * FROM deviceshare'
 ```
 
 >Note: The query must be enclosed in single quotes
 
-### Running Analyzers
-This is a new feature that is still being developed. It can be accessed using:
+## Run Pipeline Analyzers
+Want to run analyzers locally instead of pushing to GitLab and waiting for the pipeline to fail?. `geo analyze` saves you a ton of time by easily letting you do this:
 ```bash
 geo analyze
 ```
 This will output the selection menu and prompt you for which analyzers you want to run:
 
-![analyze 1](res/geo-analyze-1.png)
+![analyze 1](res/geo-analyze-2023-1.png)
 
 So if you wanted to run `CSharp.CodeStyle` and `StyleCop.Analyzers` you would type `0 4` and press enter:
 
-![analyze 2](res/geo-analyze-2.png)
+![analyze 2](res/geo-analyze-2023-2.png)
 
 The output is then displayed as the analyzers are run:
 
-![analyze 3](res/geo-analyze-3.png)
+![analyze 3](res/geo-analyze-2023-3.png)
 
 ### Options
 The following options can be used with `geo analyze`:
 - **\-** This option will reuse the last test ids supplied
 - **\-a** This option will run all tests
-- **\-b** Run analyzers in batches (reduces runtime, but is only supported in 2104+)
+- **\-s** Skips long-running analyzers (GW-Linux-Debug and Build-All.sln), allowing you to quickly check your code before pushing it to GitLab
 
-### Connecting to Servers Using IAP Tunnels
+> I aliased `geo analyze -as` to `gaa` (via adding `alias gaa='geo analyze -as'` to `~/.bashrc`) to allow me to quickly run all analyzers (excluding the long-running ones) before pushing changes by opening up any terminal and running `gaa`. You can add this alias to your .bashrc file if you like with this command: `echo "alias gaa='geo analyze -as'" >> ~/.bashrc`. You can also quickly paste `alias gaa='geo analyze -as'` into your .bashrc file by using `geo-ui`'s *Edit > .bashrc* menu item. This will open up the .bashrc file in a text editor.
+
+## Connecting to Servers Using IAP Tunnels
 `geo-cli` can be used to simplify connecting to servers over IAP tunnels. First, make an access request for a server using MyAdmin. Then copy *gcloud compute start-iap-tunnel* command by pressing the copy button:
 
 > `geo ar create` can be used to open up the My Access Request page on the MyAdmin website in Chrome. This page can be used to create a new access request.
@@ -259,7 +273,7 @@ Now you can open another terminal and run the `geo ar ssh` command to ssh into t
 
 > By default, the username stored in th $USER environment variable is used when connecting to the server with `geo ar ssh`. You can set the default username by supplying it with the `-u <username>` option. You can also use a different port using the `-p <port>` option.
 
-#### Connect to Remote Database using pgAdmin
+### Connect to Remote Database using pgAdmin
 You can add the -L option to either `geo ar tunnel` or `geo ar ssh` to bind local port 5433 to 5432 on remote host (through IAP tunnel). You can connect to the remote Postgres database using this port (5433) in pgAdmin. Note: you can also open up an ssh session to this server by opening another terminal and running `geo ar ssh`.
 
 Now you can connect to the Postgres database in pgAdmin by creating a server via Objects > Register > Server. Then enter in the following information:
@@ -268,10 +282,10 @@ Now you can connect to the Postgres database in pgAdmin by creating a server via
 - username: <your username (what comes before @geotab.com in you email)>
 - Password: <the password you got from MyAdmin when you created the Access Request>
 
-### Encode/Decode MyGeotab Long and Guid Ids
+## Encode/Decode MyGeotab Long and Guid Ids
 Use the `geo id <id>` command to both encode and decode long and guid ids to simplify working with the MyGeotab api. The result is copied to your clipboard (if you have xclip installed). Guid encoded ids must be prefixed with 'a' and long encoded ids must be prefixed with 'b'"
 
-#### Examples
+### Examples
 
 Long Encode
 ```bash
@@ -305,20 +319,40 @@ Decoded guid id:
 copied to clipboard
 ```
 
-### Running Tests
+You can also convert multiple ids in a single line, regardless of whether decoding or encoding is required.
+```bash
+$ geo id 1234 b4d2 aAOdO4ZfnTyifXirSIkUfbQ
+b4d2
+1234
+00e74ee1-97e7-4f28-9f5e-2ad222451f6d
+copied to clipboard
+```
+
+## Run Tests
 The `geo test <filter>` command can be used to run tests on your local build. The filter behaves the same as in [dotnet test --filter](https://docs.microsoft.com/en-us/dotnet/core/testing/selective-unit-tests?pivots=xunit). By default, tests matching the given `filter` will be run on your local machine. When run with the `-d` or `--docker` option, the tests will be run in a docker container which matches the one used in CI/CD pipelines instead. This option requires [docker to be logged into gitlab](https://git.geotab.com/dev/Development/container_registry/), and is only supported from 9.0 onwards.
 
-#### Setting up a GitLab Access Token
-Go to https://git.geotab.com/-/profile/personal_access_tokens and create a token with api access. Copy the token to your clipboard and then run the following command in a terminal:
+## Set up a GitLab Personal Access Token (PAT)
+Go to https://git.geotab.com/-/profile/personal_access_tokens and create a token with api access and copy the PAT to your clipboard. Make sure to also make a note of the PAT somewhere safe since you won't be able to view it again. 
+
+Now we are going set up the required environment variables. Run the following command:
+```
+  geo init pat
+```
+
+Paste in your PAT and enter your GitLab username when prompted.
+
+> Your GitLab username is what comes before *@geotab.com*, e.g., my email is dawsonmyers@geotab.com, so I would enter *dawsonmyers* as my username.
+
+Next, we'll use your PAT to log into the GitLab docker container registry.
 ```
   docker login git.geotab.com:4567
 ```
 You will then be prompted for your GitLab username and a password. Paste (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd>) the access token in your clipboard when asked for the password.
 
-### Quarantining Tests
-Use `geo quarantine` to add quarantine attributes to a broken test.
+## Quarantine Tests
+Use `geo quarantine <FullyQualifiedTestName>` to quickly add quarantine attributes to a broken test.
 
-Before running `geo quarantine`:
+Before running `geo quarantine ...`:
 ```cs
     [Fact]
     public void Test()
@@ -350,8 +384,10 @@ geo quarantine [options] <FullyQualifiedTestName>
             geo quarantine -c -m 'Quarentine test' CheckmateServer.Tests.Web.DriveApp.Login.ForgotPasswordTest.Test
 ```
 
-### Converting MyDecoder JSON Device Data to MyGeotab Log File
-`geo mydecoder <MyDecoderExportedJsonFile>` converts device data from MyDecoder (exported as JSON) into a MyGeotab text log file.
+## Convert MyDecoder JSON Device Data to MyGeotab Log File
+`geo mydecoder <MyDecoderExportedJsonFile>` converts device data from MyDecoder (exported as JSON) into a MyGeotab text log file. Here are a couple ways that these log files can be processed by MyGeotab to reproduce bugs:
+- Copy the converted log file into the `~/GEOTAB/Checkmate/geotabdemo_data` so that MyGeotab will ingest the log file as if it had come from the Gateway.
+- Set up a test that will process it as a file data source through the DDIS.
 
 To convert device data from MyDecoder into a MyGeotab text log file, export the data from MyDecoder to JSON by clicking on the Export Data button as shown in the image below:
 
@@ -365,19 +401,20 @@ You can also convert a JSON file by right clicking on it and selecting the `Scri
 
 > Note: This feature is only available for MYG 9.0 and above, so you must have a compatible version of MYG checked out for it to work.
 
-### Running standalone Gateway
+## Run Gateway
+### Run Standalone Gateway
 Run the `geo gw` command with desired options to `build`, `start`, `stop`, `restart` or `clean` a standalone Gateway. These options can also be accessed in the UI menu under `Gateway`. 
 
 > Note: The `geo-ui` icon will contain a blue dot when the Gateway is running and/or a green dot when MyGeotab is running.
 
 ![geo ui](res/ui/geo-ui-standalone-gw.png)
 
-### Running MyG with Gateway
+### Run MyGeotab with Gateway
 Run the `geo myg gw` command to run MyG along with Gateway. This will create an empty database with the provided \<databaseName>, insert a device into the vehicle table, update the server.config and storeforward.config with required changes, and copy certs (may require sudo login). 
 
-Similarly, you can also access the `Run with Gateway` option under `MyGeotab` in the UI menu. 
+Similarly, you can also accomplish this using the `MyGeotab > Run with Gateway` in the `geo-ui` menu. 
 
-> You can restart a MyGeotab and Gateway configuration at a later date by clicking on the `MyGeotab > Run with Gateway` menu item and then typing in the same company name and database container name when prompted.
+> You can restart a MyGeotab and Gateway configuration at a later date by clicking on the `MyGeotab > Run with Gateway` `geo-ui` menu item and then typing in the same company name and database container name when prompted.
 
 ![geo ui](res/ui/geo-ui-myg-with-gw.png)
 
@@ -390,9 +427,10 @@ To verify the connection, open https://127.0.0.1:10001/\<databaseName> via the `
 
 > Note: If no command is listed, you might also want to check if using port 443 is enforced and update to allow using a port other than 443. 
 
-# Add git Hook
+## Add git Hook
 Run the `geo init git-hook` command to add the prepare-commit-msg git hook that prepends the MYG issue number to each commit you make. It parses the issue number from the branch name.
 ![git-hook](res/geo-init-git-hook.png)
+
 
 # `geo-ui` (NEW)
 `geo-ui` is a tray menu UI (app indicator) that further simplifies MyGeotab development. It allows users to quickly access most of `geo-cli`'s features, as well as adding some additional ones, with just a couple mouse clicks.
@@ -432,7 +470,7 @@ This item opens a terminal and will guide you through creating a new MyGeotab da
 
 ![geo-ui-db-5](res/ui/geo-ui-db-5.png)
 
-### Auto-Switch
+## Auto-Switch
 
 ![geo-ui-as-1](res/ui/geo-ui-as-1.png)
 
@@ -447,7 +485,7 @@ This submenu contains the following items:
   7) `Set DB for MYG Release/Configured DB Running`: Links the current MyGeotab release version to the running database container
 
 
-#### Auto-Switch DB
+### Auto-Switch DB
 You can link a MyGeotab release version to a database container by doing the following:
   1) Checkout a MyGeotab release branch that you want to link a database container to. The `MYG Release` label shows the MyGeotab release version of the current branch
   2) Start a compatible database container (using the `Databases` submenu)
@@ -457,13 +495,10 @@ The `Configured DB` label will now show the name of the database container and t
 
 Now the configured database container will automatically start whenever you checkout a branch based on its linked MyGeotab release version.
 
-#### Auto-Install npm
+### Auto-Install npm
 When enabled, `npm install` will automatically be run in both the `CheckmateServer/src/wwwroot` and `CheckmateServer/src/wwwroot/drive` directories.
 
-#### Auto-Switch server.config
-> This is an experimental feature, it is advised that you make a copy of your server.config file before enabling it.
-
-
+### Auto-Switch server.config
 When enabled, the server.config file will automatically be switched based on the MyGeotab release version of the Development branch that is currently checked out.
 
 This example shows how it works once enabled:
@@ -480,7 +515,7 @@ This example shows how it works once enabled:
 
 You can now continue switching to different release branches and setting up specific settings in the server.config for each one. Your changes will always be saved/restored when switching to/from a certain MyGeotab release branch.
 
-#### Auto-Clean GeotabDemo Data
+### Auto-Clean GeotabDemo Data
 When enabled, the geotabdemo_data directory in `~GEOTAB/Checkmate/` will be removed when the MyGeotab release version changes. The data generated in this directory may not be compatible between releases and can cause errors when starting up geotabdemo. This file will always be recreated when geotabdemo starts up if it is missing.
 
 ## Dev Utilities
