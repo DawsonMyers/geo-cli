@@ -4888,15 +4888,21 @@ _geo_run_myg_gw(){
     
     prompt_for_db_name() {
         while [[ -z $db_name ]]; do
-            prompt_for_info -v db_name "Enter an alphanumeric name (including .-_) for the new company: "
+            prompt_for_info -v db_name "Enter an alphanumeric name (including .-_) with no capital letters for the new company: "
             # Parse any options supplied by the user.
             local options_regex='-([[:alpha:]]+) .*'
             if [[ $db_name =~ $options_regex ]]; then
                 log::debug "db_name: $db_name"
             fi
             db_name=$(_geo_make_alphanumeric "$db_name")
-            if [[ $db_name == "geotabdemo" ]]; then
+            local has_caps_regex='[[:upper:]]'
+            if [[ $db_name =~ $has_caps_regex ]]; then
                 is_valid_db_name=false
+                log::Error 'Please provide an alphanumeric name with no capital letters for the database.'
+                break
+            elif [[ $db_name == "geotabdemo" ]]; then
+                is_valid_db_name=false
+                log::Error 'Please provide any other name than geotabdemo for the database.'
                 break
             else
                 is_valid_db_name=true
@@ -4907,11 +4913,10 @@ _geo_run_myg_gw(){
     # Get the db name from user until it is not geotabdemo
     prompt_for_db_name
     while [ $is_valid_db_name == false ]; do
-        log::Error 'Please provide any other name than geotabdemo for database'
         db_name=""
         prompt_for_db_name
     done
-    
+
     # Create a empty database with container
     geo_db start -d $db_name -py
     
@@ -4923,8 +4928,11 @@ _geo_run_myg_gw(){
     local server_config="$HOME/GEOTAB/Checkmate/server.config"
     local store_config="$HOME/GEOTAB/Checkmate/storeforward.config"
     
+    [[ ! -f $server_config ]] && log::Error "Cannot find server.config at $server_config, please run MyG locally to generate it first." && return 1
     xmlstarlet ed --inplace -u "//WebServerSettings/WebPort" -v 10000 -u "//WebServerSettings/WebSSLPort" -v 10001 "$server_config"
     xmlstarlet ed --inplace -u "//WebServerSettings/ServiceSettings/ServerSettings[DatabaseSettingsInternal[ConnectedSqlServerDatabase='$db_name']]/LiveSettings/ServerAddress" -v 127.0.0.1 -u "//WebServerSettings/ServiceSettings/ServerSettings[DatabaseSettingsInternal[ConnectedSqlServerDatabase='$db_name']]/LiveSettings/ServerPort" -v 3982 "$server_config"
+    
+    [[ ! -f $store_config ]] && log::Error "Cannot find storeforward.config at $store_config, please run Gateway locally to generate it first."  && return 1
     xmlstarlet ed --inplace -u "//StoreForwardSettings/Type" -v Developer -u "//WebServerSettings/WebSSLPort" -v 10001 "$store_config"
     xmlstarlet ed --inplace -u "//StoreForwardSettings/GatewayWebServerSettings/WebPort" -v 10002 -u "//StoreForwardSettings/GatewayWebServerSettings/WebSSLPort" -v 10003 "$store_config"
     xmlstarlet ed --inplace -u "//StoreForwardSettings/CertifiedConnectionsOnly" -v false "$store_config"
