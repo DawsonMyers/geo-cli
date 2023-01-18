@@ -3007,6 +3007,99 @@ _geo_push_get_item() {
     echo $(echo $items | awk -F '@' "$awk_cmd")
 }
 
+_geo_jq_rm() {
+    local inplace_edit=false
+
+    local OPTIND
+    while getopts "i" opt; do
+        case "${opt}" in
+            i ) inplace_edit=true ;;
+            : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
+            \? ) log::Error "Invalid option: $1"; return 1 ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+
+    local key="$1"
+    local file="$2"
+    local json="$(cat "$file")"
+    json="${json:-'{}'}"
+
+    run_jq() {
+        # echo "$json" | jq --arg key_path "$key" --arg val "$value" '. | delpath(($key_path |  split(".")))' > "$file";
+        # json="$(echo "$json" | jq --arg key_path "$key" --arg val "$value" '. | setpath(($key_path |  split(".")); $val)')";
+        if $inplace_edit; then
+            json="$(echo "$json" | jq --arg key_path "$key" '. | delpaths([($key_path |  split("."))])')"
+            # json="${json:-'{}'}"
+            log::debug "$json"
+            [[ -z $json ]] && log::Error "Resulting JSON was empty. Skipping writing to file: '$file'" && return 1
+            # echo "$json" > "$file" | { log::Error "Failed to write json to '$file'"; return 1; }
+        else
+            echo "$json" | jq --arg key_path "$key" '. | delpaths([($key_path |  split("."))])'
+            # log::code "j: $json"
+        fi
+    }
+    run_command_with_lock_file "$file.lock" ' ' run_jq
+}
+
+_geo_jq_set() {
+    local inplace_edit=false
+
+    local OPTIND
+    while getopts "i" opt; do
+        case "${opt}" in
+            i ) inplace_edit=true ;;
+            : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
+            \? ) log::Error "Invalid option: $1"; return 1 ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+
+    local key="$1"
+    local value="$2"
+    local file="$3"
+    local json="$(cat "$file")"
+
+    run_jq() {
+        echo "$json" | jq --arg key_path "$key" --arg val "$value" '. | setpath(($key_path |  split(".")); $val)' > "$file";
+        # json="$(echo "$json" | jq --arg key_path "$key" --arg val "$value" '. | setpath(($key_path |  split(".")); $val)')";
+        # if $inplace_edit; then
+        #     echo "$json" > "$file" | log::Error "Failed to write json to '$file'" && return 1
+        # else
+        #     echo "$json" | jq --arg key_path "$key" --arg val "$value" '. | setpath(($key_path |  split(".")); $val)')
+        #     # log::code "j: $json"
+        # fi
+    }
+    run_command_with_lock_file "$file.lock" ' ' run_jq
+}
+
+_geo_jq_get() {
+    local inplace_edit=false
+    local raw=false
+    local OPTIND
+    while getopts "i" opt; do
+        case "${opt}" in
+            i ) inplace_edit=true ;;
+            r ) raw=true ;;
+            : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
+            \? ) log::Error "Invalid option: $1"; return 1 ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+
+    local key="$1"
+    # local value="$2"
+    local file="$2"
+    local json="$(cat "$file")"
+    local options=
+    $raw && options='-n'
+
+    echo "$json" | jq --arg key_path "$key" '. | getpath(($key_path |  split(".")))';
+    # run_jq() {
+    # }
+    # run_command_with_lock_file "$file.lock" ' ' run_jq
+}
+
 #######################################################################################################################
 COMMANDS+=('update')
 geo_update_doc() {
