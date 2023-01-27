@@ -1129,6 +1129,13 @@ _geo_make_alphanumeric() {
     echo "$@" | sed 's/[^0-9a-zA-Z_.-]/_/g' | sed -e 's/_\{2,\}/_/g'
 }
 
+_geo_get_pg_version_from_docker_object() {
+    local result="$(docker inspect "$1" --format '{{ json .Config.Env }}' | jq '.[] | select(match("POSTGRES_VERSION="))')"
+    result=${result##*=}
+    result=${result//\"}
+    echo -n "$result"
+}
+
 _geo_db_ls_images() {
     log::info Images
     docker image ls geo_cli* #--format 'table {{.Names}}\t{{.ID}}\t{{.Image}}'
@@ -5542,7 +5549,7 @@ _geo_install_or_update_docker_compose() {
     
     log::status "Installing docker-compose $latest_compose_version"
     # Download docker-compose to /usr/local/bin/docker-compose
-    sudo curl -L "https://github.com/docker/compose/releases/download/v${latest_compose_version:-2.12.0}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    sudo curl -L "https://github.com/docker/compose/releases/download/v${latest_compose_version:-2.15.1}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 
     sudo chmod +x /usr/local/bin/docker-compose
     docker-compose --version
