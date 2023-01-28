@@ -101,6 +101,7 @@ read -r -d '' handler_header <<'EOF'
 # Also, add a section to the README with instructions on how to use your command.
 EOF
 
+export GEO_CLI_HANDLERS_DIR="$GEO_CLI_SRC_DIR/cli/handlers"
 
 COMMANDS+=('handler')
 geo_command_doc() {
@@ -121,8 +122,7 @@ geo_command_doc() {
           doc_cmd_example 'geo db start 11.0'
           doc_cmd_example 'geo db start -y 11.0'
 }
-geo_handler() {
-    log::debug "args: $@"
+geo_handler() {    
     local OPTIND
     while getopts "v:" opt; do
         case "${opt}" in
@@ -131,12 +131,11 @@ geo_handler() {
             \? ) log::Error "Invalid option: ${opt}"; return 1 ;;
         esac
     done
+
     shift $((OPTIND - 1))
-log::debug "args: $@"
     local cmd="$1"
-    log::debug "cmd: $cmd"
+
     shift
-    log::debug "args: $@"
 
     case "$cmd" in
         create )
@@ -145,23 +144,47 @@ log::debug "args: $@"
         rm | remove )
             _geo_handler_remove "$@"
             ;;
-        * ) log::Error "The following command is unknown: $cmd" && return 1 ;;
+        ls | list )
+            _geo_handler_ls "$@"
+            ;;
+        * ) 
+            [[ -z $cmd ]] && log::Error "No arguments provided" && return 1 
+            log::Error "The following command is unknown: $cmd" && return 1 
+            ;;
     esac
 }
 
 _geo_handler_create() {
-    log::debug "_geo_handler_create: $@"
+    local force_create=false
+    local OPTIND
+    while getopts "f" opt; do
+        case "${opt}" in
+            f ) force_create=true ;;
+            : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
+            \? ) log::Error "Invalid option: ${opt}"; return 1 ;;
+        esac
+    done
+    shift $((OPTIND - 1))
     local template_file="$GEO_CLI_SRC_DIR/includes/handlers/geo-handler-template.sh"
 
     local cmd_name="$1"
 
-    _geo_cmd_exists "$cmd_name" && log::Error "Command '$cmd_name' already exists" && return 1 
+    if _geo_cmd_exists "$cmd_name"; then
+        log::warn "Command '$cmd_name' already exists"
+        prompt_continue "Continue anyways? (Y|n) : " || return 1
+    fi
     [[ ! -f $template_file ]] && log::Error "Couldn't find template file at $template_file" && return 1
     local alphanumeric_re='^([[:alnum:]]|[-_])+$'
     [[ ! $cmd_name =~ $alphanumeric_re ]] && log::Error "Invalid command name. Only alphanumeric characters (including -_) are allowed." && return 1
 
-    local handler_file="$GEO_CLI_SRC_DIR/handlers/geo-${cmd_name}.sh"
-    [[ -f $handler_file && -n $(cat $handler_file) ]] && log::Error "Hanlder file already exists at $handler_file" && return 1
+    local handler_file="$GEO_CLI_SRC_DIR/cli/handlers/geo-${cmd_name}.sh"
+    local existing_handler_file=
+    if [[ -f $handler_file && existing_handler_file="$(cat $handler_file)" && -n $existing_handler_file ]]; then
+        log::warn "Hanlder file already exists at $handler_file"
+        log::warn "Existing file content:"
+        log::code "$existing_handler_file"
+        prompt_continue "Overwrite existing handler file? (Y|n): " || return 1
+    fi
 
 
 
@@ -179,16 +202,29 @@ _geo_handler_create() {
     log::file "$handler_file"
 
     log::info "Add the logic to your command to the handler file. You're command should now be accessible in new terminals via:"
-    log::code "geo $cmd_name"
+    log::code "    geo $cmd_name\n"
+
+    log::status "Trying to source handler file..."
+    . "$handler_file" && log::success 'OK' || { log::Error "Failed to source handler file"; return 1; }
+    
+    log::info "The new command should be available in this terminal if it is a bash shell."
+    log::info "Try it here or open a new terminal and run:"
+    log::code "    geo $cmd_name test\n"
 
     prompt_continue "Open handler file now in VS Code? (Y|n) : " && code "$handler_file"
     log::success Done
 }
 
-# _geo_handler_remove() {
+_geo_handler_remove() {
+    local cmd_name="$1"
+    local handler_file="$GEO_CLI_SRC_DIR/cli/handlers/geo-${cmd_name}.sh"
+    [[ ! -f $handler_file ]] && log::warn "Handler file not found at: $handler_file"
+    prompt_continue "Delete handler file at $handler_file? (Y|n) : " || return 1
+    log::status "Deleting handler file"
+    rm "$handler_file" || log::Error "Failed to delete handler file" && return 1
+    log::success 'Done'
+}
 
-# }
-
-# _geo_handler_ls() {
-
-# }
+_geo_handler_ls() {
+    ls -lh "$GEO_CLI_SRC_DIR/cli/handlers/"
+}

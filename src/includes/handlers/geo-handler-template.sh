@@ -134,7 +134,10 @@ geo_new_command_name() {
         rm | remove )
             _geo_handler_remove "$@"
             ;;
-        * ) log::Error "The following command is unknown: $cmd" && return 1 ;;
+        * ) 
+            [[ -z $cmd ]] && log::Error "No arguments provided" && return 1 
+            log::Error "The following command is unknown: $cmd" && return 1 
+            ;;
     esac
 }
 
