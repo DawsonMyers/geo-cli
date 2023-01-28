@@ -3043,11 +3043,12 @@ _geo_push_get_item() {
 
 _geo_jq_rm() {
     local inplace_edit=false
-
+    local use_lock_file=true
     local OPTIND
-    while getopts "i" opt; do
+    while getopts "in" opt; do
         case "${opt}" in
             i ) inplace_edit=true ;;
+            i ) use_lock_file=false ;;
             : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
             \? ) log::Error "Invalid option: $1"; return 1 ;;
         esac
@@ -3073,16 +3074,22 @@ _geo_jq_rm() {
             # log::code "j: $json"
         fi
     }
-    run_command_with_lock_file "$file.lock" ' ' run_jq
+    if $use_lock_file; then
+        run_command_with_lock_file "$file.lock" ' ' run_jq
+    else
+        run_jq
+    fi
 }
 
 _geo_jq_set() {
     local inplace_edit=false
+    local use_lock_file=true
 
     local OPTIND
-    while getopts "i" opt; do
+    while getopts "in" opt; do
         case "${opt}" in
             i ) inplace_edit=true ;;
+            n ) use_lock_file=false ;;
             : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
             \? ) log::Error "Invalid option: $1"; return 1 ;;
         esac
@@ -3104,7 +3111,12 @@ _geo_jq_set() {
         #     # log::code "j: $json"
         # fi
     }
-    run_command_with_lock_file "$file.lock" ' ' run_jq
+
+    if $use_lock_file; then
+        run_command_with_lock_file "$file.lock" ' ' run_jq
+    else
+        run_jq
+    fi
 }
 
 _geo_jq_get() {
@@ -5333,7 +5345,7 @@ _geo_gw_stop() {
 
 _get_gw_pid() {
     set -o pipefail
-    ps -fp $(pgrep CheckmateServer)|grep 'CheckmateServer StoreForwardDebug'|awk -F ' ' '{print $2}'
+    ps -fp $(pgrep CheckmateServer) | grep 'CheckmateServer StoreForwardDebug' | awk -F ' ' '{print $2}'
 }
 
 _geo_gw_is_running() {
