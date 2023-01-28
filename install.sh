@@ -4,7 +4,7 @@ export GEO_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export GEO_CLI_SRC_DIR="${GEO_CLI_DIR}/src"
 
 # Import config file utils for writing to the geo config file (~/.geo-cli/.geo.conf).
-. $GEO_CLI_SRC_DIR/utils/cli-handlers.sh
+. $GEO_CLI_SRC_DIR/cli-handlers.sh
 . $GEO_CLI_SRC_DIR/utils/log.sh
 
 export GEO_CLI_CONFIG_DIR="$HOME/.geo-cli"
