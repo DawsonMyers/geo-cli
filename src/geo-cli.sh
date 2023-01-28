@@ -43,7 +43,7 @@ fi
 # echo $SOURCE
 
 # Import cli handlers to get access to all of the geo-cli commands and command names (through the COMMMAND array).
-. "$GEO_CLI_SRC_DIR/utils/cli-handlers.sh"
+. "$GEO_CLI_SRC_DIR/cli/cli-handlers.sh"
 . "$GEO_CLI_SRC_DIR/utils/log.sh"
 
 function geo()
@@ -74,7 +74,7 @@ function geo()
     # Check if colour variables have been changed by the terminal (wraped in \[ ... \]). Reload everything if they have to fix.
     # This issue would cause coloured log output to start with '\[\] some log message'.
     if [[ $Green =~ ^'\['.*'\]' ]]; then
-        . "$GEO_CLI_SRC_DIR/utils/cli-handlers.sh"
+        . "$GEO_CLI_SRC_DIR/cli-handlers.sh"
         # log::debug 'Colours reloaded'
     fi
 

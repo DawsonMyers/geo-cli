@@ -20,7 +20,7 @@ export GEO_CLI_CONF_FILE="$GEO_CLI_CONFIG_DIR/.geo.conf"
 # [ -z $GEO_CLI_REPO_DIR ] && echo REPO DIRECTORY NOT set
 
 # Import cli handlers to get access to all of the command names (through functions calls and the COMMMAND array)
-# . ~/.geo-cli/cli/utils/cli-handlers.sh
+# . ~/.geo-cli/cli/cli-handlers.sh
 
 alias d-c='docker-compose'
 alias dcm=dc_geo

@@ -33,38 +33,71 @@ export CURRENT_COMMAND=''
 export CURRENT_SUBCOMMAND=''
 export CURRENT_SUBCOMMANDS=()
 
-# set -eE -o functrace
-# set -x
-# failure() {
-#   local lineno=$1
-#   local msg=$2
-#   local func=$3
-#   echo "Failed at $lineno: $msg in function: ${func}"
-# }
-# trap 'failure ${LINENO} "$BASH_COMMAND" ${FUNCNAME[0]}' ERR
-
-
-# First argument commands
 #######################################################################################################################
-# Each command has three parts:
+#### Create a new command (e.g. 'geo <some_new_command>')
+#######################################################################################################################
+## First argument commands
+#----------------------------------------------------------
+# Each command definition requires three parts for it to be available as a command to geo-cli (i.e. 'db' is the command in 'geo db'):
 #   1. Its name is added to the COMMANDS array
+#        - This array lets geo check if a command exists. If geo is run with an unknown command, an error message will
+#          shown to the user.
 #   2. Command documentation function (for printing help)
+#        - This function is run when the user requests help via 'geo <command> --help'. Also, these functions are called
+#           for every command in the COMMANDS array when the user runs 'geo help' or 'geo -h'.
 #   3. Command function
-# Example:
+#       - The actual command that gets executed when the user runs 'geo <your_command>'. All the arguments passed to 
+#           geo following the command name will be passed to this function as positional arguments (e.g.. $1, $2, ...).
+# 
+# The three parts above have the following structure:
 #   COMMAND+=('command')
 #   geo_command_doc() {...}
 #   geo_command() {...}
+# Example for the definition of 'geo db' command:
+#   COMMAND+=('db')
+#   geo_db_doc() {...}
+#   geo_db() {...}
 #
+## Start off a new command definition by making a copy of the template above and fill in your own logic. 
+# Some example documentation functions are also included in the template. They take care of formatting/colouring the
+# text when printing it out for the user. Replace the example documentation with your own.
+#------------------------------------------------------------
 # Template:
 #######################################################################################################################
 # COMMANDS+=('command')
 # geo_command_doc() {
-#
+#   doc_cmd 'command'
+#       doc_cmd_desc 'Commands description.'
+#       
+#       doc_cmd_sub_cmds_title
+#       
+#       doc_cmd_sub_cmd 'start [options] <name>'
+#           doc_cmd_sub_cmd_desc 'Creates a versioned db container and...'
+#           doc_cmd_sub_options_title
+#               doc_cmd_sub_option '-y'
+#                   doc_cmd_sub_option_desc 'Accept all prompts.'
+#               doc_cmd_sub_option '-d <database name>'
+#                   doc_cmd_sub_option_desc 'Sets the name of the db to...'
+# 
+#       doc_cmd_examples_title
+#           doc_cmd_example 'geo db start 11.0'
+#           doc_cmd_example 'geo db start -y 11.0'
 # }
 # geo_command() {
 #
 # }
 #######################################################################################################################
+# 
+# Also, add a section to the README with instructions on how to use your command.
+
+# The directory path to this file.
+export FILE_DIR="$(dirname "${BASH_SOURCE[0]}")"
+# Load handler files.
+if [[ $(ls -A $FILE_DIR/handlers) ]]; then
+    for handler_file in $FILE_DIR/handlers/*.sh ; do
+        . $handler_file
+    done
+fi
 
 
 _geo_check_db_image() {
@@ -248,18 +281,18 @@ geo_db_doc() {
     #             doc_cmd_sub_sub_cmd_desc 'Removes a script.'
 
     doc_cmd_examples_title
-    doc_cmd_example 'geo db start 2004'
-    doc_cmd_example 'geo db start -y 2004'
-    doc_cmd_example 'geo db create 2004'
-    doc_cmd_example 'geo db rm 2004'
-    doc_cmd_example 'geo db rm --all'
-    doc_cmd_example 'geo db rm 7.0 8.0 9.0'
-    doc_cmd_example 'geo db cp 9.0 9.1'
-    doc_cmd_example 'geo db rm --all'
-    doc_cmd_example 'geo db ls'
-    doc_cmd_example 'geo db psql'
-    doc_cmd_example 'geo db psql -u mySqlUser -p mySqlPassword -d dbName'
-    doc_cmd_example 'geo db psql -q "SELECT * FROM deviceshare LIMIT 10"'
+        doc_cmd_example 'geo db start 2004'
+        doc_cmd_example 'geo db start -y 2004'
+        doc_cmd_example 'geo db create 2004'
+        doc_cmd_example 'geo db rm 2004'
+        doc_cmd_example 'geo db rm --all'
+        doc_cmd_example 'geo db rm 7.0 8.0 9.0'
+        doc_cmd_example 'geo db cp 9.0 9.1'
+        doc_cmd_example 'geo db rm --all'
+        doc_cmd_example 'geo db ls'
+        doc_cmd_example 'geo db psql'
+        doc_cmd_example 'geo db psql -u mySqlUser -p mySqlPassword -d dbName'
+        doc_cmd_example 'geo db psql -q "SELECT * FROM deviceshare LIMIT 10"'
 }
 geo_db() {
     # Check to make sure that the current user is added to the docker group. All subcommands in this command need to use docker.
