@@ -125,14 +125,15 @@ geo_new_command_name() {
     case "$cmd" in
         test )
             # Passes all remaining arguments to the geo_handler_create sub-handler to keep things easy to read.
-            log::success "Command 'new_command_name' is now available. Add your logic to the handler file at $new_command_name_handler_file_path"
+            log::success "Command 'new_command_name' is now using geo-cli. Add your logic to the handler file at $new_command_name_handler_file_path"
+            prompt_continue "Edit your command now in VS Code? (Y|n): " && code $new_command_name_handler_file_path
             ;;
         create )
             # Passes all remaining arguments to the geo_handler_create sub-handler to keep things easy to read.
-            _geo_handler_create "$@"
+            _geo_new_command_name_create "$@"
             ;;
         rm | remove )
-            _geo_handler_remove "$@"
+            _geo_new_command_name_remove "$@"
             ;;
         * ) 
             [[ -z $cmd ]] && log::Error "No arguments provided" && return 1 
