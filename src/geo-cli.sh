@@ -74,7 +74,7 @@ function geo()
     # Check if colour variables have been changed by the terminal (wraped in \[ ... \]). Reload everything if they have to fix.
     # This issue would cause coloured log output to start with '\[\] some log message'.
     if [[ $Green =~ ^'\['.*'\]' ]]; then
-        . "$GEO_CLI_SRC_DIR/cli-handlers.sh"
+        . "$GEO_CLI_SRC_DIR/cli/cli-handlers.sh"
         # log::debug 'Colours reloaded'
     fi
 

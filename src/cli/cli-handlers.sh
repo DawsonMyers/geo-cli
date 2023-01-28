@@ -92,10 +92,11 @@ export CURRENT_SUBCOMMANDS=()
 
 # The directory path to this file.
 export FILE_DIR="$(dirname "${BASH_SOURCE[0]}")"
+
 # Load handler files.
-if [[ $(ls -A $FILE_DIR/handlers) ]]; then
-    for handler_file in $FILE_DIR/handlers/*.sh ; do
-        . $handler_file
+if [[ $(ls -A $FILE_DIR/commands) ]]; then
+    for command_file in $FILE_DIR/commands/*.sh ; do
+        . $command_file
     done
 fi
 
