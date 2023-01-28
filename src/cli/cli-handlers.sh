@@ -134,14 +134,8 @@ geo_image() {
     while getopts "v:" opt; do
         case "${opt}" in
             v ) [[ $OPTARG =~ ^[[:digit:]]+$ ]] && pg_version=$OPTARG ;;
-            : )
-                log::Error "Option '${opt}' expects an argument."
-                return 1
-                ;;
-            \? )
-                log::Error "Invalid option: ${opt}"
-                return 1
-                ;;
+            : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
+            \? ) log::Error "Invalid option: ${opt}"; return 1 ;;
         esac
     done
     shift $((OPTIND - 1))
