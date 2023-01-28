@@ -1,11 +1,47 @@
-#######################################################################################################################
-#######################################################################################################################
+
+#**********************************************************************************************************************
 # This is a geo-cli handler file. It is automatically executed from cli-handlers.sh when geo-cli is loaded into each 
 # new terminal.
+# 
 # All of the exported constants and functions available to geo-cli are available here.
-#######################################################################################################################
-#######################################################################################################################
+#**********************************************************************************************************************
 
+#######################################################################################################################
+# Global Constants and Functions
+#######################################################################################################################
+# [Path Constants]  
+# GEO_CLI_DIR         The full path to the geo-cli repo.
+# GEO_CLI_SRC_DIR     The full path to the geo-cli src dir, located in the root of the repo (geo-cli/src).
+# GEO_CLI_CONFIG_DIR  The full path to the geo-cli config dir, located at $HOME/.geo-cli.
+#   => This directory is used any time geo-cli or its commands need to persist some kind of information. If a command
+#        needs to store data in this directory, create a new directory the same name as the command located at
+#          $GEO_CLI_CONFIG_DIR/data/<command_name>.
+# GEO_CLI_CONF_FILE   The full path to the geo-cli config file, located at $HOME/.geo-cli/.geo.conf.
+#   => This file effectively acts as the db for geo, it stores all configurations and user preferences. It is written
+#        to automically using lock a lock file.
+# [Log Functions]
+# All log functions are prefixed with log:: and are defined in src/utils/log.sh. Try the functions yourself or search
+# for usages for use cases.
+#   log::caution                log::hint
+#   log::filepath               log::fmt_text_and_indent_after_first_line
+#   log::keyvalue               log::prompt_n
+#   log::txt_italic             log::txt_blink
+#   log::code                   log::yellow
+#   log::fmt_text               log::detail
+#   log::link                   log::purple
+#   log::stacktrace             log::txt_bold
+#   log::txt_underline          log::Error
+#   log::cyan                   log::red
+#   log::status                 log::txt_dim
+#   log::verbose                log::error
+#   log::data                   log::repeat_str
+#   log::strip_color_codes      log::txt_hide
+#   log::warn                   log::file
+#   log::data_header            log::info
+#   log::green                  log::txt_invert
+#   log::white                  log::prompt                 
+#   log::debug                  log::success                    
+  
 #######################################################################################################################
 #### Create a new command (e.g. 'geo <some_new_command>')
 #######################################################################################################################
