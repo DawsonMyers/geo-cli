@@ -3049,7 +3049,7 @@ _geo_jq_rm() {
     while getopts "in" opt; do
         case "${opt}" in
             i ) inplace_edit=true ;;
-            i ) use_lock_file=false ;;
+            n ) use_lock_file=false ;;
             : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
             \? ) log::Error "Invalid option: $1"; return 1 ;;
         esac
@@ -3082,15 +3082,44 @@ _geo_jq_rm() {
     fi
 }
 
+_geo_jq_set_value() {
+    local value_is_json=false
+    local OPTIND
+    while getopts "j" opt; do
+        case "${opt}" in
+            j ) value_is_json=true ;;
+
+            : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
+            \? ) log::Error "Invalid option: $1"; return 1 ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+
+    local key="$1"
+    local value="$2"
+    local json="$3" 
+    [[ -z $json ]] && json='{}'
+    
+    local val_args=(--arg val "$value")
+    $value_is_json && val_args[0]='--argjson'
+
+    local updated_json="$(echo "$json" | jq --arg key_path "$key" "${val_args[@]}" '. | setpath(($key_path |  split(".")); $val)')"
+    echo "$updated_json"
+}
+
 _geo_jq_set() {
-    local inplace_edit=false
+    local inplace_edit=true
+    local print_json=false
+    local print_initial_json=false
     local use_lock_file=true
 
     local OPTIND
-    while getopts "in" opt; do
+    while getopts "inpP" opt; do
         case "${opt}" in
             i ) inplace_edit=true ;;
             n ) use_lock_file=false ;;
+            p ) print_json=true ;;
+            P ) print_initial_json=true ;;
             : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
             \? ) log::Error "Invalid option: $1"; return 1 ;;
         esac
@@ -3100,17 +3129,34 @@ _geo_jq_set() {
     local key="$1"
     local value="$2"
     local file="$3"
-    local json="$(cat "$file")"
+    local json=
 
+    if [[ ! -f $file ]]; then
+        log::status "Creating json file: $file"
+        echo '{}' > "$file"
+    fi
+    json="$(cat "$file")"
+    [[ ${#json} -lt 2 ]] && json='{}'
+
+    $print_initial_json && log::info "Initial json:" && log::code "$json\n"
+
+    # Function to set json using jq. It will either be called with or without locking the file.
     run_jq() {
-        echo "$json" | jq --arg key_path "$key" --arg val "$value" '. | setpath(($key_path |  split(".")); $val)' > "$file";
-        # json="$(echo "$json" | jq --arg key_path "$key" --arg val "$value" '. | setpath(($key_path |  split(".")); $val)')";
-        # if $inplace_edit; then
-        #     echo "$json" > "$file" | log::Error "Failed to write json to '$file'" && return 1
-        # else
-        #     echo "$json" | jq --arg key_path "$key" --arg val "$value" '. | setpath(($key_path |  split(".")); $val)')
-        #     # log::code "j: $json"
-        # fi
+        local updated_json="$(_geo_jq_set_value "$key" "$value" "$json")"
+        # Something went wrong with jq if not even an empty object was returned for the updated json. Don't write this back to the json file.
+        if [[ ${#updated_json} -lt 2 ]]; then
+            log::Error "jq failed to set value in json file."
+            return 1
+        fi
+
+        if $inplace_edit; then
+            echo "$updated_json" > "$file" || { log::Error "Failed to write json to '$file'"; return 1; }
+        fi
+
+        if $print_json; then 
+            log::info "Updated json:"
+            log::code "$(cat $file)\n"
+        fi
     }
 
     if $use_lock_file; then
