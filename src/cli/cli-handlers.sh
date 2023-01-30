@@ -303,7 +303,7 @@ geo_db() {
         return
         ;;
     ls)
-        _geo_db_ls_containers
+        _geo_db_ls_containers "${@:2}"
 
         # Show all geo-cli volumes and images if the user supplied some variant of all (-a, --all, all).
         if [[ $2 =~ ^-*a(ll)? ]]; then
@@ -1171,10 +1171,21 @@ _geo_db_ls_images() {
 _geo_db_ls_containers() {
     log::info 'DB Containers'
     # docker container ls -a -f name=geo_cli
-    if [[ $1 = -a ]]; then
-        docker container ls -a -f name=geo_cli
-        return
-    fi
+
+    local include_ids=false
+
+    local OPTIND
+    while getopts "Ai" opt; do
+        case "${opt}" in
+            a ) docker container ls -a -f name=geo_cli && return ;;
+            i ) include_ids=true ;;
+            # i ) [[ $OPTARG =~ ^[[:digit:]]+$ ]] && pg_version=$OPTARG ;;
+            : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
+            \? ) log::Error "Invalid option: ${opt}"; return 1 ;;
+        esac
+    done
+
+    shift $((OPTIND - 1))
 
     local output=$(docker container ls -a -f name=geo_cli --format '{{.Names}}\t{{.ID}}\t{{.Names}}\t{{.CreatedAt}}')
 
@@ -1189,8 +1200,13 @@ _geo_db_ls_containers() {
     local name_field_length=$((${#longest_field_length} - ${#GEO_DB_PREFIX} + 2))
     ((name_field_length < 14)) && name_field_length=14
 
+    local col2_name="PG Version"
+    $include_ids && col2_name="Container ID"
+
     local line_format=" %-${name_field_length}s %-14s %-${container_name_field_length}s %-12s\n"
-    local header=$(printf "$line_format" "geo-cli Name" "Container ID" "Container Name" "Created")
+    local header=$(printf "$line_format" "geo-cli Name" "$col2_name" "Container Name" "Created")
+    local total_line_length=${#header}
+
     # Print the table header.
     log::data_header "$header"
 
@@ -1206,16 +1222,43 @@ _geo_db_ls_containers() {
         IFS=$'\t' read -r -a line_array <<<"$line"
         IFS=$_ifs
 
+        # Remove the geo db prefix from the container name to get the geo-cli name for the db.
+        local col1_geo_container_name="${line_array[0]#${GEO_DB_PREFIX}_}"
+
+        local container_id="${line_array[1]}"
+        local col2_value=
+        # If the user has included the -i option, then the second column will be the container ids, otherwise, the
+        # postgres version will shown.
+        if $include_ids; then
+            col2_value="$container_id"
+        else
+            # Try to get pg version (e.g., 14) from the PG_VERSION environment variable by inspecting the docker
+            # container object. Ignore any errors and just leave the value empty if we can't get the version.
+            local postgres_version=$(_geo_get_pg_version_from_docker_object $container_id 2> /dev/null)
+            col2_value="$postgres_version"
+        fi
+
+        local col3_docker_container_name="${line_array[2]}"
+
         created_date="${line_array[3]}"
         # Trim off timezone.
         created_date="${created_date:0:19}"
+        local col4_days_since_created=$(_geo_datediff "$now" "$created_date")
 
-        days_since_created=$(_geo_datediff "$now" "$created_date")
-        new_line="$(echo -e "${line_array[0]}\t${line_array[1]}\t${line_array[2]}\t$days_since")"
-        # Remove the geo db prefix from the container name to get the geo-cli name for the db.
-        line_array[0]="${line_array[0]#${GEO_DB_PREFIX}_}"
-        printf "$line_format" "${line_array[0]}" "${line_array[1]}" "${line_array[2]}" "$days_since_created"
+        new_line="$(echo -e "${line_array[0]}\t${col2_value}\t${line_array[2]}\t$days_since")"
+        local line_values_array=(
+            "${col1_geo_container_name}"
+             "${col2_value}"
+             "$col3_docker_container_name" 
+             "$col4_days_since_created"
+        )
+        
+        printf "$line_format" "${line_values_array[@]}"
     done <<< "$output"
+
+    local terminal_width=$(tput cols)
+    (( total_line_length > terminal_width )) \
+        && log::detail "\nExpand the width of your terminal to display the table correctly."
 }
 
 _geo_db_ls_volumes() {
