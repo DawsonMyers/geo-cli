@@ -5560,6 +5560,14 @@ geo_edit() {
 # Util
 ###########################################################################################################################################
 
+_geo_check_if_git_branch_exists() {
+    git rev-parse --verify "$1" &>/dev/null
+}
+
+_geo_is_valid_git_new_branch_name() {
+    [[ -z "$1" ]] && return 1
+    ! _geo_check_if_git_branch_exists "$1"
+}
 
 # Parses long options that don't take arguments
 # example() {

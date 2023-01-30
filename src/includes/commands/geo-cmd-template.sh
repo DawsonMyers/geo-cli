@@ -2,6 +2,9 @@
 # This is a geo-cli command file. It is automatically executed from cli-handlers.sh when geo-cli is loaded into each 
 # new terminal.
 # 
+# Author: command_author
+# Created: command_date
+# 
 # All of the exported constants and functions available to geo-cli are available here.
 #**********************************************************************************************************************
 
