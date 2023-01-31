@@ -302,7 +302,17 @@ log::error() {
 }
 
 log::data_header() {
-    echo -e "${VTE_COLOR_87}${UNDERLINE_ON}${BOLD_ON}$@${Off}"
+    local header="$@"
+    if [[ $1 == --pad ]]; then
+        shift
+        header="$@"
+        local header_length=${#header}
+        local terminal_width=$(tput cols $header_length)
+        local padding_length=$(( terminal_width - header_length ))
+        header="$header$(log::repeat_str ' ' $padding_length)"
+    fi
+
+    echo -e "${VTE_COLOR_87}${UNDERLINE_ON}${BOLD_ON}$header${Off}"
     # echo -e "${BIGreen}$@${Off}"
 }
 
@@ -328,7 +338,7 @@ log::prompt_n() {
 # 1: a string to repeat
 # 2: the number of repeats
 log::repeat_str() {
-    echo $(printf "$1%.0s" $(seq 1 $2))
+    echo "$(printf "$1%.0s" $(seq 1 $2))"
 }
 # Format long strings of text into lines of a certain width. All lines can also
 # be indented.

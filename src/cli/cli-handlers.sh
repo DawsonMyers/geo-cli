@@ -5618,7 +5618,6 @@ _geo_parse_long_options() {
 # 1: the command to check
 _geo_cmd_exists() {
     cmd=$(echo "${COMMANDS[@]}" | tr ' ' '\n' | grep -E "$(echo ^$1$)")
-    echo $cmd
     [[ -n $cmd ]]
 }
 
@@ -6017,22 +6016,68 @@ prompt_continue_or_exit() {
 }
 prompt_continue() {
     # Yes by default, any input other that n/N/no will continue.
-    local regex="[^nN]"
+    local regex_no='^[nN][oO]{0,}$'
+    local regex_yes='^[yY]([eE][sS])?$'
+    local regex="$regex_no"
     local default=yes
+    local answer=
     local prompt_msg="Do you want to continue? (Y|n): "
+
+    local force_answer=false
+    local add_suffix=false
+    local whole_word_answer=false
+
+    local OPTIND
+    while getopts "nfaw" opt; do
+        case "${opt}" in
+            n ) default=no ;;
+            # Force either yes or no to be entered.
+            f ) force_answer=true && default= ;;
+            a ) add_suffix=true ;;
+            w ) whole_word_answer=true && default=  ;;
+            : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
+            \? ) log::Error "Invalid option: ${opt}"; return 1 ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+    
+    [[ $# -gt 0 ]] && prompt_msg="$*"
+
+    # Replace multiple spaces with a single space and remove trailing/leading spaces.
+    prompt_msg="$(echo "$prompt_msg" | sed -E 's/^ +//g; s/ +$//g; s/ +/ /g;')"
+
+    local prompt_suffix=
+    local has_suffix_regex='\(.\{1,}|.{1,}\):'' ''?$'
+    if $add_suffix && ! [[ $prompt_msg =~ $has_suffix_regex ]]; then
+        case $default in
+            'yes' ) prompt_suffix='(Y|n): ' ;;
+            'no' ) prompt_suffix='(y|N): ' ;;
+            '' ) $whole_word_answer && prompt_suffix='(yes|no): ' || prompt_suffix='(y|n): ';;
+        esac
+
+        [[ ! $prompt_msg =~ \?$ ]] && prompt_msg+='?'
+        prompt_msg+=" $prompt_suffix"
+    fi
+
+    $whole_word_answer && regex_yes=yes && regex_no=no
+
     # Default to no if the -n option is present. This means that the user is required to enter y/Y/yes to continue,
     # anything else will decline to continue.
-    [[ $1 == -n ]] && regex="[yY]" && default=no && shift
-    if [[ -n $1 ]]; then
-        prompt_msg="$1"
-    fi
-    log::prompt_n "$prompt_msg"
 
-    read -e answer
-    # The read command doesn't add a new line with the -e option (allows for editing of the input with arrow keys, etc.)
-    # when the user just presses Enter (with no input), read doesn't add a new line after. So add one.
-    [[ -z $answer ]] && echo
-    [[ $answer =~ $regex || -z $answer && $default == yes ]]
+    while true; do
+        log::prompt_n "$prompt_msg"
+        answer=
+
+        read -e answer
+        answer=${answer,,}
+        # The read command doesn't add a new line with the -e option (allows for editing of the input with arrow keys, etc.)
+        # when the user just presses Enter (with no input), read doesn't add a new line after. So add one.
+        [[ -z $answer ]] && echo
+        
+        [[ $answer =~ $regex_yes || $default == yes && -z $answer ]] && return
+        [[ $answer =~ $regex_no || $default == no && -z $answer ]] && return 1
+        # [[ $answer =~ $regex || -z $answer && $default == true ]] && continue
+    done
 }
 
 # =====================================================================================================================

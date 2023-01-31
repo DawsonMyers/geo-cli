@@ -114,7 +114,7 @@ function geo()
     [[ $cmd == -f ]] && return
         
     # Quit if the command isn't valid
-    if [[ -z `_geo_cmd_exists $cmd` ]]; then
+    if ! _geo_cmd_exists "$cmd"; then
         [[ ${#cmd} == 0 ]] && echo && log::warn "geo was run without any command"
         [[ ${#cmd} -gt 0 ]] && echo && log::warn "Unknown command: '$cmd'"
         
