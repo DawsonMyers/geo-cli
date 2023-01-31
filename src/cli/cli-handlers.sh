@@ -96,13 +96,12 @@ export FILE_DIR="$(dirname "${BASH_SOURCE[0]}")"
 export GEO_CLI_COMMAND_DIR="$FILE_DIR/commands"
 export GEO_CLI_USER_COMMAND_DIR="$GEO_CLI_CONFIG_DIR/data/commands"
 
-export GEO_COMMAND_FILE_PATHS=()
 repo_cmd_files="$(find "$GEO_CLI_SRC_DIR/cli/commands" -name '*.cmd.sh' 2> /dev/null)"
-# for command_file in "$repo_cmd_files" ; do GEO_COMMAND_FILE_PATHS+=("$command_file"); done
+export GEO_COMMAND_REPO_FILE_PATHS=($repo_cmd_files) #"$(find "$GEO_CLI_SRC_DIR/cli/commands" -name '*.cmd.sh' 2> /dev/null)"
 user_cmd_files="$(find "$GEO_CLI_USER_COMMAND_DIR" -name '*.cmd.sh' 2> /dev/null)"
-# for command_file in "$user_cmd_files" ; do GEO_COMMAND_FILE_PATHS+=("$command_file"); done
+export GEO_COMMAND_USER_FILE_PATHS=($user_cmd_files)
 
-GEO_COMMAND_FILE_PATHS=($user_cmd_files $repo_cmd_files)
+export GEO_COMMAND_FILE_PATHS=("${GEO_COMMAND_REPO_FILE_PATHS[@]}" "${GEO_COMMAND_USER_FILE_PATHS[@]}")
 
 # Load command files.
 if [[ -n ${#GEO_COMMAND_FILE_PATHS[@]} ]]; then
@@ -6136,6 +6135,10 @@ prompt_for_info() {
 # is passed in, then the info will be stored in the global variable prompt_return.
 prompt_for_info_n() {
     prompt_for_info -n "$@"
+}
+
+_geo_replace_home_path_with_tilde() {
+    echo "$@" | sed -e "s%$HOME%~%g"
 }
 
 geotab_logo() {

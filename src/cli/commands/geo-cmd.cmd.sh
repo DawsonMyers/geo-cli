@@ -261,11 +261,44 @@ _geo_cmd_create() {
 
 _geo_cmd_remove() {
     local cmd_name="$1"
-    local command_file="$GEO_CLI_USER_COMMAND_DIR/geo-${cmd_name}.cmd.sh"
-    [[ ! -f $command_file ]] && log::warn "Command file not found at: $command_file" && return 1
-    prompt_continue "Delete command file at $(txt_underline $command_file)? (Y|n) : " || return 1
+    local has_own_directory=false
+    [[ -z $cmd_name ]] && log::Error "No command namd supplied" && return 1
+    _geo_cmd_exists "$cmd_name" || { log::Error "Command '$cmd_name' doesn't exist" && return 1; }
+    
+    local cmd_file_path=$(_geo_cmd_get_file_path $cmd_name)
+    local cmd_directory_path="$(_geo_cmd_get_file_path -d $cmd_name)"
+    # local -n cmd_file_path="${cmd_name}_command_file_path"
+    # local -n cmd_directory_path="${cmd_name}_command_directory_path"
+    # log::debug "[[ -z $cmd_file_path || ! -f $cmd_file_path ]]"
+
+    # log::debug _"$cmd_directory_path"_
+    [[ ! -f $cmd_file_path && ! -d $cmd_file_path ]] && log::Error "Command file wasn't found at: '$cmd_file_path'" && return 1
+    
+    _geo_cmd_has_own_dir $cmd_name && has_own_directory=true
+    # local command_file="$GEO_CLI_USER_COMMAND_DIR/geo-${cmd_name}.cmd.sh"
+    # [[ ! -f $command_file ]] && log::warn "Command file not found at: $command_file" && return 1
+
+    local delete_path=
+    if $has_own_directory; then
+        log::warn "The following file(s) will be deleted:"
+        delete_path="$cmd_directory_path"
+        log::code " * $cmd_directory_path"
+        log::code "$(find "$cmd_directory_path" | sed -E 's/^/   * /g' | tail -n +2)"
+    else
+        log::warn "The following file will be deleted:"
+        delete_path="$cmd_file_path"
+        log::code " * $cmd_file_path"
+    fi
+    echo
+    log::warn -b "WARNING: This cannot be undone"
+    echo
+    prompt_continue -afw "Delete the above file(s)?" || return 1
     log::status "Deleting command file"
-    rm "$command_file" || { log::Error "Failed to delete command file" && return 1; }
+    rm -Rv "$delete_path" || { log::Error "Failed to delete command file" && return 1; }
+    # . ~/.bashrc
+    echo
+    log::detail "The command will no longer be available in new terminals, but may still be available in open ones."
+    echo
     log::success 'Done'
 }
 
@@ -327,21 +360,20 @@ _geo_cmd_ls() {
         log::detail "No repo command files were found"
     fi
 }
-# new_command_name_command_file_path
-# new_command_name_command_directory_path
 
 _geo_cmd_edit() {
     local cmd_name="$1"
     [[ -z $cmd_name ]] && log::Error "No command namd supplied" && return 1
-    _geo_cmd_exists "$cmd_name" || log::Error "Command '$cmd_name' doesn't exist" && return 1
-
+    _geo_cmd_exists "$cmd_name" || { log::Error "Command '$cmd_name' doesn't exist" && return 1; }
+    
     local cmd_in_repo=true
     local -n cmd_file_path="${cmd_name}_command_file_path"
     local -n cmd_directory_path="${cmd_name}_command_directory_path"
-    [[ -z $cmd_file_path || ! -f $cmd_file_path ]] && ""
+    [[ -z $cmd_file_path || ! -f $cmd_file_path ]] && log::Error "Command file wasn't found at: $cmd_file_path" && return 1
     [[ $cmd_directory_path =~ $GEO_CLI_COMMAND_DIR ]] || cmd_in_repo=false
     
     log::status "Opening command file"
+    log::link "$cmd_file_path"
     if $cmd_in_repo; then
         # Open the geo-cli repo folder in a new vs code session.
         code -n "$GEO_CLI_DIR"
@@ -351,6 +383,27 @@ _geo_cmd_edit() {
     fi
     # Open command file in vs code.
     code -r "$cmd_file_path"
+}
+
+_geo_cmd_has_own_dir() {
+    local cmd_name="$1"
+    local cmd_path="$(_geo_cmd_get_file_path -d "$cmd_name")"
+    local cmd_dir_name="geo-$cmd_name"
+    [[ $cmd_path =~ $cmd_dir_name$ ]]
+}
+
+# -d option gets just the directory name.
+_geo_cmd_get_file_path() {
+    local dirname_only=false
+    [[ $1 == -d ]] && dirname_only=true && shift
+    local cmd_name="$1"
+    [[ -z $cmd_name ]] && return 1
+    _geo_cmd_exists "$cmd_name" || return 1
+    cmd_name="geo-$cmd_name"
+    local cmd_path="$(echo "${GEO_COMMAND_FILE_PATHS[@]}" | sed 's_/home/_\n/home/_g' | grep "$cmd_name")"
+    cmd_path="${cmd_path% }"
+    [[ -z $cmd_path ]] && return 1
+    $dirname_only && echo "${cmd_path%/*}" || echo "$cmd_path" 
 }
 
 # _geo_cmd_valid() {
