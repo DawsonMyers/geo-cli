@@ -44,7 +44,7 @@
   
 
 export GEO_CLI_COMMAND_DIR="$GEO_CLI_SRC_DIR/cli/commands"
-export GEO_CLI_LOCAL_COMMAND_DIR="$HOME/.geo-cli/data/commands"
+export GEO_CLI_USER_COMMAND_DIR="$HOME/.geo-cli/data/commands"
 
 COMMANDS+=('cmd')
 geo_cmd_doc() {
@@ -97,6 +97,9 @@ geo_cmd() {
         ls | list )
             _geo_cmd_ls "$@"
             ;;
+        edit )
+            _geo_cmd_edit "$@"
+            ;;
         * ) 
             [[ -z $cmd ]] && log::Error "No arguments provided" && return 1 
             log::Error "The following cmd is unknown: $cmd" && return 1 
@@ -106,7 +109,8 @@ geo_cmd() {
 
 _geo_cmd_create() {
     local force_create=false
-    local add_cmd_to_repo=false
+    local add_cmd_to_repo=true
+
     local OPTIND
     while getopts "fr" opt; do
         case "${opt}" in
@@ -117,6 +121,7 @@ _geo_cmd_create() {
         esac
     done
     shift $((OPTIND - 1))
+    
     local template_file="$GEO_CLI_SRC_DIR/includes/commands/geo-cmd-template.sh"
 
     local cmd_name="$1"
@@ -125,45 +130,51 @@ _geo_cmd_create() {
         log::warn "Command '$cmd_name' already exists"
         prompt_continue "Continue anyways? (Y|n) : " || return 1
     fi
+    
     [[ ! -f $template_file ]] && log::Error "Couldn't find template file at $template_file" && return 1
+
     local alphanumeric_re='^([[:alnum:]]|[-_])+$'
     [[ ! $cmd_name =~ $alphanumeric_re ]] && log::Error "Invalid command name. Only alphanumeric characters (including -_) are allowed." && return 1
 
     local command_dir_name=
-    log::info "You can create your command inside of its own directory, called 'geo-$cmd_name', if it will need to run other scripts or read in data from files."
+    log::detail "You can create your command inside of its own directory, called 'geo-$cmd_name', if its logic requires additional files (i.e. it executes other scripts or parses static data from a text file)."
     if prompt_continue "Create command in its own directory? (Y|n): "; then
-        command_dir_name="geo-$cmd_name"
+        command_dir_name="/geo-$cmd_name"
     fi
+    echo
 
-    log::
-
+    # The new command file.
     local command_file_name="geo-${cmd_name}.cmd.sh"
     local repo_cmd_file_dir="$GEO_CLI_SRC_DIR/cli/commands"
     local local_cmd_dir="$GEO_CLI_CONFIG_DIR/data/commands"
-    local command_file_dir="$local_cmd_dir/$command_dir_name"
-    ! $add_cmd_to_repo && command_file_dir="$repo_cmd_file_dir/$command_dir_name"
+    local command_file_dir="$repo_cmd_file_dir$command_dir_name"
+    ! $add_cmd_to_repo && command_file_dir="$local_cmd_dir$command_dir_name"
     
     if $add_cmd_to_repo; then
-        log::info "Your command will be added to the /src/cli/commands directory in your local geo-cli repo, by default, which makes it easy to add it to a branch and submit an MR for it. Alternatively, if you are just experimenting and don't plan to commit it to the repo yet, the command file can instead be added outside of the repo, in the $(txt_underline 'user commands') directory (~/.geo-cli/data/commands)."
-        log::info "This way you can still remain on the main geo-cli repo branch, making it easier to keep geo-cli up-to-date (since you wouldn't have to deal with any conflicts from your own local changes)."
-        log::hint "Answering 'no' to the following prompt will result in your command being added to the $(txt_underline 'user commands') directory"
-        if ! prompt_for_info "Add command to repo (default)? (Y|n): "; then
+        log::info "Your command will be added to the $(txt_underline /src/cli/commands) directory in your local geo-cli repo, by default, which makes it easy to add it to a branch and submit an MR for it.\n"
+        log::info "Alternatively, if you are just experimenting and don't plan to commit it to the repo yet, the command file can instead be added outside of the repo, in the $(txt_underline 'user commands') directory ($(txt_underline '~/.geo-cli/data/commands')).\n"
+        log::info "This way you can still remain on the main geo-cli repo branch, making it easier to keep geo-cli up-to-date (since you wouldn't have to deal with any conflicts from your own local changes).\n"
+        log::detail "Answering 'no' to the following prompt will result in your command being added to the $(txt_underline 'user commands') directory"
+        if ! prompt_continue "Add command to repo (default)? (Y|n): "; then
+            echo
             log::status "Adding command to the $(txt_underline 'user commands') directory"
+            sleep 1
             log::info "If you would like to have your command added to the main geo-cli repo branch, making it available to all geo-cli users, move your command file/directory to the repo commands directory. Then add it to a branch and submit an MR for it."
+            sleep 1
             add_cmd_to_repo=false
-            command_file_dir="$local_cmd_dir/$command_dir_name"
+            command_file_dir="$local_cmd_dir$command_dir_name"
         fi
+        
     fi
-
-    # Create the command's directory (if it doesn't already exist).
-    mkdir -p "$command_file_dir"
-    # The full path to the new command file.
+    echo
+    
     local command_file="$command_file_dir/$command_file_name"
 
     # Add command to the geo-cli config dir so that the user doesn't have to commit anything or create an MR.
     if $add_cmd_to_repo; then
         log::status "Adding new command file to the geo-cli repo"
-        log::info "Submit an MR with your new command if you think it would be useful to others."
+        sleep 1
+        echo
     fi
     local existing_command_file=
     if [[ -f $command_file && existing_command_file="$(cat $command_file)" && -n $existing_command_file ]]; then
@@ -171,40 +182,43 @@ _geo_cmd_create() {
         log::warn "Existing file content:"
         log::code "$existing_command_file"
         prompt_continue "Overwrite existing command file? (Y|n): " || return 1
+        echo
     fi
 
     log::link "$command_file\n"
-    prompt_continue "Create new command named '$cmd_name' and file for it at path above? (Y|n) : " || return 1
+    prompt_continue "Create file for new command named '$cmd_name' at the above path? (Y|n): " || return 1
 
-    echo
-    log::status "Creating file for new command '$cmd_name'"
+    # Create the command's directory (if it doesn't already exist).
+    mkdir -p "$command_file_dir"
+
     echo
     # Fill in the cmd name into the template file.
     local cmd_date=$(date +%Y-%m-%d)
     local cmd_author="$(git config user.email)"
     cmd_author=${cmd_author:-"$USER@geotab.com"}
 
-    local command_file_text="$(cat "$template_file" | sed -E "s/new_command_name/$cmd_name/g" -E "s/command_author/$cmd_author/g" -E "s/command_date/$cmd_date/g")"
+    local command_file_text="$(cat "$template_file" | sed -E "s/new_command_name/$cmd_name/g; s/command_author/$cmd_author/g; s/command_date/$cmd_date/g")"
     [[ -z $command_file_text ]] && log::Error "Failed to substitute command name into template file: $command_file_text" && return 1
 
     echo "$command_file_text"  > "$command_file" \
         || { log::Error "Failed to write command file to $command_file"; return 1; }
     
-    echo
+    sleep .3
     log::success "Command file created"
     log::file "$command_file"
-
+    sleep .5
     echo
     log::status "Trying to source command file..."
     . "$command_file" && log::success 'OK' || { log::Error "Failed to source command file"; return 1; }
-    
+    sleep .3
     echo 
     log::info "The new command should be available in this terminal if it is a bash shell."
     log::info "Try it here or open a new terminal and run:"
-    log::code "    geo $cmd_name test\n"
+    log::code "  geo $cmd_name test\n"
 
+    sleep .2
     
-    if $add_cmd_to_repo && prompt_continue "Would you like to create a branch for this command now?"; then
+    if $add_cmd_to_repo && prompt_continue "Would you like to create a branch for this command now? (Y|n): "; then
         local branch_name="add-geo-$cmd_name-command"
         if ! prompt_continue "Name new branch '$branch_name'? (Y|n)"; then
             branch_name=
@@ -224,16 +238,30 @@ _geo_cmd_create() {
         fi
     fi
 
+    sleep .7
 
     log::info "Next step: Add logic to the command file.\n"
+    log::hint "* Please submit an MR with your new command if you think it would be useful to others.\n"
 
-    prompt_continue "Open command file now in VS Code? (Y|n) : " && code "$command_file"
+    sleep 1
+
+    if prompt_continue "Open command file now in VS Code? (Y|n) : "; then
+        if $add_cmd_to_repo; then
+            # Open the geo-cli repo folder in a new vs code session.
+            code -n "$GEO_CLI_DIR"
+        else
+            # Otherwise, open the user command folder in a new vs code session.
+            code -n "$local_cmd_dir"
+        fi
+        # Open command file in vs code.
+        code -r "$command_file"
+    fi
     log::success Done
 }
 
 _geo_cmd_remove() {
     local cmd_name="$1"
-    local command_file="$GEO_CLI_LOCAL_COMMAND_DIR/geo-${cmd_name}.cmd.sh"
+    local command_file="$GEO_CLI_USER_COMMAND_DIR/geo-${cmd_name}.cmd.sh"
     [[ ! -f $command_file ]] && log::warn "Command file not found at: $command_file" && return 1
     prompt_continue "Delete command file at $(txt_underline $command_file)? (Y|n) : " || return 1
     log::status "Deleting command file"
@@ -242,40 +270,94 @@ _geo_cmd_remove() {
 }
 
 _geo_cmd_ls() {
-    list_repo_cmd_files=false
+    list_repo_cmd_files=true
     [[ $1 == -r ]] && list_repo_cmd_files=true
 #     GEO_CLI_COMMAND_DIR
-# GEO_CLI_LOCAL_COMMAND_DIR
-    log::status -b "User Command Files"
+# GEO_CLI_USER_COMMAND_DIR
 
-    if [[ -d $GEO_CLI_LOCAL_COMMAND_DIR && -n $(ls -A $GEO_CLI_LOCAL_COMMAND_DIR) ]]; then
-        # ls "$GEO_CLI_LOCAL_COMMAND_DIR"
-        # local user_cmd_files=$(find "$GEO_CLI_LOCAL_COMMAND_DIR" -name '*.cmd.sh')
-        find "$GEO_CLI_LOCAL_COMMAND_DIR" -name '*.cmd.sh'
+    log::data_header --pad "User Command Files"
+
+    local user_cmd_files="$(find "$GEO_CLI_USER_COMMAND_DIR" -name '*.cmd.sh' 2> /dev/null)"
+    if [[ -n $user_cmd_files ]]; then
+        # ls "$GEO_CLI_USER_COMMAND_DIR"
+        # local user_cmd_files=$(find "$GEO_CLI_USER_COMMAND_DIR" -name '*.cmd.sh')
+        for cmd_file in $user_cmd_files; do
+            log::code "  * $cmd_file"
+        done
     else
         log::detail "No user command files were found"
     fi
 
-    echo
-    log::info "These user commands (created via geo cmd create) are available through geo-cli via 'geo <command>'. They are stored in: "
-    log::link "$GEO_CLI_LOCAL_COMMAND_DIR\n"
-
+    log::info "These user commands (created via geo cmd create) are available (only to you) through geo-cli via 'geo <command>'. They are stored in: "
+    log::file "$GEO_CLI_USER_COMMAND_DIR"
+    
     ! $list_repo_cmd_files && return
 
+    echo
+    log::data_header --pad "Repo Command Files"
     if [[ -d $GEO_CLI_COMMAND_DIR && $(ls -A $GEO_CLI_COMMAND_DIR | wc -l) -ge 2 ]]; then
-        echo
-        log::status -b "Repo Command Files"
-        ls "$GEO_CLI_COMMAND_DIR" | sed 's/geo-cmd.cmd.sh.example//g'
-        local all_cmd_files="$(find "$GEO_CLI_SRC_DIR/cli/commands" -name '*.cmd.sh')"
-        log::data "$all_cmd_files"
-        # TODO: log in different colour if cmd file belongs to user.
-        # git log --format=%ae gateway.py | tail -1
-        # git status --format=%ae gateway.py | tail -1
+        # ls "$GEO_CLI_COMMAND_DIR" | sed 's/geo-cmd.cmd.sh.example//g'
+          (  
+            cd "$GEO_CLI_SRC_DIR"
+            local all_cmd_files="$(find "$GEO_CLI_SRC_DIR/cli/commands" -name '*.cmd.sh')"
+            # log::data "$all_cmd_files"
+            # TODO: log in different colour if cmd file belongs to user.
+            # git log --format=%ae gateway.py | tail -1
+            # git status --format=%ae gateway.py | tail -1
 
-        log::info "These commands (created via geo cmd create -r) are available through geo-cli via 'geo <command>'. The commands are available to all geo-cli users. They are stored in: "
-        log::link "$GEO_CLI_COMMAND_DIR\n"
+            for cmd_file in $all_cmd_files; do
+                local isUntracked=false
+                local createdByUser=false
+                local user="$(git config user.email)"
+                user="${user:-$USER}"
+                [[ -n $(git status "$cmd_file" | grep Untracked) ]] && isUntracked=true
+                [[ -n $(git log --follow --format=%ae "$cmd_file" | tail -1 | grep "$user") ]] && createdByUser=true
+
+                # Print the file in a different if it belongs to the user.
+                $isUntracked || $createdByUser \
+                    && log::code "  * $cmd_file" \
+                    || log::data "  * $cmd_file"
+            done
+
+            log::info "These commands are available through geo-cli via 'geo <command>'. They are available to all geo-cli users (once merged into the main geo-cli branch). They are stored in: "
+            log::file "$GEO_CLI_COMMAND_DIR"
+        )
         # ls -lh "$GEO_CLI_COMMAND_DIR"
     else
         log::detail "No repo command files were found"
     fi
 }
+# new_command_name_command_file_path
+# new_command_name_command_directory_path
+
+_geo_cmd_edit() {
+    local cmd_name="$1"
+    [[ -z $cmd_name ]] && log::Error "No command namd supplied" && return 1
+    _geo_cmd_exists "$cmd_name" || log::Error "Command '$cmd_name' doesn't exist" && return 1
+
+    local cmd_in_repo=true
+    local -n cmd_file_path="${cmd_name}_command_file_path"
+    local -n cmd_directory_path="${cmd_name}_command_directory_path"
+    [[ -z $cmd_file_path || ! -f $cmd_file_path ]] && ""
+    [[ $cmd_directory_path =~ $GEO_CLI_COMMAND_DIR ]] || cmd_in_repo=false
+    
+    log::status "Opening command file"
+    if $cmd_in_repo; then
+        # Open the geo-cli repo folder in a new vs code session.
+        code -n "$GEO_CLI_DIR"
+    else
+        # Otherwise, open the user command folder in a new vs code session.
+        code -n "$GEO_CLI_USER_COMMAND_DIR"
+    fi
+    # Open command file in vs code.
+    code -r "$cmd_file_path"
+}
+
+# _geo_cmd_valid() {
+#     local cmd="$1"
+#     if _geo_cmd_exists "$cmd_name"; then
+#         log::warn "Command '$cmd_name' already exists"
+#         prompt_continue "Continue anyways? (Y|n) : " || return 1
+#     fi
+#     _geo_cmd_exists "$cmd_name"
+# }
