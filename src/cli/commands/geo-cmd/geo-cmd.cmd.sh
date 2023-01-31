@@ -49,23 +49,26 @@ export GEO_CLI_USER_COMMAND_DIR="$HOME/.geo-cli/data/commands"
 COMMANDS+=('cmd')
 geo_cmd_doc() {
   doc_cmd 'cmd'
-      doc_cmd_desc "Commands for creating and updating custom geo-cli commands (i.e., 'geo <custom_command>'). These commands are stored in files and automatically loaded into geo-cli (in cli-handlers.sh). You can either create a geo command for local use only OR you can have the command file added to the geo-cli repo (by adding the -r option to the create command, e.g., 'geo cmd create -r <command_name>'). Add the command to the repo if you want to submit an MR for it to make it available for all geo-cli users."
+      doc_cmd_desc "Commands for creating and updating custom geo-cli commands (i.e., 'geo <custom_command>'). These commands are stored in files and automatically loaded into geo-cli (in cli-handlers.sh). You can either create a geo command for local use only OR you can have the command file added to the geo-cli repo. Add the command to the repo if you want to submit an MR for it to make it available for all geo-cli users."
       
       doc_cmd_sub_cmds_title
       
-      doc_cmd_sub_cmd 'create [options] <command_name>'
-          doc_cmd_sub_cmd_desc 'Creates a new command file. These files are automatically loaded into geo-cli (in cli-handlers.sh) and are stored in ~/.geo-cli/data/commands. If you want to make your command available to all geo-cli users, add the -r option to have the command file added to the geo-cli repo (in the src/cli/commands directory). Create and push a branch to GitLab for the command file and submit an MR for it.'
-          doc_cmd_sub_options_title
-              doc_cmd_sub_option '-r'
-                  doc_cmd_sub_option_desc 'Creates the new command file in the geo-cli repo directory instead of in ~/.geo-cli/data/commands. This makes it easy to create an MR with the new command if you would like to share it with others.'
+      doc_cmd_sub_cmd 'create <command_name>'
+          doc_cmd_sub_cmd_desc "Creates a new command file."
+        #   "These files are automatically loaded into geo-cli by cli-handlers.sh and are available in all terminals via 'geo <command_name>'). They are stored in the geo-cli repo in the /src/cli/commands directory. If you want to make your command available to all geo-cli users, please create a branch with your command and submit an MR for it. Alternatively, you can also create the command outside of the repo if you are just experimenting with the command and don't want to commit anything to the repo."
+        #   doc_cmd_sub_options_title
+        #       doc_cmd_sub_option '-r'
+        #           doc_cmd_sub_option_desc 'Creates the new command file in the geo-cli repo directory instead of in ~/.geo-cli/data/commands. This makes it easy to create an MR with the new command if you would like to share it with others.'
         #       doc_cmd_sub_option '-d <database name>'
         #           doc_cmd_sub_option_desc 'Sets the name of the db to...'
         doc_cmd_sub_cmd 'rm <command_name>'
           doc_cmd_sub_cmd_desc 'Removes a command file.'
         doc_cmd_sub_cmd 'ls'
           doc_cmd_sub_cmd_desc 'Lists all command files.'
-          doc_cmd_sub_option '-r'
-                  doc_cmd_sub_option_desc 'Also lists the command files in the geo-cli repo directory. They are located in the /src/cli/commands directory.'
+        #   doc_cmd_sub_option '-r'
+        #           doc_cmd_sub_option_desc 'Also lists the command files in the geo-cli repo directory. They are located in the /src/cli/commands directory.'
+        doc_cmd_sub_cmd 'edit <command_name>'
+          doc_cmd_sub_cmd_desc 'Opens the command up for editing in VS Code'
 
       doc_cmd_examples_title
           doc_cmd_example 'geo cmd create ping'
@@ -73,16 +76,16 @@ geo_cmd_doc() {
           doc_cmd_example 'geo cmd ls'
 }
 geo_cmd() {    
-    local OPTIND
-    while getopts "v:" opt; do
-        case "${opt}" in
-            # v ) [[ $OPTARG =~ ^[[:digit:]]+$ ]] && pg_version=$OPTARG ;;
-            : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
-            \? ) log::Error "Invalid option: ${opt}"; return 1 ;;
-        esac
-    done
+    # local OPTIND
+    # while getopts "v:" opt; do
+    #     case "${opt}" in
+    #         # v ) [[ $OPTARG =~ ^[[:digit:]]+$ ]] && pg_version=$OPTARG ;;
+    #         : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
+    #         \? ) log::Error "Invalid option: ${opt}"; return 1 ;;
+    #     esac
+    # done
 
-    shift $((OPTIND - 1))
+    # shift $((OPTIND - 1))
     local cmd="$1"
 
     shift
