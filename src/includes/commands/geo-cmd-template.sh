@@ -8,6 +8,15 @@
 # All of the exported constants and functions available to geo-cli are available here.
 #**********************************************************************************************************************
 
+# * NOTE: Most of the logic for geo-cli is in cli-handlers.sh. Make sure to check it out for command examples and coding
+#         conventions.
+
+# DO NOT REMOVE THESE CONSTANTS! They are used by other commands.
+# The full path to this file.
+export new_command_name_command_file_path="${BASH_SOURCE[0]}"
+# The full path to the directory that this file is in.
+export new_command_name_command_directory_path="$(dirname "${BASH_SOURCE[0]}")"
+
 #######################################################################################################################
 # Global Constants and Functions
 #######################################################################################################################
@@ -22,7 +31,7 @@
 #   => This file effectively acts as the db for geo, it stores all configurations and user preferences. It is written
 #        to automically using lock a lock file.
 # [Log Functions]
-# All log functions are prefixed with log:: and are defined in src/utils/log.sh. Try the functions yourself or search
+# All log functions are prefixed with log:: and are defined in /src/utils/log.sh. Try the functions yourself or search
 # for usages for use cases.
 #   log::caution                log::hint
 #   log::filepath               log::fmt_text_and_indent_after_first_line
@@ -55,10 +64,10 @@
 #          shown to the user.
 #   2. Command documentation function (for printing help)
 #        - This function is run when the user requests help via 'geo <command> --help'. Also, these functions are called
-#           for every command in the COMMANDS array when the user runs 'geo help' or 'geo -h'.
+#          for every command in the COMMANDS array when the user runs 'geo help' or 'geo -h'.
 #   3. Command function
 #       - The actual command that gets executed when the user runs 'geo <your_command>'. All the arguments passed to 
-#           geo following the command name will be passed to this function as positional arguments (e.g.. $1, $2, ...).
+#         geo following the command name will be passed to this function as positional arguments (e.g.. $1, $2, ...).
 # 
 # The three parts above have the following structure:
 #   COMMAND+=('command')
@@ -68,12 +77,24 @@
 #   COMMAND+=('db')
 #   geo_db_doc() {...}
 #   geo_db() {...}
-#
+# 
+# Subcommand and helper functions naming conventions
+#   * Top level command functions (e.g. geo <command>): geo_<command>.
+#   * Subcommand functions (e.g. geo <command> <sub-command>) or helper functions: _geo_<command>_<subcommand>.
+#       * It's best to separate the logic for your subcommand into their own functions to increase readability.
+#       * Helper functions (e.g. _geo_my_helper_function) should also be prefixed with _geo_ to help prevent them from
+#         being overwritten by function definitions in other scripts that are loaded into the terminal environment.
+#   * Functions loaded from other files: command_module::function_name (e.g. db_helpers.sh => db_helpers::<func_name>)
+#       * If you are planing on creating a utility module script for your command, geo mycmd,, that will have lots of 
+#         helper functions in it, naming the script something like mycmd_helpers.sh and naming your function like this
+#         mycmd_helpers::<func_name> can help prevent definition overwrites with other functions in your terminal
+#         environment. 
+#       * Example function definition in mycmd/mycmd_helpers.sh: mycmd_helpers::parse_json() {...}
+#           => NOTE: Alway move your command file into its own directory (named after the command, e.g., mycmd/mycmd.cmd.sh)
+#                    if it will include other files.
+
 
 #*** DON'T FORGET TO ADD A SECTION TO THE README ABOUT YOUR NEW COMMAND ***
-
-# The full path to this file.
-export new_command_name_command_file_path="${BASH_SOURCE[0]}"
 
 COMMANDS+=('new_command_name')
 geo_new_command_name_doc() {
@@ -125,16 +146,17 @@ geo_new_command_name() {
     local cmd="$1"
     shift
 
-    [[ -z $cmd ]] && prompt_continue "Command is unimplemented. Edit command now in VS Code? (Y|n): " && code $new_command_name_command_file_path
+    [[ -z $cmd ]] && prompt_continue "Command is unimplemented. Edit command now in VS Code? (Y|n): " && code $new_command_name_command_file_path && return;
 
+    # This case statement runs the command's subcommand based on what was passed in by the user (e.g. geo new_command_name test).
     case "$cmd" in
         test )
             # Passes all remaining arguments to the geo_command_create sub-command to keep things easy to read.
-            log::success "Command 'new_command_name' is now using geo-cli. Add your logic to the command file at $new_command_name_command_file_path"
+            log::success "Command 'new_command_name' is now available in geo-cli. Add your logic to the command file at $new_command_name_command_file_path"
             prompt_continue "Edit your command now in VS Code? (Y|n): " && code $new_command_name_command_file_path
             ;;
         create )
-            # Passes all remaining arguments to the geo_command_create sub-command to keep things easy to read.
+            # Passes all remaining arguments to the geo_new_command_name_create sub-command to keep things easy to read.
             _geo_new_command_name_create "$@"
             ;;
         rm | remove )
