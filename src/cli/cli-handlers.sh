@@ -93,10 +93,22 @@ export CURRENT_SUBCOMMANDS=()
 # The directory path to this file.
 export FILE_DIR="$(dirname "${BASH_SOURCE[0]}")"
 
-# Load handler files.
-if [[ $(ls -A $FILE_DIR/commands) ]]; then
-    for command_file in $FILE_DIR/commands/*.sh ; do
-        . $command_file
+export GEO_CLI_COMMAND_DIR="$FILE_DIR/commands"
+export GEO_CLI_USER_COMMAND_DIR="$GEO_CLI_CONFIG_DIR/data/commands"
+
+export GEO_COMMAND_FILE_PATHS=()
+repo_cmd_files="$(find "$GEO_CLI_SRC_DIR/cli/commands" -name '*.cmd.sh' 2> /dev/null)"
+# for command_file in "$repo_cmd_files" ; do GEO_COMMAND_FILE_PATHS+=("$command_file"); done
+user_cmd_files="$(find "$GEO_CLI_USER_COMMAND_DIR" -name '*.cmd.sh' 2> /dev/null)"
+# for command_file in "$user_cmd_files" ; do GEO_COMMAND_FILE_PATHS+=("$command_file"); done
+
+GEO_COMMAND_FILE_PATHS=($user_cmd_files $repo_cmd_files)
+
+# Load command files.
+if [[ -n ${#GEO_COMMAND_FILE_PATHS[@]} ]]; then
+    for command_file in "${GEO_COMMAND_FILE_PATHS[@]}" ; do
+    # for command_file in "${all_cmd_files[@]}" ; do
+        . "$command_file"
     done
 fi
 
@@ -6021,7 +6033,7 @@ prompt_continue() {
     local regex="$regex_no"
     local default=yes
     local answer=
-    local prompt_msg="Do you want to continue? (Y|n): "
+    local prompt_msg="Do you want to continue?"
 
     local force_answer=false
     local add_suffix=false
@@ -6041,7 +6053,7 @@ prompt_continue() {
     done
     shift $((OPTIND - 1))
     
-    [[ $# -gt 0 ]] && prompt_msg="$*"
+    [[ $# -gt 0 ]] && prompt_msg="$*" || add_suffix=true
 
     # Replace multiple spaces with a single space and remove trailing/leading spaces.
     prompt_msg="$(echo "$prompt_msg" | sed -E 's/^ +//g; s/ +$//g; s/ +/ /g;')"
@@ -6065,15 +6077,17 @@ prompt_continue() {
     # anything else will decline to continue.
 
     while true; do
-        log::prompt_n "$prompt_msg"
+        log::prompt_n "$prompt_msg"' '
         answer=
 
         read -e answer
         answer=${answer,,}
         # The read command doesn't add a new line with the -e option (allows for editing of the input with arrow keys, etc.)
         # when the user just presses Enter (with no input), read doesn't add a new line after. So add one.
-        [[ -z $answer ]] && echo
-        
+        # if [[ -z $answer ]]; then
+        #     [[ -n $default ]] && echo
+        [[ -z $answer ]] && echo $default
+
         [[ $answer =~ $regex_yes || $default == yes && -z $answer ]] && return
         [[ $answer =~ $regex_no || $default == no && -z $answer ]] && return 1
         # [[ $answer =~ $regex || -z $answer && $default == true ]] && continue

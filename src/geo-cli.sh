@@ -115,8 +115,8 @@ function geo()
         
     # Quit if the command isn't valid
     if ! _geo_cmd_exists "$cmd"; then
-        [[ ${#cmd} == 0 ]] && echo && log::warn "geo was run without any command"
-        [[ ${#cmd} -gt 0 ]] && echo && log::warn "Unknown command: '$cmd'"
+        [[ -z $cmd ]] && echo && log::warn "geo was run without any command"
+        [[ -n $cmd ]] && echo && log::warn "Unknown command: '$cmd'"
         
         # geotab_logo
         # geo_logo
