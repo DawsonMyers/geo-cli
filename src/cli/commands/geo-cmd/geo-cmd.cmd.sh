@@ -139,6 +139,7 @@ _geo_cmd_create() {
     local alphanumeric_re='^([[:alnum:]]|[-_])+$'
     [[ ! $cmd_name =~ $alphanumeric_re ]] && log::Error "Invalid command name. Only alphanumeric characters (including -_) are allowed." && return 1
 
+    log::status -b "Initializing new geo-cli command '$cmd_name'"
     local command_dir_name=
     log::detail "You can create your command inside of its own directory, called 'geo-$cmd_name', if its logic requires additional files (i.e. it executes other scripts or parses static data from a text file)."
     if prompt_continue "Create command in its own directory? (Y|n): "; then
@@ -188,11 +189,9 @@ _geo_cmd_create() {
         echo
     fi
 
-    log::link "$command_file\n"
+    sleep 1
+    log::link -r "$command_file\n"
     prompt_continue "Create file for new command named '$cmd_name' at the above path? (Y|n): " || return 1
-
-    # Create the command's directory (if it doesn't already exist).
-    mkdir -p "$command_file_dir"
 
     echo
     # Fill in the cmd name into the template file.
@@ -202,6 +201,9 @@ _geo_cmd_create() {
 
     local command_file_text="$(cat "$template_file" | sed -E "s/new_command_name/$cmd_name/g; s/command_author/$cmd_author/g; s/command_date/$cmd_date/g")"
     [[ -z $command_file_text ]] && log::Error "Failed to substitute command name into template file: $command_file_text" && return 1
+
+    # Create the command's directory (if it doesn't already exist).
+    mkdir -p "$command_file_dir"
 
     echo "$command_file_text"  > "$command_file" \
         || { log::Error "Failed to write command file to $command_file"; return 1; }
@@ -376,7 +378,7 @@ _geo_cmd_edit() {
     [[ $cmd_directory_path =~ $GEO_CLI_COMMAND_DIR ]] || cmd_in_repo=false
     
     log::status "Opening command file"
-    log::link "$cmd_file_path"
+    log::link -r "$cmd_file_path"
     if $cmd_in_repo; then
         # Open the geo-cli repo folder in a new vs code session.
         code -n "$GEO_CLI_DIR"

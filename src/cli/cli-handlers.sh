@@ -5628,7 +5628,7 @@ _geo_parse_long_options() {
 # Checks if a geo-cli command exists.
 # 1: the command to check
 _geo_cmd_exists() {
-    cmd=$(echo "${COMMANDS[@]}" | tr ' ' '\n' | grep -E "$(echo ^$1$)")
+    local cmd=$(echo "${COMMANDS[@]}" | tr ' ' '\n' | grep -E "$(echo ^$1$)")
     [[ -n $cmd ]]
 }
 

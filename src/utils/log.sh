@@ -238,7 +238,12 @@ log::caution() {
     _log_yellow "$@"
 }
 log::link() {
-    _log_yellow -u "$@"
+    local relative_path=false
+    [[ $1 == -r ]] && relative_path=true && shift
+
+    local msg="$@"
+    $relative_path && msg="$(log::replace_home_path_with_tilde "$msg")"
+    _log_yellow -u "$msg"
 }
 log::file() {
     echo "$(_log_purple -n 'file://')$(_log_yellow -u  "$@")"
@@ -610,4 +615,8 @@ log::txt_invert() {
 # Hides the text.
 log::txt_hide() {
     echo -en "\e[8m$@\e[28m"
+}
+
+log::replace_home_path_with_tilde() {
+    echo "$@" | sed -e "s%$HOME%~%g"
 }
