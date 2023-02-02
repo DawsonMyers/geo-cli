@@ -49,7 +49,7 @@ export GEO_CLI_USER_COMMAND_DIR="$HOME/.geo-cli/data/commands"
 COMMANDS+=('cmd')
 geo_cmd_doc() {
   doc_cmd 'cmd'
-      doc_cmd_desc "Commands for creating and updating custom geo-cli commands (i.e., 'geo <custom_command>'). These commands are stored in files and automatically loaded into geo-cli (in cli-handlers.sh). You can either create a geo command for local use only OR you can have the command file added to the geo-cli repo. Add the command to the repo if you want to submit an MR for it to make it available for all geo-cli users."
+      doc_cmd_desc "Commands for creating and updating custom geo-cli commands (i.e., 'geo <command_name>'). These commands are stored in files and automatically loaded into geo-cli (by cli-handlers.sh). You can either create a geo command for local use only OR you can have the command file added to the geo-cli repo. Add the command to the repo if you want to submit an MR for it to make it available for all geo-cli users."
       
       doc_cmd_sub_cmds_title
       
@@ -113,12 +113,14 @@ geo_cmd() {
 _geo_cmd_create() {
     local force_create=false
     local add_cmd_to_repo=true
+    local create_cmd_directory=true
 
     local OPTIND
-    while getopts "fr" opt; do
+    while getopts "frD" opt; do
         case "${opt}" in
             f ) force_create=true ;;
             r ) add_cmd_to_repo=true ;;
+            D ) create_cmd_directory=false ;;
             : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
             \? ) log::Error "Invalid option: ${opt}"; return 1 ;;
         esac
@@ -141,10 +143,11 @@ _geo_cmd_create() {
 
     log::status -b "Initializing new geo-cli command '$cmd_name'"
     local command_dir_name=
-    log::detail "You can create your command inside of its own directory, called 'geo-$cmd_name', if its logic requires additional files (i.e. it executes other scripts or parses static data from a text file)."
-    if prompt_continue "Create command in its own directory? (Y|n): "; then
-        command_dir_name="/geo-$cmd_name"
-    fi
+    # log::detail "You can create your command inside of its own directory, called 'geo-$cmd_name', if its logic requires additional files (i.e. it executes other scripts or parses static data from a text file)."
+    # if prompt_continue "Create command in its own directory? (Y|n): "; then
+    #     command_dir_name="/geo-$cmd_name"
+    # fi
+    $create_cmd_directory && command_dir_name="/geo-$cmd_name"
     echo
 
     # The new command file.
@@ -208,6 +211,8 @@ _geo_cmd_create() {
     echo "$command_file_text"  > "$command_file" \
         || { log::Error "Failed to write command file to $command_file"; return 1; }
     
+    # _geo_jq_props_to_json -t name $cmd_name repo "$add_cmd_to_repo"
+
     sleep .3
     log::success "Command file created"
     log::file "$command_file"
