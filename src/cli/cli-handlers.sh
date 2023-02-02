@@ -3247,6 +3247,175 @@ _geo_jq_get() {
     # run_command_with_lock_file "$file.lock" ' ' run_jq
 }
 
+_geo_jq_props_to_json() {
+    (( $# == 0 )) && log::Error "No json arguments provided" && return 1
+    local raw=false
+    local add_timestamp=false
+
+    local OPTIND
+    while getopts "rt" opt; do
+        case "${opt}" in
+            r ) raw=true ;;
+            t ) add_timestamp=true ;;
+            : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
+            \? ) log::Error "Invalid option: $1"; return 1 ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+
+    local jq_args=()
+    $raw && jq_args+=(-c)
+    local i=0
+    for arg in "$@"; do
+        if (( i++ % 2 == 0 )); then
+            # [[ $arg == -argjson]] \
+            #     && jq_args+=(--argjson "$arg")
+            #     && jq_args+=(--argjson "$arg")
+            # key
+            jq_args+=(--arg "$arg")
+        else
+            # value
+            jq_args+=("$arg")
+        fi
+    done
+    
+    $add_timestamp && jq_args+=(--arg timestamp "$(_geo_timestamp)")
+
+    jq "${jq_args[@]}" \
+        '$ARGS.named' <<<'{}'
+}
+
+_geo_jq_args_to_json() {
+    (( $# == 0 )) && log::Error "No json arguments provided" && return 1
+    local raw=false
+    local add_timestamp=false
+
+    local jq_args=()
+    $raw && jq_args+=(-c)
+
+    local OPTIND
+    while [[ -n $1 && $1 =~ ^-{1,2} ]]; do
+    # while getopts "rtk:K:" opt; do
+        opt="$(echo $1 | sed -E 's/^-{1,2}//g')"
+        case "${opt}" in
+            r ) raw=true ;;
+            t ) add_timestamp=true ;;
+            a | arg ) 
+                shift
+                jq_args+=(--arg "$1" "$2") 
+                shift 
+                ;;
+            A | argjson ) 
+                shift
+                jq_args+=(--argjson "$1" "$2") 
+                shift 
+                ;;
+            K ) add_timestamp=true ;;
+            : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
+            \? ) log::Error "Invalid option: $1"; return 1 ;;
+        esac
+        shift
+    done
+    # shift $((OPTIND - 1))
+    
+    # local i=0
+    # for arg in "$@"; do
+    #     if (( i++ % 2 == 0 )); then
+    #         # [[ $arg == -argjson]] \
+    #         #     && jq_args+=(--argjson "$arg")
+    #         #     && jq_args+=(--argjson "$arg")
+    #         # key
+    #         jq_args+=(--arg "$arg")
+    #     else
+    #         # value
+    #         jq_args+=("$arg")
+    #     fi
+    # done
+    
+    $add_timestamp && jq_args+=(--arg timestamp "$(_geo_timestamp)")
+
+    jq "${jq_args[@]}" \
+        '$ARGS.named' <<<'{}'
+}
+
+_geo_json_array() {
+    (( $# == 0 )) && log::Error "No json arguments provided" && return 1
+    local raw=false
+    local push=false
+    local pop=false
+    local back=true
+
+    # local OPTIND
+    # while getopts "rt" opt; do
+    #     case "${opt}" in
+    #         r ) raw=true ;;
+    #         p ) add_timestamp=true ;;
+    #         : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
+    #         \? ) log::Error "Invalid option: $1"; return 1 ;;
+    #     esac
+    # done
+    # shift $((OPTIND - 1))
+
+    parse_option() {
+        local opt="$1"
+        case "${opt}" in
+            r | raw ) raw=true && echo raw;;
+            t ) add_timestamp=true ;;
+            a | arg ) 
+                shift
+                jq_args+=(--arg "$1" "$2") 
+                shift 
+                ;;
+            A | argjson ) 
+                shift
+                jq_args+=(--argjson "$1" "$2") 
+                shift 
+                ;;
+            K ) add_timestamp=true ;;
+            : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
+            \? ) log::Error "Invalid option: $1"; return 1 ;;
+        esac
+    }
+
+    while [[ -n $1 && $1 =~ ^-{1,2} ]]; do
+        local option="$1"
+    # while getopts "rtk:K:" opt; do
+        # opt="$(echo $1 | sed -E 's/^-{1,2}//g')"
+        if [[ $1 =~ ^-[[:alpha:]]{1,} ]]; then
+            local option_count=${#option}
+            # (( option_count ))
+            local single_option=
+            for ((i = 1; i < option_count; i++)); do
+                single_option="${option:$i:1}"
+                parse_option "$single_option"
+            done
+            shift
+            continue
+        fi
+        long_option="$(echo $option | sed -E 's/^-{1,2}//g')"
+        parse_option "$long_option"
+        shift
+    done
+
+    local jq_args=()
+    $raw && jq_args+=(-c)
+}
+
+_geo_timestamp() {
+    # date +"%Y-%m-%dT%H:%M:%S%z"
+    # '2023-02-01T16:52:38-05:00'
+    date -Iseconds
+}
+
+_geo_timestamp_to_seconds() {
+    # date +"%Y-%m-%dT%H:%M:%S%z"
+    # date -Iseconds
+    # '2023-02-01T16:52:38-05:00' => 
+    # date -d '2023-02-01T16:51:31-05:00' +%s
+    # date -d "$1"
+    date -d "$1" +%s
+}
+
 #######################################################################################################################
 COMMANDS+=('update')
 geo_update_doc() {

@@ -242,7 +242,7 @@ log::link() {
     [[ $1 == -r ]] && relative_path=true && shift
 
     local msg="$@"
-    $relative_path && msg="$(log::replace_home_path_with_tilde "$msg")"
+    $relative_path && msg="$(log::make_path_relative_to_user_dir "$msg")"
     _log_yellow -u "$msg"
 }
 log::file() {
@@ -617,6 +617,10 @@ log::txt_hide() {
     echo -en "\e[8m$@\e[28m"
 }
 
-log::replace_home_path_with_tilde() {
+# Replaces the value of $HOME in a full file path with ~, making it relative to the user's home directory.
+# Example: 
+#   Input: /home/dawsonmyers/repos/geo-cli/src/geo-cli.sh
+#   Output: ~/repos/geo-cli/src/geo-cli.sh
+log::make_path_relative_to_user_dir() {
     echo "$@" | sed -e "s%$HOME%~%g"
 }
