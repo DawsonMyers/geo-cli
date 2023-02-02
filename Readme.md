@@ -40,6 +40,7 @@ The tool has also evolved over the years to include a taskbar UI menu as well as
     - [Run Standalone Gateway](#run-standalone-gateway)
     - [Run MyGeotab with Gateway](#run-mygeotab-with-gateway)
   - [Add git Hook](#add-git-hook)
+  - [Create Your Own `geo-cli` Command (`geo <command>`)](#create-your-own-geo-cli-command-geo-command)
 - [`geo-ui` (NEW)](#geo-ui-new)
   - [Databases](#databases-1)
     - [Running DB](#running-db)
@@ -431,6 +432,23 @@ To verify the connection, open https://127.0.0.1:10001/\<databaseName> via the `
 Run the `geo init git-hook` command to add the prepare-commit-msg git hook that prepends the MYG issue number to each commit you make. It parses the issue number from the branch name.
 ![git-hook](res/geo-init-git-hook.png)
 
+## Create Your Own `geo-cli` Command (`geo <command>`)
+```
+geo cmd <create|rm|ls|edit>
+```
+Have you identified a manual development process or repetitive task that you think could be automated through scripting? Or maybe you've already created a script of your own that saves you time and would like to share it with others? Well adding it to `geo-cli` is a great way to make it conveniently available to the entire Development department. 
+
+Then the `geo cmd` command is just what you're looking for. 
+The `geo cmd` command greatly simplifies adding features to `geo-cli` by scaffolding out a new command for you. Just run `geo cmd create <command>` to initialize and register the command with `geo-cli`. By the time the `create` command completes, VS Code can be automatically opened to the new command's template file (to add its logic) and you'll be able to access it in any terminal by running `geo <command>`. A branch for the new command can also be created for you during the setup process.
+
+<!-- > Important `geo cmd` directory paths:
+>  - user commands directory: ~/.geo-cli/data/commands
+>  - repo commands directory: <geo-cli repo>/src/cli/commands -->
+
+
+During the `geo cmd create <command>` setup process, you will be asked if you would like to have your command added to the **user commands** directory (located at *~/.geo-cli/data/commands*) *instead* of the **repo commands** directory (at */src/cli/commands* in your local `geo-cli` repo). This will allow you to experiment locally with your command without having to switch to a different branch or commit any code. This way, the command will still be available through `geo <command>`, but you can stay on the main `geo-cli` branch; allowing you to both receive `geo-cli` update notifications (via `geo-ui`) and update like normal.
+
+> You can always move your command file/directory to the _repo commands_ directory, add it to a branch and submit a merge request for it later if you would like to share it with others.
 
 # `geo-ui` (NEW)
 `geo-ui` is a tray menu UI (app indicator) that further simplifies MyGeotab development. It allows users to quickly access most of `geo-cli`'s features, as well as adding some additional ones, with just a couple mouse clicks.
