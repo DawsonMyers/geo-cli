@@ -78,9 +78,11 @@ export new_command_name_command_directory_path="$(dirname "${BASH_SOURCE[0]}")"
 #   geo_db_doc() {...}
 #   geo_db() {...}
 # 
-# Subcommand and helper functions naming conventions
+#######################################################################################################################
+#### Subcommand and helper functions naming conventions
+#######################################################################################################################
 #   * Top level command functions (e.g. geo <command>): geo_<command>.
-#   * Subcommand functions (e.g. geo <command> <sub-command>) or helper functions: _geo_<command>_<subcommand>.
+#   * Subcommand functions (e.g. geo <command> <sub-command>) or helper functions: geo_<command>_<subcommand>.
 #       * It's best to separate the logic for your subcommand into their own functions to increase readability.
 #       * Helper functions (e.g. _geo_my_helper_function) should also be prefixed with _geo_ to help prevent them from
 #         being overwritten by function definitions in other scripts that are loaded into the terminal environment.
@@ -92,49 +94,67 @@ export new_command_name_command_directory_path="$(dirname "${BASH_SOURCE[0]}")"
 #       * Example function definition in mycmd/mycmd_helpers.sh: mycmd_helpers::parse_json() {...}
 #           => NOTE: Alway move your command file into its own directory (named after the command, e.g., mycmd/mycmd.cmd.sh)
 #                    if it will include other files.
-
-
+#######################################################################################################################
+#### Load other functions or constants from other shell script files
+#######################################################################################################################
+# use the '. <path to script file.sh>' to execute another script in-place, making all functions defined in it available
+# here.
+#**********************************************************************************************************************
 #*** DON'T FORGET TO ADD A SECTION TO THE README ABOUT YOUR NEW COMMAND ***
+#**********************************************************************************************************************
 
+# The COMMANDS array is defined in cli-handlers.sh. It allows geo to check if a command exits when a user runs
+# 'geo <command>'.
 COMMANDS+=('new_command_name')
 geo_new_command_name_doc() {
     # Replace the following template documentation with relevant info about the command.
   doc_cmd 'new_command_name'
-      doc_cmd_desc 'Commands description.'
+      doc_cmd_desc 'Command description. Explain what the command does and how to use it.'
       
       doc_cmd_sub_cmds_title
       
-      doc_cmd_sub_cmd 'create [options] <arg>'
-          doc_cmd_sub_cmd_desc 'This command takes options and arguments'
+      doc_cmd_sub_cmd 'test [options] <arg>'
+          doc_cmd_sub_cmd_desc 'This subcommand takes options and arguments'
           doc_cmd_sub_options_title
-              doc_cmd_sub_option '-y'
-                  doc_cmd_sub_option_desc 'Accept all prompts.'
-              doc_cmd_sub_option '-p <port_number>'
-                  doc_cmd_sub_option_desc 'Sets the port for connecting to...'
-    
-    doc_cmd_sub_cmd 'rm'
-          doc_cmd_sub_cmd_desc '...'
+              doc_cmd_sub_option '-a'
+                  doc_cmd_sub_option_desc "An option that doesn't take an agrument."
+              doc_cmd_sub_option '-b <option_arg>'
+                  doc_cmd_sub_option_desc "An option that requires an agrument."
 
+    doc_cmd_sub_cmd 'subcommand1'
+          doc_cmd_sub_cmd_desc 'An example subcommand with its own function called _geo_new_command_name_subcommand1'
+    doc_cmd_sub_cmd 'subcommand1'
+          doc_cmd_sub_cmd_desc 'Another example subcommand with its own function called _geo_new_command_name_subcommand2'
+    doc_cmd_sub_cmd 'edit'
+          doc_cmd_sub_cmd_desc "Opens up the command file for this command in VS Code."
+    
       doc_cmd_examples_title
-          doc_cmd_example 'geo new_command_name create -p 22 my_db'
-          doc_cmd_example 'geo new_command_name create -y my_other_db'
+          doc_cmd_example 'geo new_command_name test -a "some_argument"'
+          doc_cmd_example 'geo new_command_name test -b "option armument" "subcommand armument"'
+          doc_cmd_example 'geo new_command_name subcommand1'
+          doc_cmd_example 'geo new_command_name edit'
 }
 geo_new_command_name() {
-    local accept_all=false
-    local port=21
+    local option_a_supplied=false
+    local option_b_argument=
     
-    local OPTIND
-    # Add the options to the getopts "" string. Add a : to the option if it takes an argument. 
-    # For example 'getopts "p:"' will allow for the -p option to take an arg: 'geo new_command_name -p 22 ...'.
+    log::caution "Command is unimplemented"
+
+    # Add the options to the getopts "<options to parse>" string. Append ":" to the option if it takes an argument. 
+    # For example 'getopts "b:"' will require the -b option to take an arg: 'geo new_command_name -b 22 ...'.
     # The argument will be available below in the $OPTARG variable.
     # google 'bash getopts' for more info on parsing options.
-    while getopts "yp:" opt; do
+    local OPTIND
+    while getopts "ab:" opt; do
         case "${opt}" in
-            y ) 
-                accept_all=true
+            a ) 
+                option_a_supplied=true
+                log::debug "Option 'a' was supplied."
                 ;;
-            p ) 
-                port=$OPTARG ;;
+            b ) 
+                option_b_argument=$OPTARG
+                log::debug "Option 'b' was supplied with the following argument: $option_b_argument."
+                 ;;
             # Generic error handling
             : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
             \? ) log::Error "Invalid option: ${opt}"; return 1 ;;
@@ -146,21 +166,32 @@ geo_new_command_name() {
     local cmd="$1"
     shift
 
-    [[ -z $cmd ]] && prompt_continue "Command is unimplemented. Edit command now in VS Code? (Y|n): " && code $new_command_name_command_file_path && return;
+    # 
+    if [[ -z $cmd ]]; then
+         log::caution "No arguments provided."
+         geo_new_command_name_doc
+         prompt_continue "Edit command now in VS Code? (Y|n): " \
+            && code $new_command_name_command_file_path
+         return 1
+    fi
 
     # This case statement runs the command's subcommand based on what was passed in by the user (e.g. geo new_command_name test).
     case "$cmd" in
         test )
-            # Passes all remaining arguments to the geo_command_create sub-command to keep things easy to read.
             log::success "Command 'new_command_name' is now available in geo-cli. Add your logic to the command file at $new_command_name_command_file_path"
             prompt_continue "Edit your command now in VS Code? (Y|n): " && code $new_command_name_command_file_path
             ;;
-        create )
-            # Passes all remaining arguments to the geo_new_command_name_create sub-command to keep things easy to read.
-            _geo_new_command_name_create "$@"
+        subcommand1 | subcmd1 )
+            # Passes all remaining arguments to the _geo_new_command_name_subcommand1 subcommand function to keep things easy to read.
+            # "$@" passes the remaining arguments just as they were passed in here.
+            # "$*" concatenates all remaining arguments as a single argument to the subcommand function.
+            _geo_new_command_name_subcommand1 "$@"
             ;;
-        rm | remove )
-            _geo_new_command_name_remove "$@"
+        subcommand2 | subcmd2 )
+            _geo_new_command_name_subcommand2 "$@"
+            ;;
+        edit )
+            _geo_cmd_edit new_command_name
             ;;
         * ) 
             [[ -z $cmd ]] && log::Error "No arguments provided" && return 1 
@@ -169,11 +200,16 @@ geo_new_command_name() {
     esac
 }
 
-# Sub-command functions are named like this: _geo_<command_name>_<sub_command_name>
-_geo_new_command_name_create() {
-    log::debug "_geo_new_command_name_create $@"
+# Subcommand functions are named like this: _geo_<command_name>_<sub_command_name>
+# <Function description>
+# Arguments:
+#   1: arg description
+#   2: arg description
+_geo_new_command_name_subcommand1() {
+    # Access positional argurments like this: $1, $2, etc.
+    log::debug "_geo_new_command_name_subcommand1 $@"
 }
 
-_geo_new_command_name_remove() {
-    log::debug "_geo_new_command_name_remove $@"
+_geo_new_command_name_subcommand2() {
+    log::debug "_geo_new_command_name_subcommand2 $@"
 }
