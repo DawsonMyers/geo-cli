@@ -57,13 +57,25 @@ make_logger_function() {
             local opts=e
 
             # Only parse options if a message to be printed was also supplied (allows messages like '-e' to be printed instead of being treated like an option).
-            if [[ \$1 =~ ^-[a-z]+$ && -n \$2 ]]; then
+            if [[ \$1 =~ ^-[a-zA-Z]+$ && -n \$2 ]]; then
                 options=\$1
                 msg=\"\${@:2}\"
             fi
 
             local color_name=$color
             case \$options in
+                # Make file paths relative (replace full path of home dir with a tilde).
+                *r* )
+                    msg=\"\$(log::make_path_relative_to_user_dir \"\$msg\")\"
+                    ;;&
+                # Remove new line characters. 
+                *N* )
+                    msg=\"\$(log::replace_line_breaks_with_space \"\$msg\")\"
+                    ;;&
+                # Remove leading/trailing spaces and replace 2 or more consecutive spaces with a single one. 
+                *S* )
+                    msg=\"\$(log::strip_space \"\$msg\")\"
+                    ;;&
                 # Format text to the width of the terminal.
                 *f* )
                     msg=\"\$(log::fmt_text \"\$msg\")\"
@@ -128,12 +140,24 @@ make_logger_function_vte() {
             local opts=e
 
             # Only parse options if a message to be printed was also supplied (allows messages like '-e' to be printed instead of being treated like an option).
-            if [[ \$1 =~ ^-[a-z]+$ && -n \$2 ]]; then
+            if [[ \$1 =~ ^-[a-zA-Z]+$ && -n \$2 ]]; then
                 options=\$1
                 msg=\"\${@:2}\"
             fi
 
             case \$options in
+                # Make file paths relative (replace full path of home dir with a tilde).
+                *r* )
+                    msg=\"\$(log::make_path_relative_to_user_dir \"\$msg\")\"
+                    ;;&
+                # Remove new line characters. 
+                *N* )
+                    msg=\"\$(log::replace_line_breaks_with_space \"\$msg\")\"
+                    ;;&
+                # Remove leading/trailing spaces and replace 2 or more consecutive spaces with a single one. 
+                *S* )
+                    msg=\"\$(log::strip_space \"\$msg\")\"
+                    ;;&
                 # Format text to the width of the terminal.
                 *f* )
                     msg=\"\$(log::fmt_text \"\$msg\")\"
@@ -623,4 +647,20 @@ log::txt_hide() {
 #   Output: ~/repos/geo-cli/src/geo-cli.sh
 log::make_path_relative_to_user_dir() {
     echo "$@" | sed -e "s%$HOME%~%g"
+}
+# Replaces the value of $HOME in a full file path with ~, making it relative to the user's home directory.
+# Example: 
+#   Input: /home/dawsonmyers/repos/geo-cli/src/geo-cli.sh
+#   Output: ~/repos/geo-cli/src/geo-cli.sh
+log::strip_space() {
+    local remove_newlines=false
+    [[ $1 == -n ]] && remove_newlines=true && shift
+    local str="$@"
+    $remove_newlines && str="$(log::replace_line_breaks_with_space "$str")"
+    echo "$str" | sed -E 's/ {2,}/ /g; s/^ +| +$//g'
+}
+
+log::replace_line_breaks_with_space() {
+    local str="$@"
+    echo "$str" | tr '\n' ' '
 }
