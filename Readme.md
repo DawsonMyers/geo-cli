@@ -41,6 +41,7 @@ The tool has also evolved over the years to include a taskbar UI menu as well as
     - [Run MyGeotab with Gateway](#run-mygeotab-with-gateway)
   - [Add git Hook](#add-git-hook)
   - [Create Your Own `geo-cli` Command (`geo <command>`)](#create-your-own-geo-cli-command-geo-command)
+    - [Develop Commands In Any Language](#develop-commands-in-any-language)
 - [`geo-ui` (NEW)](#geo-ui-new)
   - [Databases](#databases-1)
     - [Running DB](#running-db)
@@ -436,19 +437,74 @@ Run the `geo init git-hook` command to add the prepare-commit-msg git hook that 
 ```
 geo cmd <create|rm|ls|edit>
 ```
-Have you identified a manual development process or repetitive task that you think could be automated through scripting? Or maybe you've already created a script of your own that saves you time and would like to share it with others? Well adding it to `geo-cli` is a great way to make it conveniently available to the entire Development department. 
+Have you identified a manual development process or repetitive task that you think could be automated through scripting? Or maybe you've already created a script of your own that saves you time and would like to share it with others? Well adding it to `geo-cli` is a great way to make it conveniently available to the entire Development department.
 
-Then the `geo cmd` command is just what you're looking for. 
-The `geo cmd` command greatly simplifies adding features to `geo-cli` by scaffolding out a new command for you. Just run `geo cmd create <command>` to initialize and register the command with `geo-cli`. By the time the `create` command completes, VS Code can be automatically opened to the new command's template file (to add its logic) and you'll be able to access it in any terminal by running `geo <command>`. A branch for the new command can also be created for you during the setup process.
+This is where the `geo cmd` command comes in, it greatly simplifies adding features to `geo-cli` by scaffolding out a new command for you. Just run `geo cmd create <command>` to initialize and register the command with `geo-cli`. By the time the `create` command completes, VS Code can be automatically opened to the new command's template file (to add its logic) and you'll be able to access it in any terminal by running `geo <command>`. A branch for the new command can also be created for you during the setup process.
 
 <!-- > Important `geo cmd` directory paths:
 >  - user commands directory: ~/.geo-cli/data/commands
 >  - repo commands directory: <geo-cli repo>/src/cli/commands -->
 
 
-During the `geo cmd create <command>` setup process, you will be asked if you would like to have your command added to the **user commands** directory (located at *~/.geo-cli/data/commands*) *instead* of the **repo commands** directory (at */src/cli/commands* in your local `geo-cli` repo). This will allow you to experiment locally with your command without having to switch to a different branch or commit any code. This way, the command will still be available through `geo <command>`, but you can stay on the main `geo-cli` branch; allowing you to both receive `geo-cli` update notifications (via `geo-ui`) and update like normal.
+Your command file will be created in its own directory and have a path like this `command-directory/command-file` and will follow this naming format: `geo-<command>/geo-<command>.cmd.sh`. By default, new command directories will be created in the **repo commands** directory (at */src/cli/commands* in your local `geo-cli` repo). However, during the `geo cmd create <command>` setup process, you will be asked if you would like to have your command added to the **user commands** directory (located at *~/.geo-cli/data/commands*) instead. This will allow you to experiment locally with your command without having to switch to a different branch or commit any code. The command will still be available through `geo <command>`, but you can stay on the main `geo-cli` branch; allowing you to both receive `geo-cli` update notifications (via `geo-ui`) and update like normal. You won't be notified about updates unless you are on the main `geo-cli` branch.
 
-> You can always move your command file/directory to the _repo commands_ directory, add it to a branch and submit a merge request for it later if you would like to share it with others.
+> You can always move your command to the **repo commands** directory, add it to a branch, and submit a merge request for it later if you would like to share it with others.
+
+When `geo cmd create` is finished 
+
+### Develop Commands In Any Language
+Don't like writing bash scripts? No problem, just include a script (or scripts) written in the language of your choice and call it from your `geo-cli` command file. This allows you to add features to `geo-cli` and write the bare minimum amount of bash.
+
+Lets say, for example, that you and your team regularly use some shared python files to initialize geotabdemo for local development. A typical development workflow looks like this
+- Run a Python script, `get_device_data.py`, to download json device logs from MyDecoder between dates, anonymizes it (changes dates, removes vin/hardwareIds, etc.), and finally writes the logs back to a json file, `device_serial-logs.json`.
+- Run `geo mydecoder` to convert the json file into a log file, `device_serial-logs.txt`, that can be ingested by MYG. 
+- Start a local instance of MYG.
+- Run another Python script, init_myg_for_logs.py device-logs.txt`, which makes some api calls to a local MYG instance to do some set up (create devices, users, rules, etc., that match the logs). 
+- Open Chrome to the Maps page in the local MYG web app.
+- Get MYG to process the file by adding the _.manualprocess_ extension and copying it to the `geotabdemo_data` directory.
+- Open the api runner and log into geotabdemo.
+- Make api calls to get more information about the logs that were processed.
+
+Much of this could be automated by creating a new `geo-cli` command, lets call it `manualprocess`, by running `geo cmd create manualprocess`. After that, add your scripts to the command directory. It should look like this:
+```
+geo-manualprocess/
+    geo-manualprocess.cmd.sh
+    get_device_data.py
+    init_myg_for_logs.py
+```
+Now you would just have to populate the command's functions with a little bash to wire everything together (this could all technically be done in an additional python script to avoid writing any bash):
+> All top-level `geo-cli` commands (i.e., `geo <command>`) have a corresponding public bash function named like so: `geo_<command>` (e.g., `geo db` has a function called `geo_db` that can be called from any terminal).
+```bash
+# Assuming that your geo-cli repo is located at ~/repos/geo-cli, 
+# The command file for this function would be located at: 
+#   ~/repos/geo-cli/src/cli/commands/geo-manualprocess/geo-manualprocess.cmd.sh
+geo_manualprocess() {
+    # ...
+    # Parse arguments.
+    # ...
+
+    # Get the device data from MyDecoder.
+    python3 get_device_data.py "$device_serial_number $from_date $to_date
+
+    # Convert json to a MYG text log file.
+    geo mydecoder $device_serial.json
+    # Start a local MYG instance.
+    geo myg start
+
+    # Initialize MYG with rules, users, devices, etc., to prepare to process the logs.
+    python3 init_myg_for_logs.py device-logs.txt
+
+    # Open the maps page to observe the effects of the file being processed.
+    google-chrome "https://localhost:10001/geotabdemo#map"
+
+    # Copy the log file to be automatically processed by MYG.
+    cp device-logs.txt ~/GEOTAB/Checkmate/geotabdemo_data/device-logs.manualprocess
+
+    # Automatically open up and log in to the api runner.
+    geo dev api-runner
+}
+```
+> The `geo_manualprocess` function is created in a command file that is based off of a template. It is full of help documentation and examples to guide you through coding your command.
 
 # `geo-ui` (NEW)
 `geo-ui` is a tray menu UI (app indicator) that further simplifies MyGeotab development. It allows users to quickly access most of `geo-cli`'s features, as well as adding some additional ones, with just a couple mouse clicks.
