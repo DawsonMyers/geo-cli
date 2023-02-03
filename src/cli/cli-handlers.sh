@@ -3292,7 +3292,7 @@ _geo_jq_args_to_json() {
 
     local jq_args=()
     $raw && jq_args+=(-c)
-
+    
     local OPTIND
     while [[ -n $1 && $1 =~ ^-{1,2} ]]; do
     # while getopts "rtk:K:" opt; do

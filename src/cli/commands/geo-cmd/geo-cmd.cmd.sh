@@ -203,6 +203,9 @@ _geo_cmd_create() {
     cmd_author=${cmd_author:-"$USER@geotab.com"}
 
     local command_file_text="$(cat "$template_file" | sed -E "s/new_command_name/$cmd_name/g; s/command_author/$cmd_author/g; s/command_date/$cmd_date/g")"
+    # Capitalized command name.
+    local CMD_NAME="${cmd_name^^}"
+    command_file_text="$(echo "$template_file" | sed -E "s/new_command_name/$cmd_name/g; s/NEW_COMMAND_NAME/$CMD_NAME/g; s/command_author/$cmd_author/g; s/command_date/$cmd_date/g; ")"
     [[ -z $command_file_text ]] && log::Error "Failed to substitute command name into template file: $command_file_text" && return 1
 
     # Create the command's directory (if it doesn't already exist).
@@ -312,11 +315,251 @@ _geo_cmd_remove() {
     log::success 'Done'
 }
 
+example_options() {
+    local raw
+    local force
+    local option_parser_def=
+
+    make_option_parser \
+        -o option_parser_def
+        --arg 'short=r long=raw var=raw'
+        --arg 'short=f long=force var=force'
+    eval "$option_parser_def"
+}
+
+make_option_parser() {
+    local parser_def=
+    local jq_args=()
+    local opt_count=0
+    # $raw && jq_args+=(-c)
+    local short_opts=()
+    local long_opts=()
+    # declare -A long_opts
+    # declare -A short_opts
+    # declare -A long_opts
+    local option_variables=()
+    local expects_argument=()
+    local opt_defs=()
+
+    parse_option_def() {
+        local option_def="$1"
+        # local option_def="$1"
+        opt_id=$2
+        # opt_def="$2"
+        short_opt=
+        long_opt=
+        # log::debug "parse_option_def $option_def"
+        # if [[ $2 =~ -l|-s ]]
+        if [[ $option_def =~ short=([[:alnum:]]) ]]; then
+            short_opt="${BASH_REMATCH[1]}"
+            # log::debug "short_opt=\${BASH_REMATCH[1]} = $short_opt"
+            short_opts[$opt_id]=$short_opt
+            # log::debug "short_opts[$opt_id]=$short_opt"
+        fi
+        if [[ $option_def =~ long=([[:alnum:]]{1,}) ]]; then
+            long_opt="${BASH_REMATCH[1]}"
+            # log::debug "long_opt=\${BASH_REMATCH[1]} = ${BASH_REMATCH[1]}"
+            long_opts[$opt_id]=$long_opt
+        fi
+        if [[ $option_def =~ var=([[:alnum:]]{1,}) ]]; then
+            opt_var="${BASH_REMATCH[1]}"
+            option_variables[$opt_id]=$opt_var
+        fi
+
+        # echo $opt_id
+    }
+
+
+
+
+# log::debug " while  '$1'"       
+    local OPTIND
+    while [[ -n $1 && $1 =~ ^-{1,2} ]]; do
+    # while getopts "rtk:K:" opt; do
+        opt="$(echo $1 | sed -E 's/^-{1,2}//g')"
+        # log::debug " while opt '$opt'"       
+
+        case "${opt}" in
+            opt | opt-arg )
+                # log::debug "in case"
+                opt_id=$((opt_count++))
+                opt_def="$2"
+                # log::debug "opt_def $opt_def"
+                parse_option_def "$opt_def" $opt_id
+                id=$opt_id
+                opt_defs[$opt_id]="$opt_def"
+                # log::debug "opt_id $opt_id"
+                [[ $opt == opt-arg ]] \
+                    && expects_argument[$opt_id]=true \
+                    || expects_argument[$opt_id]=false
+                # log::debug "expects_argument[$opt_id] = ${expects_argument[$opt_id]}"
+                # short_opt=
+                # long_opt=
+                # # if [[ $2 =~ -l|-s ]]
+                # if [[ $opt_def =~ short=([[:alnum:]]) ]]; then
+                #     short_opt="${BASH_REMATCH[1]}"
+                #     # arg_id
+                #     # opt_key=$arg_id.$opt
+                #     short_opts[$short_opt]=$arg_id
+                # fi
+                shift
+                ;;
+            # opt ) add_timestamp=true ;;
+            # a | arg ) 
+            #     shift
+            #     jq_args+=(--arg "$1" "$2") 
+            #     shift 
+            #     ;;
+            # A | argjson ) 
+            #     shift
+            #     jq_args+=(--argjson "$1" "$2") 
+            #     shift 
+            #     ;;
+            K ) add_timestamp=true ;;
+            : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
+            \? ) log::Error "Invalid option: $1"; return 1 ;;
+        esac
+        shift
+    done
+
+    make_case_for_option() {
+        local requires_arg=false
+        [[ $1 == --arg ]] && requires_arg=true && shift
+        local condition="$1"
+        local var="$2"
+        local var_assignment="$var=true"
+        local arg_check="[[ -z \"\$2\" || \"\$1\" =~ ^-{1,} ]] && log::Error \"Option '\$option' requires an argument, but wasn't supplied with one\" && return 1
+        "
+        $requires_arg && var_assignment="$var=\"\$2\" && shift"
+        local case_txt="
+            $condition)
+                "
+        $requires_arg && case_txt+="$arg_check
+                "      
+                case_txt+="$var_assignment
+                ;;"
+        echo "$case_txt"
+    }
+    # local case_with_arg="
+    #         r | raw)
+    #             a=true
+    #             ;;
+    #         n | new)
+    #             [[ -z \"\$2\" || \"\$1\" =~ ^-{1,} ]] && log::Error \"Option '\$option' requires an argument, but wasn't supplied with one\" && return 1
+    #             b="$2"
+    #             [[ -]]
+    #             shift
+    #             ;;
+
+    #              ;;"
+
+    # x='-r --raw --new nnnn'
+    # while [[ -n $x && $x =~ ^-{1,2} ]]; do
+    #     option=$(echo $x | sed -E 's/^-{1,2}//g')
+    #     case $option in
+    #         r | raw)
+    #             _opt_arg="$y"
+    #             echo "raw _opt_arg $_opt_arg"
+    #             # shift
+    #             a="$_opt_arg"
+    #             ;;
+    #         n | new)
+    #             _opt_arg=true
+    #             b=$_opt_arg
+    #             ;;
+    #     esac
+    #     shift
+    #     x="${x%-*}"
+    # done
+    
+    # make_option_parser --opt 'short=r long=raw var=a' --opt-arg 'short=n long=new var=b'
+    # make_option_parser --opt 'short=r long=raw var=a' --opt-arg 'short=n long=new var=b'
+    # f() {  eval "$(make_option_parser --opt 'short=r long=raw var=a')"; echo "$a/$b/$c"; }
+
+    
+    local cases="
+    while [[ -n \$1 && \$1 =~ ^-{1,2} ]]; do
+        local option=\"\$(echo \"\$1\" | sed -E 's/^-{1,2}//g')\"
+        case \$option in"
+
+    # log::debug "short_opts[@] = ${short_opts[@]}"
+    # log::debug "long_opts[@] = ${long_opts[@]}"
+    # log::debug "takes_arg[@] = ${takes_arg[@]}"
+    log::debug "expects_argument[@] = ${expects_argument[@]}"
+    # log::debug "opt_count = $opt_count"
+    pad='            '
+
+    local takes_arg=
+    local opt_variable=
+
+    for ((i = 0; i < $opt_count; i++)); do
+        short_opt=${short_opts[$i]}
+        long_opt=${long_opts[$i]}
+        takes_arg="${expects_argument[$i]}"
+        opt_variable=${option_variables[$i]:-_null_var}
+        log::debug "takes_arg = '$takes_arg'"
+        cond="
+            "
+        [[ -n $short_opt ]] && cond+="$short_opt"
+        # [[ -n $cond && -n $long_opt ]] && cond+="| $long_opt" || cond+="| $long_opt"
+        if [[ -n $long_opt ]]; then
+            [[ -n $cond ]] && cond+=" | $long_opt)" || cond+="$long_opt)"
+        fi
+        # cond+=' )'
+        # cond+='
+        # '
+        if [[ $takes_arg == true ]]; then
+            cond+="
+                $opt_variable="\"\$2\""
+                shift"
+        else
+            cond+="
+                $opt_variable=true"
+        fi
+        # [[ -n $_opt_arg ]] && _opt_
+        # cond+="
+        #         "
+        # [[ $takes_arg == true ]] \
+        #     && cond+="
+        #         $opt_variable=\$_opt_arg" \
+        #     || cond+="$opt_variable=true"
+        #     # shift
+        cond+="
+                ;;"
+        cases+="$cond"
+    done
+
+    cases+="
+        esac
+        shift
+    done"
+    # read
+    echo "$cases"
+}
+
+make_case_for_option() {
+        local requires_arg=false
+        [[ $1 == --arg ]] && requires_arg=true && shift
+        local condition="$1"
+        local var="$2"
+        local var_assignment="$var=true"
+        local arg_check="[[ -z \"\$2\" || \"\$1\" =~ ^-{1,} ]] && log::Error \"Option '\$option' requires an argument, but wasn't supplied with one\" && return 1
+        "
+        $requires_arg && var_assignment="$var=\"\$2\" && shift"
+        local case_txt="
+            $condition)
+                "
+        $requires_arg && case_txt+="$arg_check
+                "      
+                case_txt+="$var_assignment
+                ;;"
+        echo "$case_txt"
+    }
+
 _geo_cmd_ls() {
     list_repo_cmd_files=true
-    [[ $1 == -r ]] && list_repo_cmd_files=true
-#     GEO_CLI_COMMAND_DIR
-# GEO_CLI_USER_COMMAND_DIR
+    [[ $1 == -R ]] && list_repo_cmd_files=false
+    # [[ $1 == -r ]] && list_repo_cmd_files=true
 
     log::data_header --pad "User Command Files"
 
@@ -325,7 +568,7 @@ _geo_cmd_ls() {
         # ls "$GEO_CLI_USER_COMMAND_DIR"
         # local user_cmd_files=$(find "$GEO_CLI_USER_COMMAND_DIR" -name '*.cmd.sh')
         for cmd_file in $user_cmd_files; do
-            log::code "  * $cmd_file"
+            log::code -r "  * $cmd_file"
         done
     else
         log::detail "No user command files were found"
@@ -348,6 +591,7 @@ _geo_cmd_ls() {
             # git log --format=%ae gateway.py | tail -1
             # git status --format=%ae gateway.py | tail -1
 
+            # Print out all repo command files
             for cmd_file in $all_cmd_files; do
                 local isUntracked=false
                 local createdByUser=false
@@ -357,9 +601,11 @@ _geo_cmd_ls() {
                 [[ -n $(git log --follow --format=%ae "$cmd_file" | tail -1 | grep "$user") ]] && createdByUser=true
 
                 # Print the file in a different if it belongs to the user.
-                $isUntracked || $createdByUser \
-                    && log::code "  * $cmd_file" \
-                    || log::data "  * $cmd_file"
+                if $isUntracked || $createdByUser; then
+                    log::code -r "  * $cmd_file"
+                else
+                    log::data -r "  * $cmd_file"
+                fi
             done
 
             log::info "These commands are available through geo-cli via 'geo <command>'. They are available to all geo-cli users (once merged into the main geo-cli branch). They are stored in: "
@@ -373,17 +619,26 @@ _geo_cmd_ls() {
 
 _geo_cmd_edit() {
     local cmd_name="$1"
-    [[ -z $cmd_name ]] && log::Error "No command namd supplied" && return 1
-    _geo_cmd_exists "$cmd_name" || { log::Error "Command '$cmd_name' doesn't exist" && return 1; }
+    [[ -z $cmd_name ]] \
+        && log::Error "No command namd supplied" && return 1
+    ! _geo_cmd_exists "$cmd_name" \
+        && log::Error "Command '$cmd_name' doesn't exist" && return 1
     
     local cmd_in_repo=true
-    local -n cmd_file_path="${cmd_name}_command_file_path"
-    local -n cmd_directory_path="${cmd_name}_command_directory_path"
-    [[ -z $cmd_file_path || ! -f $cmd_file_path ]] && log::Error "Command file wasn't found at: $cmd_file_path" && return 1
-    [[ $cmd_directory_path =~ $GEO_CLI_COMMAND_DIR ]] || cmd_in_repo=false
+    local cmd_file_path="$(_geo_cmd_get_file_path $cmd_name)"
+    local cmd_directory_path="${cmd_file_path%/*}"
+    # local -n cmd_file_path="${cmd_name}_command_file_path"
+    # local -n cmd_directory_path="${cmd_name}_command_directory_path"
+
+    [[ ! -f $cmd_file_path ]] \
+        && log::Error "Command file wasn't found at: $cmd_file_path" \
+        && return 1
+    [[ $cmd_directory_path =~ $GEO_CLI_COMMAND_DIR ]] \
+        || cmd_in_repo=false
     
-    log::status "Opening command file"
+    log::status "Opening command file at:"
     log::link -r "$cmd_file_path"
+
     if $cmd_in_repo; then
         # Open the geo-cli repo folder in a new vs code session.
         code -n "$GEO_CLI_DIR"
@@ -406,13 +661,25 @@ _geo_cmd_has_own_dir() {
 _geo_cmd_get_file_path() {
     local dirname_only=false
     [[ $1 == -d ]] && dirname_only=true && shift
+    
     local cmd_name="$1"
     [[ -z $cmd_name ]] && return 1
+
+    local cmd_func_name="geo_$cmd_name"
     _geo_cmd_exists "$cmd_name" || return 1
-    cmd_name="geo-$cmd_name"
-    local cmd_path="$(echo "${GEO_COMMAND_FILE_PATHS[@]}" | sed 's_/home/_\n/home/_g' | grep "$cmd_name")"
+
+    local cmd_file_name="geo-$cmd_name.cmd.sh"
+    local cmd_path="$(echo "${GEO_COMMAND_FILE_PATHS[@]}" | sed 's_/home/_\n/home/_g' | grep "$cmd_file_name")"
+    
+    # Remove trailing space.
     cmd_path="${cmd_path% }"
-    [[ -z $cmd_path ]] && return 1
+
+    if [[ -z $cmd_path ]]; then
+        if type $cmd_func_name | grep "is a function" > /dev/null; then
+            log::Error "Failed to find path for command file, but the command function '$cmd_func_name' is loaded in this terminal."
+        fi
+        return 1
+    fi
     $dirname_only && echo "${cmd_path%/*}" || echo "$cmd_path" 
 }
 
