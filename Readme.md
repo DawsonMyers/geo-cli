@@ -4,10 +4,12 @@ The tool has also evolved over the years to include a taskbar UI menu as well as
 
 
 > `geo-cli` is currently under active development and is updated often. Feel free to make an [MR](https://git.geotab.com/dawsonmyers/geo-cli/-/merge_requests/new) if you would like to contribute improvements or features.
+> 
 > **Note:** `geo-cli` *is only supported on Ubuntu*. However, it can be made to work in WSL on Windows if you set up docker for it.
 
 
-> 💬 **Join the geo-cli Chat Space** [here](https://chat.google.com/room/AAAAo9gDWgg?cls=7) (currently with nearly 80 members) to report bugs, share feature ideas, and stay informed about new features. You can also contact me on Chat or through email (dawsonmyers@geotab.com).
+> 💬 **Join the geo-cli Chat Space** [here](https://chat.google.com/room/AAAAo9gDWgg?cls=7) (currently with more than 80 members) to report bugs, share feature ideas, and stay informed about new features. You can also contact me on Chat or through email (dawsonmyers@geotab.com).
+> 
 > ⭐ **Like geo-cli?** Add a star to the [repo](https://git.geotab.com/dawsonmyers/geo-cli).
 
 ## Table of Contents
@@ -41,7 +43,12 @@ The tool has also evolved over the years to include a taskbar UI menu as well as
     - [Run MyGeotab with Gateway](#run-mygeotab-with-gateway)
   - [Add git Hook](#add-git-hook)
   - [Create Your Own `geo-cli` Command (`geo <command>`)](#create-your-own-geo-cli-command-geo-command)
+    - [Example](#example-1)
+      - [Automate Initializing MyGeotab for Local Development](#automate-initializing-mygeotab-for-local-development)
     - [Develop Commands In Any Language](#develop-commands-in-any-language)
+    - [Tips \& Tricks](#tips--tricks)
+      - [Passing Arguments](#passing-arguments)
+      - [Shifting \& Slicing Positional Arguments](#shifting--slicing-positional-arguments)
 - [`geo-ui` (NEW)](#geo-ui-new)
   - [Databases](#databases-1)
     - [Running DB](#running-db)
@@ -431,6 +438,7 @@ To verify the connection, open https://127.0.0.1:10001/\<databaseName> via the `
 
 ## Add git Hook
 Run the `geo init git-hook` command to add the prepare-commit-msg git hook that prepends the MYG issue number to each commit you make. It parses the issue number from the branch name.
+
 ![git-hook](res/geo-init-git-hook.png)
 
 ## Create Your Own `geo-cli` Command (`geo <command>`)
@@ -450,12 +458,11 @@ Your command file will be created in its own directory and have a path like this
 
 > You can always move your command to the **repo commands** directory, add it to a branch, and submit a merge request for it later if you would like to share it with others.
 
-When `geo cmd create` is finished 
+<!-- When `geo cmd create` is finished  -->
 
-### Develop Commands In Any Language
-Don't like writing bash scripts? No problem, just include a script (or scripts) written in the language of your choice and call it from your `geo-cli` command file. This allows you to add features to `geo-cli` and write the bare minimum amount of bash.
-
-Lets say, for example, that you and your team regularly use some shared python files to initialize geotabdemo for local development. A typical development workflow looks like this
+### Example
+#### Automate Initializing MyGeotab for Local Development
+Lets say, that you and your team regularly use some shared python files to initialize geotabdemo for local development. A typical development workflow for the team looks like this:
 - Run a Python script, `get_device_data.py`, to download json device logs from MyDecoder between dates, anonymizes it (changes dates, removes vin/hardwareIds, etc.), and finally writes the logs back to a json file, `device_serial-logs.json`.
 - Run `geo mydecoder` to convert the json file into a log file, `device_serial-logs.txt`, that can be ingested by MYG. 
 - Start a local instance of MYG.
@@ -465,46 +472,170 @@ Lets say, for example, that you and your team regularly use some shared python f
 - Open the api runner and log into geotabdemo.
 - Make api calls to get more information about the logs that were processed.
 
-Much of this could be automated by creating a new `geo-cli` command, lets call it `manualprocess`, by running `geo cmd create manualprocess`. After that, add your scripts to the command directory. It should look like this:
+Much of this could be automated by creating a new `geo-cli` command, lets call it `manualprocess`, by running `geo cmd create manualprocess`. After that, add your scripts to the command directory, which should look like this:
 ```
 geo-manualprocess/
     geo-manualprocess.cmd.sh
     get_device_data.py
     init_myg_for_logs.py
 ```
-Now you would just have to populate the command's functions with a little bash to wire everything together (this could all technically be done in an additional python script to avoid writing any bash):
+Now you would just have to populate the command function with a little bash to wire everything together (this could all technically be done in an additional python script to avoid writing any bash, as you'll see shortly):
+
 > All top-level `geo-cli` commands (i.e., `geo <command>`) have a corresponding public bash function named like so: `geo_<command>` (e.g., `geo db` has a function called `geo_db` that can be called from any terminal).
+
 ```bash
 # Assuming that your geo-cli repo is located at ~/repos/geo-cli, 
 # The command file for this function would be located at: 
 #   ~/repos/geo-cli/src/cli/commands/geo-manualprocess/geo-manualprocess.cmd.sh
 geo_manualprocess() {
-    # ...
-    # Parse arguments.
-    # ...
+    # Parse and validate arguments/options.
+    local device_serial=$1
+    local from_date=$2
+    local to_date=$3
+    local file_name="${device_serial}-logs"
+
+    # It's encouraged to log some kind of status information to show the progress
+    # of the command and create a better user experience.
+    # This is the only status update shown in this code example in order to
+    # simplify it, but a real command should have status updates before every
+    # significant stage of execution.
+    # Info about geo-cli log functions:
+    #   The log::status function prints out bright blue text and is the standard 
+    #   format for geo-cli status/progress logs. There are many log helper functions
+    #   defined in /src/utils/logs.sh. They all have names of the form 'log::<name>' 
+    #   to signify that they are defined in a file called log.sh.
+    log::status "Running get_device_data.py"
 
     # Get the device data from MyDecoder.
-    python3 get_device_data.py "$device_serial_number $from_date $to_date
+    python3 get_device_data.py \
+      "$device_serial_number" \
+      "$from_date" \
+      "$to_date" \
+      --output-file-name "$file_name.json"
 
-    # Convert json to a MYG text log file.
-    geo mydecoder $device_serial.json
+    # Convert json to a MYG text log file. The output file will have the same name,
+    # but with a '.txt' extension instead of '.json'.
+    geo mydecoder "$file_name.json"
+
     # Start a local MYG instance.
     geo myg start
 
-    # Initialize MYG with rules, users, devices, etc., to prepare to process the logs.
-    python3 init_myg_for_logs.py device-logs.txt
+    # Initialize MYG (with rules, users, devices, etc.) to prepare it to process the logs.
+    python3 init_myg_for_logs.py "$file_name.txt"
 
     # Open the maps page to observe the effects of the file being processed.
-    google-chrome "https://localhost:10001/geotabdemo#map"
+    google-chrome 'https://localhost:10001/geotabdemo#map'
+
+    # This is a helper function, defined in /src/cli/cli-handlers.sh, for getting confirmation
+    # from the user before continuing the script.
+    prompt_continue "Press Enter when you're ready to have the log file processed by MYG: "
 
     # Copy the log file to be automatically processed by MYG.
-    cp device-logs.txt ~/GEOTAB/Checkmate/geotabdemo_data/device-logs.manualprocess
+    cp "$file_name.txt" ~/GEOTAB/Checkmate/geotabdemo_data/$file_name.manualprocess
 
     # Automatically open up and log in to the api runner.
     geo dev api-runner
+
+    # This function will print "✔  Done" out to the console in bright green text. It is
+    # commonly used in geo-cli commands to communicate the success of something.
+    log::success "Done"
 }
 ```
 > The `geo_manualprocess` function is created in a command file that is based off of a template. It is full of help documentation and examples to guide you through coding your command.
+
+### Develop Commands In Any Language
+Don't like writing bash scripts? No problem, just include a script (or scripts) written in the language of your choice and call it from your `geo-cli` command file. This allows you to add features to `geo-cli` and write the bare minimum amount of bash.
+
+For example, we could just as well have written all of the `geo_manualprocess` function from the previous section entirely in a separate Python file, `geo_manualprocess.py`. Your command directory could look like after adding the new Python file and organizing the other ones (by adding them into their own `scripts` subdirectory):
+```bash
+geo-manualprocess/
+    geo-manualprocess.cmd.sh
+    geo_manualprocess.py
+    scripts/
+        get_device_data.py
+        init_myg_for_logs.py
+```
+
+```bash
+geo_manualprocess() {
+    local device_serial=$1
+    local from_date=$2
+    local to_date=$3
+
+    python3 geo_manualprocess.py \
+      "$device_serial_number" \
+      "$from_date" \
+      "$to_date"
+    
+    # Display an error message if there was an error running the python script.
+    # The $? variable holds the return code of the previous function. Any non-zero
+    # return code mean that an error occurred.
+    if (( $? != 0 )); then
+      log::Error "geo_manualprocess.py did not complete successfully"
+      return 1
+    fi
+
+    log::success "Done"
+}
+```
+
+The code above could actually be reduced even more to look like this:
+```bash
+geo_manualprocess() {
+    if python3 geo_manualprocess.py "$@"; then
+      log::success "Done"
+    else
+      log::Error "geo_manualprocess.py did not complete successfully"
+      return 1
+    fi
+}
+```
+
+### Tips & Tricks
+
+#### Passing Arguments
+In the last example for the `geo_manualprocess` code in the previous section, `"$@"` was used to pass all positional arguments (`$1`, `$2`, etc.) in the current function to another one (`python3 geo_manualprocess.py "$@"`) while maintaining proper quoting (similar to a spread operator from other languages). `$@` without quotes will result in all arguments being split up using the space character (' ') as a delimiter.
+
+**Example**: Lets say that we have a function called `print_args` that prints its arguments out first using `"$@"`, then using `$@`:
+
+```bash
+print_args() {
+  # $@ with quotes
+  echo '"$@"'
+  for arg in "$@"; do
+    echo $arg
+  done
+  echo '$@'
+  # $@ Without quotes
+  for arg in $@; do
+    echo $arg
+  done
+}
+  
+```
+
+This is what the output looks like when running it with arguments that have spaces in them:
+```bash
+$ print_args "First argument" "Second argument"
+"$@"
+First argument
+Second argument
+$@
+First 
+argument
+Second 
+argument
+```
+
+As you can see, `"$@"` maintains the proper quoting of arguments, which is why it's very useful for passing on arguments to other functions.
+
+> Conversely, `"$*"` will join all positional arguments into a single string.
+
+#### Shifting & Slicing Positional Arguments
+If you want to use the first couple of positional arguments before passing the rest to another function, you can use the `shift` function to shift all positional args one position to the left, so the value of `$1` would be replaced by `$2`, `$2` replaced by `$3`, and so on. If you want to shift more than once, lets say 3 times, just use `shift 3`.
+
+Additionally, if you just wanted to pass a *slice* of positional arguments to another function, say all arguments after `$1`, you can use `"${@:2}"` (all args starting at the second one) like this: `print_args "${@:2}"`
+
 
 # `geo-ui` (NEW)
 `geo-ui` is a tray menu UI (app indicator) that further simplifies MyGeotab development. It allows users to quickly access most of `geo-cli`'s features, as well as adding some additional ones, with just a couple mouse clicks.
