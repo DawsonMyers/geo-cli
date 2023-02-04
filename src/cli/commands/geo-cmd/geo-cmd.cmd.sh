@@ -202,10 +202,9 @@ _geo_cmd_create() {
     local cmd_author="$(git config user.email)"
     cmd_author=${cmd_author:-"$USER@geotab.com"}
 
-    local command_file_text="$(cat "$template_file" | sed -E "s/new_command_name/$cmd_name/g; s/command_author/$cmd_author/g; s/command_date/$cmd_date/g")"
     # Capitalized command name.
     local CMD_NAME="${cmd_name^^}"
-    command_file_text="$(echo "$template_file" | sed -E "s/new_command_name/$cmd_name/g; s/NEW_COMMAND_NAME/$CMD_NAME/g; s/command_author/$cmd_author/g; s/command_date/$cmd_date/g; ")"
+    local command_file_text="$(cat "$template_file" | sed -E "s/new_command_name/$cmd_name/g; s/NEW_COMMAND_NAME/$CMD_NAME/g; s/command_author/$cmd_author/g; s/command_date/$cmd_date/g; ")"
     [[ -z $command_file_text ]] && log::Error "Failed to substitute command name into template file: $command_file_text" && return 1
 
     # Create the command's directory (if it doesn't already exist).

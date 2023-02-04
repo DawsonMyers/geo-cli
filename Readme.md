@@ -459,6 +459,7 @@ Your command file will be created in its own directory and have a path like this
 
 > You can always move your command to the **repo commands** directory, add it to a branch, and submit a merge request for it later if you would like to share it with others.
 
+![geo-cli-create-1](/res/gifs/geo-cmd-create-1.gif)
 <!-- When `geo cmd create` is finished  -->
 
 ### Example

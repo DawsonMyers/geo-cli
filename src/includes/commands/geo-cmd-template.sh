@@ -194,6 +194,7 @@ geo_new_command_name() {
             _geo_cmd_edit new_command_name
             ;;
         * ) 
+            # Standard error handling.
             [[ -z $cmd ]] && log::Error "No arguments provided" && return 1 
             log::Error "The following command is unknown: $cmd" && return 1 
             ;;
