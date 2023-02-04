@@ -569,7 +569,7 @@ make_option_parser() {
     #     shift
     # done
 
-# f() { eval "$(make_option_parser --opt 'short=r long=raw var=raw'         --opt-arg 'short=f long=force var=force')"; echo "$raw/$force"; }
+# f() { eval "$(make_option_parser --opt 'short=r long=raw var=raw' --opt-arg 'short=f long=force var=force')"; echo "$raw/$force"; }
 
 
 
@@ -583,7 +583,7 @@ make_option_parser() {
     local takes_arg=
     local opt_variable=
     local cases="
-        [[ -z $option ]] && local option=\"\$(echo \"\$1\" | sed -E 's/^-{1,2}//g')\"
+        # [[ -z \$option ]] && local option=\"\$(echo \"\$1\" | sed -E 's/^-{1,2}//g')\"
         case \$option in"
 
     for ((i = 0; i < $opt_count; i++)); do
@@ -593,35 +593,11 @@ make_option_parser() {
         opt_variable=${option_variables[$i]:-_null_var}
         opt_params=()
         $takes_arg && opt_params+=(-a)
-        # log::debug "takes_arg = '$takes_arg'"
         cond="
             "
         [[ -n $short_opt ]] && opt_params+=(-s "$short_opt")
-        # [[ -n $cond && -n $long_opt ]] && cond+="| $long_opt" || cond+="| $long_opt"
         [[ -n $long_opt ]] && opt_params+=(-l "$long_opt")
         [[ -n $opt_variable ]] && opt_params+=(-v "$opt_variable")
-        # cond+=' )'
-        # cond+='
-        # '
-        # if [[ $takes_arg == true ]]; then
-        #     cond+="
-        #         $opt_variable="\"\$2\""
-        #         shift"
-        # else
-        #     cond+="
-        #         $opt_variable=true"
-        # fi
-        # [[ -n $_opt_arg ]] && _opt_
-        # cond+="
-        #         "
-        # [[ $takes_arg == true ]] \
-        #     && cond+="
-        #         $opt_variable=\$_opt_arg" \
-        #     || cond+="$opt_variable=true"
-        #     # shift
-        # cond+="
-        #         ;;"
-        # log::debug "$(make_case_for_option "${opt_params[@]}")"
         opt_case="$(make_case_for_option "${opt_params[@]}")"
         cases+="$opt_case"
     done
@@ -630,65 +606,31 @@ make_option_parser() {
             : ) log::Error \"Option '\${option}' expects an argument.\"; return 1 ;;
             \? ) log::Error \"Invalid option: \$1\"; return 1 ;;
         esac"
-    #     shift
-    # done"
-    # read
-    # echo "$cases"
+    
     read -r -d '' parser_def <<-'EOF'
         while [[ -n $1 && $1 =~ ^-{1,2} ]]; do
-        local multi_option=false
-        is_long_opt=false
-        local raw_option="$1"
-        local option="$(echo "$raw_option" | sed -E 's/^-{1,2}//g')"
+            local multi_option=false
+            is_long_opt=false
+            local raw_option="$1"
+            local option="$(echo "$raw_option" | sed -E 's/^-{1,2}//g')"
 
-        local is_last_option_in_group=true
-        [[ $1 =~ ^-- ]] && is_long_opt=true
-        option_count="${#option}"
-        $is_long_opt && option_count=1
-        local option_group=
-        ((option_count > 1)) && is_last_option_in_group=false && option_group=$option
-
-        # if [[ $1 =~ ^-[[:alpha:]]{1,} ]]; then
-        #     local option_count=${#option}
-        #     # (( option_count ))
-        #     local single_option=
-        #     # shift
-        #     # continue
-        # fi
-        log::debug "option_count: '$option_count'"
-        log::debug "option_group: '$option_group'"
-        for ((i = 0; i < option_count; i++)); do
-        log::debug "option=${option_group:$i:1}"
-            ! $is_long_opt && [[ -n $option_group ]] \
-                && option="${option_group:$i:1}"
-            (( i == option_count )) && is_last_option_in_group=true || is_last_option_in_group=false
-            # parse_option "$single_option"
-            # %option_case_statement
-            log::debug "CASE statement: '$option'"
-            case $option in
-            r | raw )
-                log::debug "raw"
-                requires_arg=false
-                raw=true
-                ;;
-            f | force )
-                log::debug "force"
-                requires_arg=true
-                $requires_arg && [[ -z $2 || $2 =~ ^-{1,2} || ! $1 =~ $option$ ]] \
-                    && log::Error "Option '$option' requires an argument, but wasn't supplied with one" \
-                    && return 1
-                force="$2" && shift
-                ;;
-            : ) log::Error "Option '${option}' expects an argument."; return 1 ;;
-            \? ) log::Error "Invalid option: $1"; retuparser_rn 1 ;;
-        esac
-        done
-        # long_option="$(echo $option | sed -E 's/^-{1,2}//g')"
-        # parse_option "$long_option"        
+            local is_last_option_in_group=true
+            [[ $1 =~ ^-- ]] && is_long_opt=true
+            option_count="${#option}"
+            $is_long_opt && option_count=1
+            local option_group=
+            ((option_count > 1)) && is_last_option_in_group=false && option_group=$option
+            for ((i = 0; i < option_count; i++)); do
+                ! $is_long_opt && [[ -n $option_group ]] \
+                    && option="${option_group:$i:1}"
+                (( i == option_count )) && is_last_option_in_group=true || is_last_option_in_group=false
 EOF
     parser_def+="
+        $cases
+        [[ -n \$option_group ]] && continue
         shift
-    done"
+    done
+done"
     echo "$parser_def"
 }
 
