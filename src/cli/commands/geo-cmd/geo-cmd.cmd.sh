@@ -292,10 +292,14 @@ _geo_cmd_remove() {
 
     local delete_path=
     if $has_own_directory; then
-        log::warn "The following file(s) will be deleted:"
         delete_path="$cmd_directory_path"
-        log::code " * $cmd_directory_path"
-        log::code "$(find "$cmd_directory_path" | sed -E 's/^/   * /g' | tail -n +2)"
+        local files="$(find "$cmd_directory_path")"
+        local file_count="$( echo "$files" | wc -l)"
+
+        log::warn "The following $file_count file(s)/directories will be deleted:"
+        log::code -r " * $cmd_directory_path"
+        log::code -r "$(echo "$files" | sed -E "s/^/   - /g;" | tail -n +2)"
+        # log::code "$(echo "$files" | sed -E "s/^/   - /g; s%$cmd_directory_path/%%g" | tail -n +2)"
     else
         log::warn "The following file will be deleted:"
         delete_path="$cmd_file_path"
