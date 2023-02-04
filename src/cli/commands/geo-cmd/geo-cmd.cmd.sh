@@ -422,24 +422,24 @@ make_option_parser() {
         shift
     done
 
-    make_case_for_option() {
-        local requires_arg=false
-        [[ $1 == --arg ]] && requires_arg=true && shift
-        local condition="$1"
-        local var="$2"
-        local var_assignment="$var=true"
-        local arg_check="[[ -z \"\$2\" || \"\$1\" =~ ^-{1,} ]] && log::Error \"Option '\$option' requires an argument, but wasn't supplied with one\" && return 1
-        "
-        $requires_arg && var_assignment="$var=\"\$2\" && shift"
-        local case_txt="
-            $condition)
-                "
-        $requires_arg && case_txt+="$arg_check
-                "      
-                case_txt+="$var_assignment
-                ;;"
-        echo "$case_txt"
-    }
+    # make_case_for_option() {
+    #     local requires_arg=false
+    #     [[ $1 == --arg ]] && requires_arg=true && shift
+    #     local condition="$1"
+    #     local var="$2"
+    #     local var_assignment="$var=true"
+    #     local arg_check="[[ -z \"\$2\" || \"\$1\" =~ ^-{1,} ]] && log::Error \"Option '\$option' requires an argument, but wasn't supplied with one\" && return 1
+    #     "
+    #     $requires_arg && var_assignment="$var=\"\$2\" && shift"
+    #     local case_txt="
+    #         $condition)
+    #             "
+    #     $requires_arg && case_txt+="$arg_check
+    #             "      
+    #             case_txt+="$var_assignment
+    #             ;;"
+    #     echo "$case_txt"
+    # }
     # local case_with_arg="
     #         r | raw)
     #             a=true
@@ -537,21 +537,55 @@ make_option_parser() {
     echo "$cases"
 }
 
+make_case_func_option() {
+    local func_def=
+    # local func_def='    parse_option() {'
+}
 make_case_for_option() {
         local requires_arg=false
         [[ $1 == --arg ]] && requires_arg=true && shift
-        local condition="$1"
-        local var="$2"
+        local condition=
+        local long_opt=
+        local short_opt=
+        local var=
+        local OPTIND
+        while getopts "al:s:v:c:" opt; do
+            case "${opt}" in
+                a ) requires_arg=true ;;
+                l ) long_opt="$OPTARG" ;;
+                s ) short_opt="$OPTARG" ;;
+                v ) var="$OPTARG" ;;
+                c ) condition="$OPTARG" ;;
+                : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
+                \? ) log::Error "Invalid option: $1"; return 1 ;;
+            esac
+        done
+        shift $((OPTIND - 1))
+        
+        # if [[ -z condition ]]; then
+            if [[ -n $short_opt ]]; then
+                [[ -n $long_opt ]] \
+                    && condition="$short_opt | $long_opt" \
+                    || condition="$short_opt"
+            elif [[ -n $long_opt ]]; then
+                condition="$long_opt"
+            fi
+        # fi
+        # log::debug "$short_opt|$long_opt|$condition"
+
+        # [[ -n $short_opt && -n $long_opt ]] && condition="$short_opt | $long_opt"
         local var_assignment="$var=true"
-        local arg_check="[[ -z \"\$2\" || \"\$1\" =~ ^-{1,} ]] && log::Error \"Option '\$option' requires an argument, but wasn't supplied with one\" && return 1
-        "
+        local arg_check="[[ -z \"\$2\" || \"\$1\" =~ ^-{1,2} ]] \\
+                    && log::Error \"Option '\$option' requires an argument, but wasn't supplied with one\" \\
+                    && return 1"
         $requires_arg && var_assignment="$var=\"\$2\" && shift"
+
         local case_txt="
-            $condition)
+            $condition )
                 "
         $requires_arg && case_txt+="$arg_check
                 "      
-                case_txt+="$var_assignment
+        case_txt+="$var_assignment
                 ;;"
         echo "$case_txt"
     }
