@@ -122,6 +122,20 @@ _geo_check_db_image() {
     fi
 }
 
+_geo_check_db_image_pg_version() {
+    local image=$(docker image ls | grep "$IMAGE")
+    local image_postgres_version=$(_geo_get_pg_version_from_docker_object $IMAGE)
+    if [[ -n $image_postgres_version ]] && ((image_postgres_version < 11)); then
+        log::caution "Your current geo-cli db image is out of date. Its Postgres version is $image_postgres_version and the minimum supported version is 11."
+        if ! prompt_continue "Rebuild the image now to update Postgres? (Y|n): "; then
+            return 1
+        fi
+        geo_image create
+    fi
+}
+
+
+
 #######################################################################################################################
 COMMANDS+=('image')
 geo_image_doc() {
@@ -673,6 +687,11 @@ _geo_db_start() {
         log::detail "$(log::fmt_text_and_indent_after_first_line  "$skip_build_text" 0 3)"
         log::detail "$(log::fmt_text_and_indent_after_first_line  "$accept_defaults_text" 0 3)"
         prompt_for_db_version
+        while [[ $db_version =~ ^-[yb]{1,2}$ ]]; do
+            log::caution "No database name supplied, only the following option(s) '$db_version'"
+            db_version=
+            prompt_for_db_version
+        done
         shift
     else
         _geo_show_repo_dir_reminder
@@ -696,6 +715,8 @@ _geo_db_start() {
         fi
         geo image create
     fi
+
+    _geo_check_db_image_pg_version
 
     if [[ -n $pg_version ]]; then
         image_name="${IMAGE}_${pg_version}"
@@ -3292,7 +3313,7 @@ _geo_jq_args_to_json() {
 
     local jq_args=()
     $raw && jq_args+=(-c)
-    
+
     local OPTIND
     while [[ -n $1 && $1 =~ ^-{1,2} ]]; do
     # while getopts "rtk:K:" opt; do
