@@ -45,6 +45,7 @@ The tool has also evolved over the years to include a taskbar UI menu as well as
   - [Create Your Own `geo-cli` Command (`geo <command>`)](#create-your-own-geo-cli-command-geo-command)
     - [Example](#example-1)
       - [Automate Initializing MyGeotab for Local Development](#automate-initializing-mygeotab-for-local-development)
+    - [Create a Command for Your Team](#create-a-command-for-your-team)
     - [Develop Commands In Any Language](#develop-commands-in-any-language)
     - [Tips \& Tricks](#tips--tricks)
       - [Passing Arguments](#passing-arguments)
@@ -543,8 +544,22 @@ geo_manualprocess() {
 ```
 > The `geo_manualprocess` function is created in a command file that is based off of a template. It is full of help documentation and examples to guide you through coding your command.
 
+### Create a Command for Your Team
+The `manualprocess` command from the previous section would be very helpful to the members of the team using it, but it seems like it's quite tailored just to the needs of the that team. Having many of these types of niche commands would could make it more difficult for other `geo-cli` to tell which ones are relevant/potentially useful to them. And so, if you have several niche tasks that you would like to add `geo-cli` commands for, but you don't think that other dev teams would benefit, then it's best to group them under a top-level command named after your team. For example, if team By Design uses several scripts to accomplish tasks that are specific to the team, but have no real use to other developers. Then you can create a `geo-cli` command called `by-design` to group together all of your team's unique tasks. You can then create subcommands for any relevant task you like. Example:
+```
+geo by-design <subcommand> [options] [arguments]
+  * Commands that automate various tasks encountered by team By Design.
+  * subcommands
+    - init-ddis
+    - run-rule-processor-tests
+    - etc.
+  * Examples
+    - geo run-rule-processor-tests --timeout 10
+    - geo init-ddis --enable-logs
+```
+
 ### Develop Commands In Any Language
-Don't like writing bash scripts? No problem, just include a script (or scripts) written in the language of your choice and call it from your `geo-cli` command file. This allows you to add features to `geo-cli` and write the bare minimum amount of bash.
+Don't like writing bash scripts? No problem, just include a script (or scripts) written in the language of your choice and call it from your `geo-cli` command file. This allows you to add features to `geo-cli` while writing the bare minimum amount of bash.
 
 For example, we could just as well have written all of the `geo_manualprocess` function from the previous section entirely in a separate Python file, `geo_manualprocess.py`. Your command directory could look like after adding the new Python file and organizing the other ones (by adding them into their own `scripts` subdirectory):
 ```bash
