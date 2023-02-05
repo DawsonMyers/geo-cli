@@ -492,20 +492,24 @@ _geo_make_option_parser() {
         long_opt=
         if [[ $option_def =~ short=([[:alnum:]]) ]]; then
             short_opt="${BASH_REMATCH[1]}"
-            short_opts[$opt_id]=$short_opt
+            short_opts[$opt_id]="$short_opt"
         fi
-        if [[ $option_def =~ long=([[:alnum:]]{1,}) ]]; then
+        if [[ $option_def =~ long=([-_[:alnum:]]{1,}) ]]; then
+        ere
             long_opt="${BASH_REMATCH[1]}"
-            long_opts[$opt_id]=$long_opt
+            long_opts[$opt_id]="$long_opt"
         fi
         if [[ $option_def =~ var=([[:alnum:]]{1,}) ]]; then
             opt_var="${BASH_REMATCH[1]}"
-            option_variables[$opt_id]=$opt_var
-            if $requires_argument; then
-                eval "$opt_var=''" 
-            else
-                eval "$opt_var=false" 
-            fi
+            option_variables[$opt_id]="$opt_var"
+            ! $requires_argument && eval "$opt_var=false" 
+            # if $requires_argument; then
+            #     local default_value=
+            #     # [[ -z $opt_var ]] && [[ $option_def =~ defa=[[:alnum:]]{1,}=(.{1,}) ]]
+            #     # eval "$opt_var=''" 
+            # else
+            #     eval "$opt_var=false" 
+            # fi
         fi
     }
 
@@ -516,7 +520,7 @@ _geo_make_option_parser() {
         # log::debug "in while case.1=$1 2=$2"
         opt="$(echo $1 | sed -E 's/^-{1,2}//g')"
         case "${opt}" in
-            opt | opt-arg )
+            opt | option | opt-arg )
                 opt_id=$((opt_count++))
                 opt_def="$2"
                 opt_defs[$opt_id]="$opt_def"
@@ -553,11 +557,11 @@ _geo_make_option_parser() {
         case \$option in"
 
     for ((i = 0; i < $opt_count; i++)); do
-        short_opt=${short_opts[$i]}
-        long_opt=${long_opts[$i]}
-        takes_arg="${expects_argument[$i]:-false}"
-        opt_variable=${option_variables[$i]:-_null_var}
-        opt_params=()
+        local short_opt="${short_opts[$i]}"
+        local long_opt="${long_opts[$i]}"
+        local takes_arg="${expects_argument[$i]:-false}"
+        local opt_variable="${option_variables[$i]:-_null_var}"
+        local opt_params=()
         $takes_arg && opt_params+=(-a)
         [[ -n $short_opt ]] && opt_params+=(-s "$short_opt")
         [[ -n $long_opt ]] && opt_params+=(-l "$long_opt")
