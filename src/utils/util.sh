@@ -257,6 +257,8 @@ util::typeofvar () {
         type_signature="$(declare -p "$ref_name" 2>/dev/null)"
         # echo "while type_signature = $type_signature"
     done
+    # util::get_ref_var_name -v ref_name $name
+
     $is_ref && local -n var_ref=$1 && type_signature=$(declare -p "var_ref" 2>/dev/null)
 
     local var_type=
@@ -296,4 +298,19 @@ util::eval_enable_piped_args() {
 EOF
  [[ $1 == -v ]] && local -n var="$2" && var="$_enable_piped_args_code" && return
  echo "$_enable_piped_args_code"
+}
+
+util::get_ref_var_name() {
+    local write_to_var=false
+    [[ $1 == -v ]] && local -n out_var=$2 && shift 2 && write_to_var=true
+    local name="$1"
+    local re="declare -n [-_a-zA-Z0-9]{1,}=[\"']?([-_a-zA-Z0-9]{1,})['\"]?"
+    local type_signature="$(declare -p "$name" 2>/dev/null)"
+    while [[ $type_signature =~ $re ]]; do
+    # while [[ $type_signature =~ declare -n ]]; do
+        name="${BASH_REMATCH[1]}"
+        type_signature="$(declare -p "$name" 2>/dev/null)"
+        # echo "while type_signature = $type_signature"
+    done
+    $write_to_var && out_var="$name" || echo $name
 }

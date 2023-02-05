@@ -768,12 +768,14 @@ log::keyvalue() {
         # log::debug "key_name $key_name"
         # log::debug "is_array $is_array"
         if $is_array; then
-            delimeter="[]"
+            local item_count="${#key_ref[@]}"
+            # delimeter="[$item_count]"
             # delimeter="[]$delimeter\n"
             # key="$(log::info "$key_name[]")"
-            log::info "$key_name[]"
+            log::info "$key_name[$item_count]"
             # value="$(util::print_array  "$key_name")"
-            util::print_array  "$key_name"
+            # util::print_array  "$key_name"
+            util::join_array -f "$key_name"
             return
             # value="$(util::join_array -nD "$key_name")"
             # value="$(util::print_array "$key_name")"
