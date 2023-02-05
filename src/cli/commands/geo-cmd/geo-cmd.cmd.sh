@@ -318,24 +318,81 @@ _geo_cmd_remove() {
     log::success 'Done'
 }
 
+_geo_cmd_get_cmd_files() {
+    local write_to_caller_variable=false
+    local silent=true
+    local print_to_stdout=false
+    local cmd_files=
+    local get_repo_cmd_files=true
+    local cmd_dir=("$GEO_CLI_COMMAND_DIR")
+    [[ $1 == -v ]] && local -n caller_var_ref=$2
+    while [[ -n $1 && $1 =~ ^-{1,2} ]]; do
+        opt="$(echo $1 | sed -E 's/^-{1,2}//g')"
+        case "${opt}" in
+            a | all ) cmd_dir=("$GEO_CLI_USER_COMMAND_DIR" "$GEO_CLI_COMMAND_DIR") ;;
+            u | user ) cmd_dir=("$GEO_CLI_USER_COMMAND_DIR") && get_repo_cmd_files=false ;;
+            r | repo ) cmd_dir=("$GEO_CLI_COMMAND_DIR") && get_repo_cmd_files=true ;;
+            v | var ) 
+                local -n caller_var_ref="$2"
+                write_to_caller_variable=true
+                shift
+                ;;
+            p | print ) print_to_stdout=true ;;
+            # s | silent ) silent=true ;;
+            : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
+            \? ) log::Error "Invalid option: $1"; return 1 ;;
+        esac
+        shift
+    done
+    
+    local cmd_files="$(find "${cmd_dir[@]}" -name '*.cmd.sh' 2> /dev/null)"
+    # log::debug local cmd_files="\$(find "${cmd_dir[@]}" -name '*.cmd.sh' 2> /dev/null)"
+    $write_to_caller_variable && caller_var_ref="$cmd_files"
+    ! $print_to_stdout && return
+    echo "$cmd_files"
+}
+
+_geo_get_cmd_name_from_file_path() {
+    local write_to_caller_var=false
+    local print_to_stdout=true
+    [[ $1 == -v ]] && local -n caller_var_ref="$2" && write_to_caller_var=true && print_to_stdout=false && shift 2
+    [[ $1 == -V ]] && local -n caller_var_ref="$2" && write_to_caller_var=true && shift 2
+    local cmd_file_path="$1"
+    [[ ! $cmd_file_path =~ '.cmd.sh'$ ]] && log::Error "_geo_get_cmd_name_from_file_path: The file path provided is not for a geo-cli command file (it must end with '.cmd.sh'): '$cmd_file_path'"
+    local cmd_file_name="${cmd_file_path##*/geo-}"
+    # log::debug "cmd_file_name $cmd_file_name"
+    local cmd_name="${cmd_file_name%.cmd.sh}"
+    # log::debug "cmd_name $cmd_name"
+    $write_to_caller_var && caller_var_ref="$cmd_name"
+    $print_to_stdout && echo "$cmd_name"
+    return 0
+}
+
 _geo_cmd_ls() {
     list_repo_cmd_files=true
     [[ $1 == -R ]] && list_repo_cmd_files=false
     # [[ $1 == -r ]] && list_repo_cmd_files=true
-
+    log::info "These commands are available through geo-cli via 'geo <command>'"
     log::data_header --pad "User Command Files"
 
-    local user_cmd_files="$(find "$GEO_CLI_USER_COMMAND_DIR" -name '*.cmd.sh' 2> /dev/null)"
+    # local user_cmd_files="$(find "$GEO_CLI_USER_COMMAND_DIR" -name '*.cmd.sh' 2> /dev/null)"
+    local user_cmd_files=
+    _geo_cmd_get_cmd_files --user -v user_cmd_files
     if [[ -n $user_cmd_files ]]; then
         # ls "$GEO_CLI_USER_COMMAND_DIR"
         # local user_cmd_files=$(find "$GEO_CLI_USER_COMMAND_DIR" -name '*.cmd.sh')
-        for cmd_file in $user_cmd_files; do
-            log::code -r "  * $cmd_file"
+        for cmd_file_path in $user_cmd_files; do
+            # local cmd_file_name="$(echo "$cmd_file_path
+            # local cmd_file_name=${$cmd_file_path
+            local cmd_name=
+            _geo_get_cmd_name_from_file_path -v cmd_name "$cmd_file_path"
+            [[ -n "$cmd_name" ]] && cmd_name=" [$cmd_name] "
+            log::code -r "  *$cmd_name $cmd_file_path"
         done
     else
         log::detail "No user command files were found"
     fi
-
+    echo
     log::info "These user commands (created via geo cmd create) are available (only to you) through geo-cli via 'geo <command>'. They are stored in: "
     log::file "$GEO_CLI_USER_COMMAND_DIR"
     
@@ -370,6 +427,7 @@ _geo_cmd_ls() {
                 fi
             done
 
+            echo
             log::info "These commands are available through geo-cli via 'geo <command>'. They are available to all geo-cli users (once merged into the main geo-cli branch). They are stored in: "
             log::file "$GEO_CLI_COMMAND_DIR"
         )
