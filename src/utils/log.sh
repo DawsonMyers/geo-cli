@@ -104,7 +104,8 @@ make_logger_function() {
                 # Print variable name and value
                 *V* )
                     local var_name=\$msg
-                    msg=\"\$(log::keyvalue \"\$var_name\" \"\${!var_name}\")\"
+                    msg=\"\$(log::keyvalue -v \"\$var_name\")\"
+                    # msg=\"\$(log::keyvalue \"\$var_name\" \"\${!var_name}\")\"
                     ;;&
                 # Prompt (doesn't add a new line after printing)
                 *p* | *n* )
@@ -179,6 +180,11 @@ make_logger_function_vte() {
                     ;;&
                 *v* )
                     msg=\$(log::txt_invert \$msg)
+                    ;;&
+                *V* )
+                    local var_name=\$msg
+                    msg=\"\$(log::keyvalue -v \"\$var_name\")\"
+                    # msg=\"\$(log::keyvalue \"\$var_name\" \"\${!var_name}\")\"
                     ;;&
                 *p* | *n* )
                     opts+=n
@@ -726,20 +732,20 @@ log::keyvalue() {
     local key=
     local key_name=
     local value=
-    local separator_default=': '
-    local separator="$separator_default"
+    local delimeter_default=': '
+    local delimeter="$delimeter_default"
     local OPTIND
-    log::debug "args: $@"
-    while getopts "Pv:s:" opt; do
+    # log::debug "args: $@"
+    while getopts "Pv:d:" opt; do
         case "${opt}" in
             P ) add_padding=false ;;
-            s ) separator="${OPTARG:-$separator_default}" ;;
+            d ) delimeter="${OPTARG:-$delimeter_default}" ;;
             v )
                 key_name="$OPTARG"
                 [[ -z $key_name ]] && log::Error "log::keyvalue: The variable cannot be empty (-v <variable>)." && return 1
                 # [[ ! -v $key ]] && log::Error "log::keyvalue: The variable  cannot be empty (-v <variable>)." && return 1
                 is_variable=true
-                log::debug "key_name: $key_name"
+                # log::debug "key_name: $key_name"
                 ;;
             # Standard error handling.
             : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
@@ -750,44 +756,76 @@ log::keyvalue() {
 
     if $is_variable; then
         local -n key_ref="$key_name"
-        util::typeofvar key_ref
+        # util::typeofvar key_name
+        # util::typeofvar "key_name"
+        # util::typeofvar "key_ref"
+        # declare -p "$key_name"
+        # declare -p "$key_ref"
+        # declare -p "key_ref"
         util::typeofvar -t array "key_ref" \
             && is_array=true
-        log::debug "key_name $key_name"
-        log::debug "is_array $is_array"
+        # echo "is_array: $is_array"
+        # log::debug "key_name $key_name"
+        # log::debug "is_array $is_array"
         if $is_array; then
-            separator="[]$separator"
-            value="$(util::print_array "$key_name")"
+            delimeter="[]"
+            # delimeter="[]$delimeter\n"
+            # key="$(log::info "$key_name[]")"
+            log::info "$key_name[]"
+            # value="$(util::print_array  "$key_name")"
+            util::print_array  "$key_name"
+            return
+            # value="$(util::join_array -nD "$key_name")"
+            # value="$(util::print_array "$key_name")"
         else
+            # key="$(log::info -n "$key_name")"
+            log::info -n "$key_name$delimeter"
+            # log::info -n "$key_name"
             value="$key_ref"
+            log::data "$value"
         fi
-        log::debug "value '$value'"
-        $is_array && key="$(log::info -n "$key_name")" || key="$(log::info -n "$key_name$separator")"
-        value="$(log::data "$value")"
-        msg="$key $value"
+        return
+        # ! $is_array &&  ||
+        # value="$(log::data "$value")"
+        log::debug "value \n'$value'"
+        msg="$key$value"
+        log::debug "msg \n'$msg'"
     else
         key_name="$1"
         value="$2"
-        [[ $# -lt 2 || -z $key_name ]] && log::Error "log::keyvalue: Both a key and a value are required as arguments, but got '$@' instead." && return 1
+        [[ $# -lt 2 || -z $key_name ]] \
+            && log::Error "log::keyvalue: Both a key and a value are required as arguments, but got '$@' instead." \
+            && return 1
+        [[ $key_name =~ ': '$ ]] && delimeter=''
+        key="$(log::info -n "$key_name$delimeter")"
+        # key_length=${#key_name}
+        value="$(log::data "$value")"
+        # echo "k '$key' kn '$key_name' v '$value'"
+        # echo "k '$key' v '$value'"
     fi
+
+    
     # is_variable && 
     # ! $is_variable && 
-    local print_variable=false
+    # local print_variable=false
     # if $is_variable; then
         
     # fi
-    key="$(log::info -n "$1 ")"
-    key_length=${#key}
-    value="$(log::data "$2")"
-    msg="$key $value"
+    # key="$(log::info -n "$1 ")"
+    # key_length=${#key}
+    # value="$(log::data "$2")"
+    msg="$key$value"
+    # echo "k '$key'"
     # log::data " $2"
-    $add_padding && \   
-        local padding=(
+    $add_padding \
+        && local padding=(
             # First line indent.
             4
             # Indent for lines after the first line.
             10
         )
-
-    log::fmt_text_and_indent_after_first_line "$msg" 4 10
+    #     echo "k '$key' add_padding '$add_padding'"
+    # echo '"${padding[@]}"'" '"${padding[@]}"'"
+    log::fmt_text_and_indent_after_first_line "$msg" "${padding[@]}"
+    echo
 }

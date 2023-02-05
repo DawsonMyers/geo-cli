@@ -220,11 +220,12 @@ util::join_array() {
 # }
 
 util::typeofvar () {
-    local is_type=
+    local is_type=false
     local silent=false
+    local is_ref=false
     
     local OPTIND
-    while getopts "aAmhst:T:" opt; do
+    while getopts "aAmhst:T:r" opt; do
         case "${opt}" in
             t ) is_type="$OPTARG" && silent=true ;;
             T ) is_type="$OPTARG" ;;
@@ -232,6 +233,7 @@ util::typeofvar () {
             m ) is_type=map ;;
             s ) is_type=string ;;
             S ) silent=true ;;
+            r ) is_ref=true ;;
             # Standard error handling.
             : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
             \? ) log::Error "Invalid option: ${opt}"; return 1 ;;
@@ -241,7 +243,21 @@ util::typeofvar () {
 
     # [[ $1 == --array ]] && is_type=array && shift
     # [[ $1 == --array ]] && is_type=array
-    local type_signature=$(declare -p "$1" 2>/dev/null)
+    # echo "1 = $1"
+    local name=$1
+    local -n var_ref=$name 
+    # local type_signature=$(declare -p "var_ref" 2>/dev/null)
+    # echo "type_signature = $type_signature"
+    local type_signature=$(declare -p "$name" 2>/dev/null)
+    # echo "type_signature = $type_signature"
+    re="declare -n [-_a-zA-Z0-9]{1,}=[\"']?([-_a-zA-Z0-9]{1,})['\"]?"
+    while [[ $type_signature =~ $re ]]; do
+    # while [[ $type_signature =~ declare -n ]]; do
+        local ref_name="${BASH_REMATCH[1]}"
+        type_signature="$(declare -p "$ref_name" 2>/dev/null)"
+        # echo "while type_signature = $type_signature"
+    done
+    $is_ref && local -n var_ref=$1 && type_signature=$(declare -p "var_ref" 2>/dev/null)
 
     local var_type=
     if [[ "$type_signature" =~ "declare --" ]]; then
@@ -254,13 +270,15 @@ util::typeofvar () {
         var_type="none"
     fi
 
+    # echo "var_type = $var_type"
     ! $silent && echo -n "$var_type"
 
     if [[ -n $is_type ]]; then
-        [[ ! $var_type =~ $is_type ]] && return 1
         # log::debug "[[ ! $var_type =~ $is_type ]] && return 1"
-        return
+        [[ $var_type =~ $is_type ]] && return
+        return 1
     fi
+    return 0
     # echo -n "$var_type"
 }
 
