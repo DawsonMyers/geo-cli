@@ -7,11 +7,13 @@
 # Gets the absolute path of the root geo-cli directory.
 export GEO_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
 export GEO_CLI_SRC_DIR="${GEO_CLI_DIR}/src"
+export GEO_CLI_UTILS_DIR="${GEO_CLI_SRC_DIR}/utils"
 
 # Import colour constants/functions and config file read/write helper functions.
-. $GEO_CLI_SRC_DIR/utils/colors.sh
-. $GEO_CLI_SRC_DIR/utils/config-file-utils.sh
-. $GEO_CLI_SRC_DIR/utils/log.sh
+. $GEO_CLI_UTILS_DIR/colors.sh
+. $GEO_CLI_UTILS_DIR/config-file-utils.sh
+. $GEO_CLI_UTILS_DIR/log.sh
+. $GEO_CLI_UTILS_DIR/util.sh
 
 # Set up config paths (used to store config info about geo-cli)
 export GEO_CLI_CONFIG_DIR="$HOME/.geo-cli"

@@ -8,6 +8,7 @@ export GEO_CLI_SRC_DIR="${GEO_CLI_DIR}/src"
 
 # Import colour constants/functions.
 . $GEO_CLI_SRC_DIR/utils/colors.sh
+. $GEO_CLI_SRC_DIR/utils/util.sh
 
 # Regexes for replacing old log function names.
 # (\W)(red|green|error|Error|info|detail|data|status|verbose|debug|purple|cyan|yellow|white|_stacktrace|data_header|success|prompt|prompt_n|warn) 
@@ -99,6 +100,11 @@ make_logger_function() {
                 # Invert font/background colour
                 *v* )
                     msg=\$(log::txt_invert \$msg)
+                    ;;&
+                # Print variable name and value
+                *V* )
+                    local var_name=\$msg
+                    msg=\"\$(log::keyvalue \"\$var_name\" \"\${!var_name}\")\"
                     ;;&
                 # Prompt (doesn't add a new line after printing)
                 *p* | *n* )
@@ -292,15 +298,6 @@ log::hint() {
     _log_hint "$@"
 }
 
-log::keyvalue() {
-    key="$(log::info -n "$1 ")"
-    key_length=${#key}
-    value="$(log::data "$2")"
-    msg="$key $value"
-    # log::data " $2"
-    log::fmt_text_and_indent_after_first_line "$msg" 4 10
-}
-
 log::stacktrace() {
 # _stacktrace() {
     local start=1
@@ -367,7 +364,10 @@ log::prompt_n() {
 # 1: a string to repeat
 # 2: the number of repeats
 log::repeat_str() {
-    echo "$(printf "$1%.0s" $(seq 1 $2))"
+    local write_to_caller_variable=false
+    local str="$(printf "$1%.0s" $(seq 1 "$2"))"
+    [[ $1 == -v ]] && local -n caller_var_ref="$2" && caller_var_ref="$str" && return
+    echo "$str"
 }
 # Format long strings of text into lines of a certain width. All lines can also
 # be indented.
@@ -504,8 +504,8 @@ log::fmt_text_and_indent_after_first_line() {
     else
         while getopts "b:i:a:sd:tr" opt; do
             case "${opt}" in
-                b ) base_indent=$OPTARG  ;;
-                i ) indent_str=$OPTARG  ;;
+                b ) base_indent="$OPTARG"  ;;
+                i ) indent_str="$OPTARG"  ;;
                 a ) additional_indent=$OPTARG  ;;
                 s ) strip_spaces=true  ;;
                 d ) decrement_first_line_width_by=$OPTARG ;;
@@ -578,6 +578,44 @@ log::fmt_text_and_indent_after_first_line() {
     fi
     echo -n -e "$output"
     set +f
+}
+
+# log::indent [iIs] <text to indent>
+log::indent() {
+    local indent=
+    local indent_amount=4
+    local indent_str=' '
+    local write_to_caller_variable=false
+
+    local OPTIND
+    while getopts "I:i:s:v:" opt; do
+        case "${opt}" in
+            i ) indent_amount="$OPTARG"  ;;
+            I ) indent="$OPTARG"  ;;
+            s ) indent_str="$OPTARG"  ;;
+            v ) local -n caller_var_ref="$OPTARG" && write_to_caller_variable=true  ;;
+            : )
+                log::Error "Option '${opt}' expects an argument."
+                return 1
+                ;;
+            \? )
+                log::debug '----------------------------'
+                log::Error "Invalid option: ${opt}"
+                return 1
+                ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+
+    [[ -z $indent ]] && indent="$(log::repeat_str "$indent_str" "$indent_amount")"
+    local text="$*"
+    # log::debug "indent '$indent'"
+    # log::debug "text '$text'"
+
+    local result="$(echo "$text" | sed -e "s/^/$indent/g")"
+
+    $write_to_caller_variable && caller_var_ref="$result" && return
+    echo "$result"
 }
 
 log::strip_color_codes() {
@@ -665,16 +703,91 @@ log::replace_line_breaks_with_space() {
     echo "$str" | tr '\n' ' '
 }
 
-log::keyvalue() {
-    local key=$1
-    local value=$2
-    # local key_logger=status
-    # local value_logger=data
-    # eval "$(_geo_make_option_parser \
-    #             --opt-arg 'short=k long=key-logger var=key_logger' \
-    #             --opt-arg 'short=v long=value-logger var=value_logger')"
-    # local str="$@"
-    # echo "$str" | tr '\n' ' '
-    # eval "log::$key_logger -n '  $key: ' && log::$value_logger '$value'"
-    log::status -n "  $key: " && log::data "$value"
+# log::keyvalue() {
+#     local key=$1
+#     local value=$2
+#     # local key_logger=status
+#     # local value_logger=data
+#     # eval "$(_geo_make_option_parser \
+#     #             --opt-arg 'short=k long=key-logger var=key_logger' \
+#     #             --opt-arg 'short=v long=value-logger var=value_logger')"
+#     # local str="$@"
+#     # echo "$str" | tr '\n' ' '
+#     # eval "log::$key_logger -n '  $key: ' && log::$value_logger '$value'"
+#     log::status -n "  $key: " && log::data "$value"
+# }
+
+log::keyvalue() { 
+    local add_padding=true
+    local padding='  '
+    local key_ref=
+    local is_variable=false
+    local is_array=false
+    local key=
+    local key_name=
+    local value=
+    local separator_default=': '
+    local separator="$separator_default"
+    local OPTIND
+    log::debug "args: $@"
+    while getopts "Pv:s:" opt; do
+        case "${opt}" in
+            P ) add_padding=false ;;
+            s ) separator="${OPTARG:-$separator_default}" ;;
+            v )
+                key_name="$OPTARG"
+                [[ -z $key_name ]] && log::Error "log::keyvalue: The variable cannot be empty (-v <variable>)." && return 1
+                # [[ ! -v $key ]] && log::Error "log::keyvalue: The variable  cannot be empty (-v <variable>)." && return 1
+                is_variable=true
+                log::debug "key_name: $key_name"
+                ;;
+            # Standard error handling.
+            : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
+            \? ) log::Error "Invalid option: ${opt}"; return 1 ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+
+    if $is_variable; then
+        local -n key_ref="$key_name"
+        util::typeofvar key_ref
+        util::typeofvar -t array "key_ref" \
+            && is_array=true
+        log::debug "key_name $key_name"
+        log::debug "is_array $is_array"
+        if $is_array; then
+            separator="[]$separator"
+            value="$(util::print_array "$key_name")"
+        else
+            value="$key_ref"
+        fi
+        log::debug "value '$value'"
+        $is_array && key="$(log::info -n "$key_name")" || key="$(log::info -n "$key_name$separator")"
+        value="$(log::data "$value")"
+        msg="$key $value"
+    else
+        key_name="$1"
+        value="$2"
+        [[ $# -lt 2 || -z $key_name ]] && log::Error "log::keyvalue: Both a key and a value are required as arguments, but got '$@' instead." && return 1
+    fi
+    # is_variable && 
+    # ! $is_variable && 
+    local print_variable=false
+    # if $is_variable; then
+        
+    # fi
+    key="$(log::info -n "$1 ")"
+    key_length=${#key}
+    value="$(log::data "$2")"
+    msg="$key $value"
+    # log::data " $2"
+    $add_padding && \   
+        local padding=(
+            # First line indent.
+            4
+            # Indent for lines after the first line.
+            10
+        )
+
+    log::fmt_text_and_indent_after_first_line "$msg" 4 10
 }
