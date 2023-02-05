@@ -122,6 +122,7 @@ _geo_check_db_image() {
     fi
 }
 
+# Make sure that the postgres version in the main geo-cli myg db image is up to date.
 _geo_check_db_image_pg_version() {
     local image=$(docker image ls | grep "$IMAGE")
     local image_postgres_version=$(_geo_get_pg_version_from_docker_object $IMAGE)
@@ -187,13 +188,23 @@ geo_image() {
             if [[ -z $pg_version ]]; then
                 docker build --file "$dockerfile" -t "$IMAGE" . && log::success 'geo-cli Postgres image created' || log::warn 'Failed to create geo-cli Postgres image'
             else
+                local dockerfile_contents="$(cat "$dockerfile")"
                 log::status "Creating geo-cli Postgres $pg_version image"
-                local dockerfile_contents=$(sed -e "s/ENV POSTGRES_VERSION ../ENV POSTGRES_VERSION $pg_version/g" $dockerfile)
-                local tmp_dockerfile="$dockerfile.pg$pg_version"
-                echo "$dockerfile_contents" > $tmp_dockerfile
-                echo
-                docker build -t "${IMAGE}_${pg_version}" -f $tmp_dockerfile .
-                rm $tmp_dockerfile
+                if [[ $dockerfile_contents =~ 'ENV POSTGRES_VERSION=$POSTGRES_VERSION_ARG' ]]; then
+                    docker build --file "$dockerfile" \
+                        --build-arg POSTGRES_VERSION_ARG=$pg_version \
+                        -t "$IMAGE" . \
+                            && log::success 'geo-cli Postgres image created' \
+                            || { log::warn 'Failed to create geo-cli Postgres image' && return 1; }
+                else
+                    local dockerfile_contents="$(sed -E "s/ENV POSTGRES_VERSION .+/ENV POSTGRES_VERSION $pg_version/g" <<<"$dockerfile_contents")"
+                    local tmp_dockerfile="$dockerfile.pg$pg_version"
+                    echo "$dockerfile_contents" > $tmp_dockerfile
+                    echo
+                    log::debug "docker build -t ${IMAGE}_${pg_version} -f $tmp_dockerfile ."
+                    docker build -t "${IMAGE}_${pg_version}" -f $tmp_dockerfile .
+                    rm $tmp_dockerfile
+                fi
             fi
         )
         return
@@ -202,8 +213,9 @@ geo_image() {
         docker image ls | grep "$IMAGE"
         ;;
     esac
-
 }
+
+
 
 #######################################################################################################################
 COMMANDS+=('db')
@@ -436,7 +448,9 @@ _geo_db_stop() {
     log::status -b 'Stopping container...'
 
     # Stop all running containers.
-    echo $container_id | xargs docker stop >/dev/null && log::success 'OK'
+    echo $container_id | xargs docker stop >/dev/null \
+        && log::success 'OK' \
+        || { log::Error "Failed to stop container" && return 1; }
 }
 
 _geo_db_create() {
@@ -531,12 +545,13 @@ _geo_db_create() {
     pg_version=${pg_version:-12}
 
     log::status -b "Creating volume:"
-    log::status "  NAME: $container_name"
+    log::status "  Docker name: $container_name"
     docker volume create "$container_name" >/dev/null &&
         log::success 'OK' || { log::Error 'Failed to create volume' && return 1; }
 
     log::status -b "Creating container:"
-    log::status "  NAME: $container_name"
+    log::status "  Name: $db_version"
+    log::status "  Docker name: $container_name"
     # docker run -v $container_name:/var/lib/postgresql/11/main -p 5432:5432 --name=$container_name -d $IMAGE > /dev/null && log::success OK
     local vol_mount="$container_name:/var/lib/postgresql/$pg_version/main"
     local port=5432:5432
@@ -780,8 +795,10 @@ _geo_db_start() {
 
     if _geo_get_container_id -v container_id "$container_name"; then
         log::status -b "Starting existing container:"
-        log::status "  ID: $container_id"
-        log::status "  NAME: $container_name"
+        log::keyvalue "Name" "$db_version"
+        log::keyvalue "Docker name" "$container_name"
+        # log::status -n "  Name: " && log::data "$db_version"
+        # log::status -n "  Docker name: " && log::data "$container_name"
 
         # if [[ $recreate_container == true ]]; then
         #     docker container rm $container_id
@@ -859,8 +876,10 @@ _geo_db_start() {
         fi
 
         log::status -b "Starting new container:"
-        log::status "  ID: $container_id"
-        log::status "  NAME: $container_name"
+        log::keyvalue "Name" "$db_version"
+        log::keyvalue "Docker name" "$container_name"
+        # log::status -n "  Name: " && log::data "$db_version"
+        # log::status -n "  Docker name: " && log::data "$container_name"
 
         [[ $no_prompt == true ]] && return
         
@@ -1194,6 +1213,28 @@ _geo_get_pg_version_from_docker_object() {
     result=${result##*=}
     result=${result//\"}
     echo -n "$result"
+}
+
+_geo_get_pg_version_from_docker_file() {
+    # local var=
+    [[ $1 == -v ]] && local -n var=$2 && shift 2
+    local repo_dir="$(geo_get DEV_REPO_DIR)"
+    # log::debug "repodir $repo_dir"
+    local dockerfile="${repo_dir}/Checkmate/Docker/postgres/Debug.Dockerfile"
+    # log::debug "dockerfile $dockerfile"
+    local pg_version=$(cat "$dockerfile" | grep -e "ENV POSTGRES_VERSION \d+")
+    if [[ -z $pg_version ]]; then
+        pg_version=$(cat "$dockerfile" | grep -e "ARG POSTGRES_VERSION_ARG=")
+        pg_version=${pg_version#ARG POSTGRES_VERSION_ARG=}
+    else
+        pg_version=${pg_version#ENV POSTGRES_VERSION }
+    fi
+    # log::debug "pg_version '$pg_version'"
+    # [[ ! $pg_version =~ ^[[:digit:]]+$ ]] \
+    #     && log::Error "_geo_get_pg_version_from_docker_file: Could not find the Postgres version from Debug.Dockerfile" \
+    #     && return 1
+    [[ -v var ]] && var=$pg_version
+    echo $pg_version
 }
 
 _geo_db_ls_images() {
@@ -6329,6 +6370,34 @@ prompt_for_info_n() {
 
 _geo_replace_home_path_with_tilde() {
     echo "$@" | sed -e "s%$HOME%~%g"
+}
+
+_geo_print_array() {
+    [[ $1 = -r ]] &&local -n array=BASH_REMATCH || local -n array="$1"
+    for item in "${array[@]}"; do
+        echo "$item"
+    done
+}
+
+# _geo_extract_re() {
+#     local -n array=$1
+#     for item in "${array[@]}"; do
+#         echo "$item"
+#     done
+# }
+
+typeofvar () {
+    local type_signature=$(declare -p "$1" 2>/dev/null)
+
+    if [[ "$type_signature" =~ "declare --" ]]; then
+        printf "string"
+    elif [[ "$type_signature" =~ "declare -a" ]]; then
+        printf "array"
+    elif [[ "$type_signature" =~ "declare -A" ]]; then
+        printf "map"
+    else
+        printf "none"
+    fi
 }
 
 geotab_logo() {

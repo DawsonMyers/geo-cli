@@ -664,3 +664,17 @@ log::replace_line_breaks_with_space() {
     local str="$@"
     echo "$str" | tr '\n' ' '
 }
+
+log::keyvalue() {
+    local key=$1
+    local value=$2
+    # local key_logger=status
+    # local value_logger=data
+    # eval "$(_geo_make_option_parser \
+    #             --opt-arg 'short=k long=key-logger var=key_logger' \
+    #             --opt-arg 'short=v long=value-logger var=value_logger')"
+    # local str="$@"
+    # echo "$str" | tr '\n' ' '
+    # eval "log::$key_logger -n '  $key: ' && log::$value_logger '$value'"
+    log::status -n "  $key: " && log::data "$value"
+}
