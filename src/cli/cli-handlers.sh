@@ -797,7 +797,8 @@ _geo_db_start() {
 
     if _geo_get_container_id -v container_id "$container_name"; then
         log::status -b "Starting existing container:"
-        log::keyvalue "Name" "$db_version"
+        [[ -z $db_version ]] && db_version=$(geo_get LAST_DB_VERSION)
+        [[ -n $db_version ]] && log::keyvalue "Name" "$db_version"
         log::keyvalue "Docker name" "$container_name"
         # log::status -n "  Name: " && log::data "$db_version"
         # log::status -n "  Docker name: " && log::data "$container_name"
@@ -3160,6 +3161,49 @@ _geo_push_get_item() {
     echo $(echo $items | awk -F '@' "$awk_cmd")
 }
 
+# Use node to get/modify json
+# $ read -r -d '' js <<-'EOF'
+# > 'let a1=process.argv[1]; let a2=process.argv[2];eval(`a=${a2}`); eval(`r=a.${a1}`);console.log(a, " = ", r)
+# > ^C
+# ✘ dawsonmyers:~
+# $ read -r -d '' js <<-'EOF'
+# > let a1=process.argv[1]; 
+# > let a2=process.argv[2];
+# > eval(`a=${a2}`);
+# > eval(`r=a.${a1}`);
+# > console.log(a, " = ", r)
+# > EOF
+# ✘ dawsonmyers:~
+# $ code -e "$js" 'x.b' 
+# Warning: 'e' is not in the list of known options, but still passed to Electron/Chromium.
+# ✔ dawsonmyers:~
+# $ code -e "$js" 'x.b' '{x: {b: 10}, y:{z:{zz:"hello"}}}'
+# Warning: 'e' is not in the list of known options, but still passed to Electron/Chromium.
+# ✔ dawsonmyers:~
+# $ node -e "$js" 'x.b' '{x: {b: 10}, y:{z:{zz:"hello"}}}'
+# { x: { b: 10 }, y: { z: { zz: 'hello' } } }  =  10
+# ✔ dawsonmyers:~
+# $ node -e "$js" 'y.z.zz' '{x: {b: 10}, y:{z:{zz:"hello"}}}'
+# { x: { b: 10 }, y: { z: { zz: 'hello' } } }  =  hello
+
+# Exec code on js obj arg:
+# read -r -d '' js1 <<-'EOF'
+#    let a1=process.argv[1];                                                                                    
+#    let a2=process.argv[2];
+#    eval(`a=${a2}`);
+#    eval(a1);
+#    console.log(a1, "\n", a2, r)
+# EOF
+# 
+# a1='r=a.map(i => i+1).filter(i=>i%2==0)'
+# node -e "$js1" "$a1" "$a2"
+#     r=a.map(i => i+1).filter(i=>i%2==0) 
+#     [1,2,3,4,5] [ 2, 4, 6 ]
+
+# ** Pipe in args:
+# echo "${args[@]}" | xargs node -e
+
+
 _geo_jq_rm() {
     local inplace_edit=false
     local use_lock_file=true
@@ -3984,6 +4028,10 @@ geo_id() {
     arg="${arg//[\"\n\']/}"
 
     convert_id() {
+        local silent=false
+        local write_to_ref_var=false
+        [[ $1 == -s ]] && local silent=true && shift
+        [[ $1 == -v ]] && local -n _var_ref=$2 && write_to_ref_var=true && shift 2
         arg=${1:-$arg}
         local first_char=${arg:0:1}
         # log::debug "arg='$arg'"
@@ -4056,6 +4104,8 @@ geo_id() {
             log::warn "Use 'geo id help' for usage info."
             return 1
         fi
+        $write_to_ref_var && _var_ref= $id && return
+        $silent && return
         echo -n $id
     }
 
@@ -4115,7 +4165,7 @@ geo_id() {
     fi
 
     # Convert the id.
-    if ! convert_id $arg; then
+    if ! convert_id -s $arg; then
         log::Error "Failed to convert id: $arg"
         return 1
     fi
