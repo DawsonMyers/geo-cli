@@ -219,7 +219,35 @@ util::join_array() {
 #     done
 # }
 
-util::typeofvar () {
+util::get_var_type () {
+    local write_to_caller_var=false
+    [[ $1 == -v ]] && local -n var_ref=$2 && write_to_caller_var=true && shift 2
+    local __var_name=$1
+    local type_signature=
+    util::get_var_sig -v type_signature $__var_name
+
+    local __var_type=
+    if [[ "$type_signature" =~ "declare --" ]]; then
+        __var_type="string"
+    elif [[ "$type_signature" =~ "declare -a" ]]; then
+        __var_type="array"
+    elif [[ "$type_signature" =~ "declare -A" ]]; then
+        __var_type="map"
+    elif [[ "$type_signature" =~ "declare -n" ]]; then
+        __var_type="ref"
+    else
+        __var_type="none"
+    fi
+
+    if $write_to_caller_var; then
+        var_ref="$__var_type"
+        return
+    fi
+    echo "$__var_type"
+}
+
+util::typeofvar () { util::typeof "$@"; }
+util::typeof () {
     local is_type=false
     local silent=false
     local is_ref=false
@@ -227,7 +255,9 @@ util::typeofvar () {
     local OPTIND
     while getopts "aAmhst:T:r" opt; do
         case "${opt}" in
+            # Type to test for
             t ) is_type="$OPTARG" && silent=true ;;
+            # Type to test for and print the variable type out.
             T ) is_type="$OPTARG" ;;
             a ) is_type=array ;;
             m ) is_type=map ;;
@@ -244,33 +274,46 @@ util::typeofvar () {
     # [[ $1 == --array ]] && is_type=array && shift
     # [[ $1 == --array ]] && is_type=array
     # echo "1 = $1"
-    local name=$1
-    local -n var_ref=$name 
+    local root_name=$1
     # local type_signature=$(declare -p "var_ref" 2>/dev/null)
     # echo "type_signature = $type_signature"
-    local type_signature=$(declare -p "$name" 2>/dev/null)
-    # echo "type_signature = $type_signature"
-    re="declare -n [-_a-zA-Z0-9]{1,}=[\"']?([-_a-zA-Z0-9]{1,})['\"]?"
-    while [[ $type_signature =~ $re ]]; do
-    # while [[ $type_signature =~ declare -n ]]; do
-        local ref_name="${BASH_REMATCH[1]}"
-        type_signature="$(declare -p "$ref_name" 2>/dev/null)"
-        # echo "while type_signature = $type_signature"
-    done
-    # util::get_ref_var_name -v ref_name $name
+    
+    local _name=
+    util::get_ref_var_name -v _name $1
+    # log::debug util::get_ref_var_name -v _name $1
 
-    $is_ref && local -n var_ref=$1 && type_signature=$(declare -p "var_ref" 2>/dev/null)
+    local -n var_ref=$_name 
+    # log::debug "local -n var_ref=$_name "
+
+    # local type_signature=
+    # util::get_var_sig -v type_signature $name
+    # log::debug "util::get_var_sig -v type_signature $name"
+
+    # echo "type_signature = $type_signature"
+    # local type_signature=$(declare -p "$name" 2>/dev/null)
+    # re="declare -n [-_a-zA-Z0-9]{1,}=[\"']?([-_a-zA-Z0-9]{1,})['\"]?"
+    # while [[ $type_signature =~ $re ]]; do
+    # # while [[ $type_signature =~ declare -n ]]; do
+    #     local ref_name="${BASH_REMATCH[1]}"
+    #     type_signature="$(declare -p "$ref_name" 2>/dev/null)"
+    #     # echo "while type_signature = $type_signature"
+    # done
+
+    # $is_ref && local -n var_ref=$1 && type_signature=$(declare -p "var_ref" 2>/dev/null)
 
     local var_type=
-    if [[ "$type_signature" =~ "declare --" ]]; then
-        var_type="string"
-    elif [[ "$type_signature" =~ "declare -a" ]]; then
-        var_type="array"
-    elif [[ "$type_signature" =~ "declare -A" ]]; then
-        var_type="map"
-    else
-        var_type="none"
-    fi
+    util::get_var_type -v var_type $_name
+    # log::debug util::get_var_type -v var_type $_name
+    # evar var_type
+    # if [[ "$type_signature" =~ "declare --" ]]; then
+    #     var_type="string"
+    # elif [[ "$type_signature" =~ "declare -a" ]]; then
+    #     var_type="array"
+    # elif [[ "$type_signature" =~ "declare -A" ]]; then
+    #     var_type="map"
+    # else
+    #     var_type="none"
+    # fi
 
     # echo "var_type = $var_type"
     ! $silent && echo -n "$var_type"
@@ -282,6 +325,20 @@ util::typeofvar () {
     fi
     return 0
     # echo -n "$var_type"
+}
+
+# Check to see if the variable name is a reference that points to another variable.
+util::is_ref_var() { 
+    local var_type
+    util::get_var_type -v var_type $1
+    [[ $var_type == ref ]]
+}
+
+util::get_var_sig() { 
+    local has_var=false
+    [[ $1 == -v ]] && local -n __ref=$2 && has_var=true && shift 2
+    local sig="$(declare -p "$1" 2>/dev/null)"
+    [[ $has_var == true ]] && __ref="$sig" || echo "$sig"
 }
 
 
@@ -302,15 +359,33 @@ EOF
 
 util::get_ref_var_name() {
     local write_to_var=false
-    [[ $1 == -v ]] && local -n out_var=$2 && shift 2 && write_to_var=true
-    local name="$1"
+    [[ $1 == -v ]] && local -n out_var=$2 && write_to_var=true && shift 2
+    local __name="$1"
     local re="declare -n [-_a-zA-Z0-9]{1,}=[\"']?([-_a-zA-Z0-9]{1,})['\"]?"
-    local type_signature="$(declare -p "$name" 2>/dev/null)"
+    local type_signature="$(declare -p "$__name" 2>/dev/null)"
     while [[ $type_signature =~ $re ]]; do
     # while [[ $type_signature =~ declare -n ]]; do
-        name="${BASH_REMATCH[1]}"
-        type_signature="$(declare -p "$name" 2>/dev/null)"
+        __name="${BASH_REMATCH[1]}"
+        type_signature="$(declare -p "$__name" 2>/dev/null)"
         # echo "while type_signature = $type_signature"
     done
-    $write_to_var && out_var="$name" || echo $name
+    $write_to_var && out_var="$__name" || echo $__name
+}
+
+util::arg_spread() {
+    local args=()
+    local cmd=$1
+    shift
+    # Allow this command to accept piped in arguments. Example: echo "text" | log::strip_color_codes
+    if (( "$#" == 0 )); then
+        IFS= read -r -a args
+        set -- "$args"
+        log::debug -V "$args"
+        log::debug -V "count: ${#args}"
+
+
+        (( "$#" == 0 )) && log::Error "No arguments supplied." && return 1
+    fi
+
+    $cmd "$@"
 }
