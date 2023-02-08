@@ -517,17 +517,21 @@ example_options() {
     local force
     local option_parser_def=
 
-    _geo_make_option_parser \
-        -o option_parser_def
-        --arg 'short=r long=raw var=raw'
-        --arg 'short=f long=force var=force'
+    # _geo_make_option_parser \
+    #     -o option_parser_def \
+    #     --opt 'short=r long=raw var=raw' \
+    #     --opt-arg 'short=f long=force var=force'
+
+    _geo_make_option_parser --opt 'short=r long=raw var=raw' --opt-arg 'short=f long=force var=force' -o option_parser_def
     eval "$option_parser_def"
+    echo "$option_parser_def"
 }
 
         # -o option_parser_def
-# make_option_parser \
+# _geo_make_option_parser \
 #         --arg 'short=r long=raw var=raw' \
 #         --arg 'short=f long=force var=force'
+# (^| )(-\w)( *$| )
 
 _geo_make_option_parser() {
     # log::debug "start $@"
@@ -545,22 +549,49 @@ _geo_make_option_parser() {
         local requires_argument=false
         [[ $1 == --arg ]] && requires_argument=true && shift
         local option_def="$1"
-        opt_id=$2
-        short_opt=
-        long_opt=
+        local opt_id=$2
+        local short_opt=
+        local long_opt=
+
+        local regex="^-{1,2}[[:alnum:]]?"
+        if [[ $option_def =~ $regex ]]; then
+            for arg in $option_def; do
+                if [[ $arg =~ ^-- ]]; then
+                    (( ${#arg} > 2 )) && long_opt="${arg#--}"
+                    long_opts[$opt_id]="$long_opt"
+                elif  [[ $arg =~ ^-[[:alnum:]] ]]; then
+                    (( ${#arg} > 1 )) && short_opt="${arg#-}"
+                    short_opt[$opt_id]="$short_opt"
+                elif  [[ $arg =~ ^@[-_[:alnum:]]{1,} ]]; then
+                    local opt_var_name="${arg:1}"
+                    local _opt_var_ref="${arg:1}"
+                    option_variables[$opt_id]="$opt_var_name"
+                    ! $requires_argument && _opt_var_ref="false"
+                    # ! $requires_argument && eval "$opt_var=false"
+                fi
+            done
+            # evar long_opts short_opt option_variables
+            return
+        fi
+
         if [[ $option_def =~ short=([[:alnum:]]) ]]; then
             short_opt="${BASH_REMATCH[1]}"
             short_opts[$opt_id]="$short_opt"
         fi
+        # long_opt=
+        # if [[ $option_def =~ short=([[:alnum:]]) ]]; then
+        #     short_opt="${BASH_REMATCH[1]}"
+        #     short_opts[$opt_id]="$short_opt"
+        # fi
         if [[ $option_def =~ long=([-_[:alnum:]]{1,}) ]]; then
-        ere
+        # ere
             long_opt="${BASH_REMATCH[1]}"
             long_opts[$opt_id]="$long_opt"
         fi
         if [[ $option_def =~ var=([[:alnum:]]{1,}) ]]; then
-            opt_var="${BASH_REMATCH[1]}"
+            local opt_var="${BASH_REMATCH[1]}"
             option_variables[$opt_id]="$opt_var"
-            ! $requires_argument && eval "$opt_var=false" 
+            ! $requires_argument && { eval "$opt_var=false" || log::Error "eval failed to set output var to false: \"\$opt_var=false\" = '$opt_var=false'"; }
             # if $requires_argument; then
             #     local default_value=
             #     # [[ -z $opt_var ]] && [[ $option_def =~ defa=[[:alnum:]]{1,}=(.{1,}) ]]
@@ -610,8 +641,8 @@ _geo_make_option_parser() {
 
     local takes_arg=
     local opt_variable=
-    local cases="
         # [[ -z \$option ]] && local option=\"\$(echo \"\$1\" | sed -E 's/^-{1,2}//g')\"
+    local cases="
         case \$option in"
 
     for ((i = 0; i < $opt_count; i++)); do
@@ -625,6 +656,7 @@ _geo_make_option_parser() {
         [[ -n $long_opt ]] && opt_params+=(-l "$long_opt")
         [[ -n $opt_variable ]] && opt_params+=(-v "$opt_variable")
         opt_case="$(make_case_for_option "${opt_params[@]}")"
+        # log::debug -V opt_case
         cases+="$opt_case"
     done
 
@@ -634,22 +666,22 @@ _geo_make_option_parser() {
         esac"
     
     read -r -d '' parser_def <<-'EOF'
-        while [[ -n $1 && $1 =~ ^-{1,2} ]]; do
-            local multi_option=false
-            is_long_opt=false
-            local raw_option="$1"
-            local option="$(echo "$raw_option" | sed -E 's/^-{1,2}//g')"
+while [[ -n $1 && $1 =~ ^-{1,2} ]]; do
+    local multi_option=false
+    is_long_opt=false
+    local raw_option="$1"
+    local option="$(echo "$raw_option" | sed -E 's/^-{1,2}//g')"
 
-            local is_last_option_in_group=true
-            [[ $1 =~ ^-- ]] && is_long_opt=true
-            option_count="${#option}"
-            $is_long_opt && option_count=1
-            local option_group=
-            ((option_count > 1)) && is_last_option_in_group=false && option_group=$option
-            for ((i = 0; i < option_count; i++)); do
-                ! $is_long_opt && [[ -n $option_group ]] \
-                    && option="${option_group:$i:1}"
-                (( i == option_count )) && is_last_option_in_group=true || is_last_option_in_group=false
+    local is_last_option_in_group=true
+    [[ $1 =~ ^-- ]] && is_long_opt=true
+    option_count="${#option}"
+    $is_long_opt && option_count=1
+    local option_group=
+    ((option_count > 1)) && is_last_option_in_group=false && option_group=$option
+    for ((i = 0; i < option_count; i++)); do
+        ! $is_long_opt && [[ -n $option_group ]] \
+            && option="${option_group:$i:1}"
+        (( i == option_count - 1 )) && is_last_option_in_group=true || is_last_option_in_group=false
 EOF
     parser_def+="
         $cases
@@ -657,8 +689,9 @@ EOF
         shift
     done
 done"
-    echo "$parser_def"
-    $output_to_caller_variable && output_var="$parser_def"
+    # echo "$parser_def"
+    $output_to_caller_variable && output_var="$parser_def" || echo "$parser_def"
+    return
 }
 
 make_case_func_option() {
@@ -671,14 +704,14 @@ make_case_for_option() {
         local condition=
         local long_opt=
         local short_opt=
-        local var=
+        local __var_name=
         local OPTIND
         while getopts "al:s:v:c:" opt; do
             case "${opt}" in
                 a ) requires_arg=true ;;
                 l ) long_opt="$OPTARG" ;;
                 s ) short_opt="$OPTARG" ;;
-                v ) var="$OPTARG" ;;
+                v ) __var_name="$OPTARG" ;;
                 c ) condition="$OPTARG" ;;
                 : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
                 \? ) log::Error "Invalid option: $1"; return 1 ;;
@@ -694,11 +727,11 @@ make_case_for_option() {
             condition="$long_opt"
         fi
 
-        local var_assignment="$var=true"
+        local var_assignment="$__var_name=true"
         local arg_check="\$requires_arg && [[ -z \$2 || \$2 =~ ^-{1,2} || ! \$1 =~ \$option\$ ]] \\
                     && log::Error \"Option '\$option' requires an argument, but wasn't supplied with one\" \\
                     && return 1"
-        $requires_arg && var_assignment="$var=\"\$2\" && shift"
+        $requires_arg && var_assignment="$__var_name=\"\$2\" && shift"
 
         local case_txt="
             $condition )
