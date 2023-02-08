@@ -389,3 +389,34 @@ util::arg_spread() {
 
     $cmd "$@"
 }
+
+# declare -A map
+# keyvalues_to_map map 'short=a long=alt var=x'
+# map now equals: { short: a, long: alt, var: x}
+util::keyvalues_to_map() {
+    local -n map_ref="$1"
+    local def="$2"
+    for arg in $def; do
+        local key="${arg%=*}"
+        local value="${arg#*=}"
+        map[$key]="$value"
+    done
+}
+
+# The map must be explicitly defined like this:
+#     declare -A map
+# Otherwise ${!_map_ref[@]} won't get the key names, just indexes (0, 1, ..).
+util::map_to_json() {
+    local -n _map_ref="$1"
+    local def="$2"
+    local jq_args=()
+    for key in "${!_map_ref[@]}"; do
+        # local key="${arg%=*}"
+        local value="${_map_ref[$key]}"
+        map[$key]="$value"
+        jq_args+=(--arg "$key" "$value")
+    done
+
+     jq "${jq_args[@]}" \
+        '$ARGS.named' <<<'{}'
+}
