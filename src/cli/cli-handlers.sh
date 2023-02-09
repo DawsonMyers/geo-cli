@@ -299,8 +299,11 @@ geo_db_doc() {
             doc_cmd_sub_option '-u'
                 doc_cmd_sub_option_desc 'The admin sql user. The default value used is "geotabuser"'
 
-    doc_cmd_sub_cmd 'bash'
+    doc_cmd_sub_cmd 'ssh|bash'
         doc_cmd_sub_cmd_desc 'Open a bash session with the running geo-cli db container.'
+        doc_cmd_sub_options_title
+            doc_cmd_sub_option '-c <bash command>'
+                doc_cmd_sub_option_desc 'Run a bash command in the container and return the result'
 
     # doc_cmd_sub_cmd 'script <add|edit|ls|rm> <script_name>'
     #     doc_cmd_sub_cmd_desc "Add, edit, list, or remove scripts that can be run with $(log::txt_italic geo db psql -q script_name)."
@@ -324,6 +327,7 @@ geo_db_doc() {
         doc_cmd_example 'geo db cp 9.0 9.1'
         doc_cmd_example 'geo db rm --all'
         doc_cmd_example 'geo db ls'
+        doc_cmd_example "geo db ssh -c \"echo 'this ran in the db container'\""
         doc_cmd_example 'geo db psql'
         doc_cmd_example 'geo db psql -u mySqlUser -p mySqlPassword -d dbName'
         doc_cmd_example 'geo db psql -q "SELECT * FROM deviceshare LIMIT 10"'
@@ -393,6 +397,11 @@ geo_db() {
             log::Error 'No geo-cli containers are running to connect to.'
             log::info "Run $(log::txt_underline 'geo db ls') to view available containers and $(log::txt_underline 'geo db start <name>') to start one."
             return 1
+        fi
+
+        if [[ $2 == -c ]]; then
+            docker exec $(_geo_get_running_container_id) bash -c "$3"
+            return
         fi
 
         docker exec -it $running_container_id /bin/bash
