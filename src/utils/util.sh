@@ -334,6 +334,13 @@ util::is_ref_var() {
     [[ $var_type == ref ]]
 }
 
+# Check to see if the variable name is a reference that points to another variable.
+util::is_var() { 
+    local var_type
+    util::get_var_type -v var_type $1
+    [[ $var_type == ref ]]
+}
+
 util::get_var_sig() { 
     local has_var=false
     [[ $1 == -v ]] && local -n __ref=$2 && has_var=true && shift 2
@@ -419,4 +426,33 @@ util::map_to_json() {
 
      jq "${jq_args[@]}" \
         '$ARGS.named' <<<'{}'
+}
+
+# Sets key-value pairs in a map
+# Args:
+#     1: the name of the map
+#     2: key name
+#     3: value
+#     4: key name
+#     5: value
+#     ...
+# Example:
+#   declare -A map
+#   util::set_map map a 1 b 2 c 3
+util::set_map() {
+    local -n _map_ref="$1"
+    echo "var name = $1"
+    shift
+    
+    local count="$#"
+    # for (())
+    # for key in "$@"; do
+    while [[ -n $1 && -n $2 ]]; do
+        local key="$1"
+        local value="$2"
+        _map_ref[$key]="$value"
+        echo '_map_ref[$key]="$value" = ' "_map_ref[$key]=$value"
+        echo "_map_ref[$key]= ${_map_ref[$key]}"
+        shift 2
+    done
 }
