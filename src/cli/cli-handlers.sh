@@ -517,6 +517,13 @@ _geo_db_create() {
     if [[ -n $1 && -n $2 ]]; then
         log::debug 'Creating multiple containers'
         while [[ -n $1 ]]; do
+            # local option_count=0
+            # local option_index=2
+            #  while [[ ${@:option_index++:1} =~ ^- ]]; do ((option_count++)); done;
+            #  echo $option_count;
+            #  shift $((option_count + 1))
+            #  echo acount="$#"
+            #  echo args "$@"
             _geo_db_create -xS $1
             shift
         done
@@ -565,6 +572,16 @@ _geo_db_create() {
     log::status "  Docker name: $container_name"
     # docker run -v $container_name:/var/lib/postgresql/11/main -p 5432:5432 --name=$container_name -d $IMAGE > /dev/null && log::success OK
     local vol_mount="$container_name:/var/lib/postgresql/$pg_version/main"
+
+    # TODO: Figure out how to mount the container's psql binary to host if the correct pg version doesn't exist.
+    # So, if /usr/lib/postgresql/$pg_version doesn't exist, mount the container's dir to the local one.
+    #   i.e /usr/lib/postgresql/$pg_version:/usr/lib/postgresql/$pg_version
+    # Might have to mount container to the volume, then the host to the same dir in the vol.
+    # local host_pg_path="/usr/lib/postgresql/$pg_version"
+    # local psql_vol_mount="$host_pg_path:/usr/lib/postgresql/$pg_version"
+    # [[ ! -d $host_pg_path ]] && mkdir $host_pg_path
+    # vol_mount+=" $host_pg_path" && log::debug "Adding host vol mount: $host_pg_path"
+    
     local port=5432:5432
     
     local sql_user=postgres
