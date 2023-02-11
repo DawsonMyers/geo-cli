@@ -69,13 +69,18 @@ make_logger_function() {
                 *r* )
                     msg=\"\$(log::make_path_relative_to_user_dir \"\$msg\")\"
                     ;;&
-                # Remove new line characters. 
+                # Remove new line characters.
                 *N* )
                     msg=\"\$(log::replace_line_breaks_with_space \"\$msg\")\"
                     ;;&
-                # Remove leading/trailing spaces and replace 2 or more consecutive spaces with a single one. 
+                # Remove leading/trailing spaces and replace 2 or more consecutive spaces with a single one.
                 *S* )
                     msg=\"\$(log::strip_space \"\$msg\")\"
+                    ;;&
+                # Print current function name.
+                *F* )
+                    local func_path=\$(get_func_path 3)
+                    [[ -n \$func_path ]] && msg=\"\$func_path: \$msg\"
                     ;;&
                 # Format text to the width of the terminal.
                 *f* )
@@ -157,13 +162,18 @@ make_logger_function_vte() {
                 *r* )
                     msg=\"\$(log::make_path_relative_to_user_dir \"\$msg\")\"
                     ;;&
-                # Remove new line characters. 
+                # Remove new line characters.
                 *N* )
                     msg=\"\$(log::replace_line_breaks_with_space \"\$msg\")\"
                     ;;&
-                # Remove leading/trailing spaces and replace 2 or more consecutive spaces with a single one. 
+                # Remove leading/trailing spaces and replace 2 or more consecutive spaces with a single one.
                 *S* )
                     msg=\"\$(log::strip_space \"\$msg\")\"
+                    ;;&
+                # Print current function name.
+                *F* )
+                    local func_path=\$(get_func_path 3)
+                    [[ -n \$func_path ]] && msg=\"\$func_path: \$msg\"
                     ;;&
                 # Format text to the width of the terminal.
                 *f* )
@@ -200,6 +210,51 @@ make_logger_function_vte() {
             set +f
         }
     "
+}
+
+# TODO: Clean up these functions
+get_func_path() {
+    local ignore_count=${1:-1}
+    local func_names="${FUNCNAME[@]:ignore_count}"
+    local line_num=${BASH_LINENO[$((${#BASH_LINENO[@]} - $ignore_count))]}
+    local func_path=
+    for func in $func_names; do
+        [[ -z $func_path ]] && func_path="$func" && continue
+        func_path="$func.$func_path"
+    done
+    [[ -n $func_path ]] && echo -n "$func_path"
+}
+
+get_line_number_in_call_stack() {
+    echo "BASH_LINENO = ${BASH_LINENO[*]}"
+    local ignore_count=${1:-1}
+    # local func_names="${FUNCNAME[@]:ignore_count}"
+    echo "BASH_LINENO = ${BASH_LINENO[*]}"
+    # echo "BASH_SOURCE = ${BASH_SOURCE[@]}"
+    local line_num=${BASH_LINENO[ignore_count]}
+    # local line_num=${BASH_LINENO[$((${#BASH_LINENO[@]} - ignore_count))]}
+    echo "line_num=$line_num"
+    [[ -n $line_num ]] && echo -n "$line_num"
+}
+
+get_filename_in_call_stack() {
+    local full_path=false
+    [[ $1 == -f ]] && full_path=true && shift
+    local ignore_count=${1:-1}
+    # local func_names="${FUNCNAME[@]:ignore_count}"
+    # echo "BASH_LINENO = ${BASH_LINENO[@]}"
+    local path=${BASH_SOURCE[ignore_count]}
+    path="$(realpath "$path")"
+    echo "local path=${BASH_SOURCE[ignore_count]}"
+    echo "get_filename_in_call_stack: path = $path"
+    local name=${path##*/}
+    echo "get_filename_in_call_stack: name = $name"
+    [[ -z $path ]] && return 1
+    # local line_num=${BASH_LINENO[$((${#BASH_LINENO[@]} - ignore_count))]}
+
+    $full_path && echo -n "$path" && return
+
+    [[ -n $name ]] && echo -n "$name"
 }
 
 make_logger_function error Red
@@ -253,6 +308,14 @@ log::verbose() {
 make_logger_function debug Purple
 log::debug() {
     _log_debug "$@"
+}
+# Prints the function path up to the function where this is called.
+# Example: a() { b; }; b() { log::trace "here"}
+#   Prints: a.b: here
+log::trace() {
+    # (( $# == 0 )) &&
+    # local filename = get_line_number_in_call_stack
+    _log_debug -F "$@"
 }
 make_logger_function purple Purple
 log::purple() {
@@ -318,15 +381,22 @@ log::stacktrace() {
             [[ -z $stacktrace_reversed ]] && stacktrace_reversed=$f && continue
             stacktrace_reversed="$f -> $stacktrace_reversed"
         done
-        debug "Stacktrace: $stacktrace_reversed"
+        log::debug "Stacktrace: $stacktrace_reversed"
     fi
 }
 
 # ✘❌
+make_logger_function Error BIRed
 log::Error() {
     echo -e "${BIRed}✘  Error: $(log::fmt_text_and_indent_after_first_line -d 10 -a 10 "$@")${Off}" >&2
+    log::debug "  Source: $(get_func_path 2)"
     # echo -e "❌  ${BIRed}Error: $@${Off}" >&2
+
     log::stacktrace
+}
+log::Error_trace() {
+    log::Error "$@"
+    log::debug "  In function $(get_func_path 2)"
 }
 log::error() {
     echo -e "${BIRed}✘  $(log::fmt_text_and_indent_after_first_line -d 4 -a 3 "$@")${Off}" >&2
@@ -361,7 +431,6 @@ log::prompt() {
 log::prompt_n() {
     echo -en "${BCyan}$@${Off}"
 }
-
 
 # Logging helpers
 ###########################################################
@@ -686,14 +755,14 @@ log::txt_hide() {
 }
 
 # Replaces the value of $HOME in a full file path with ~, making it relative to the user's home directory.
-# Example: 
+# Example:
 #   Input: /home/dawsonmyers/repos/geo-cli/src/geo-cli.sh
 #   Output: ~/repos/geo-cli/src/geo-cli.sh
 log::make_path_relative_to_user_dir() {
     echo "$@" | sed -e "s%$HOME%~%g"
 }
 # Replaces the value of $HOME in a full file path with ~, making it relative to the user's home directory.
-# Example: 
+# Example:
 #   Input: /home/dawsonmyers/repos/geo-cli/src/geo-cli.sh
 #   Output: ~/repos/geo-cli/src/geo-cli.sh
 log::strip_space() {
@@ -723,7 +792,7 @@ log::replace_line_breaks_with_space() {
 #     log::status -n "  $key: " && log::data "$value"
 # }
 
-log::keyvalue() { 
+log::keyvalue() {
     local add_padding=true
     local padding='  '
     local key_ref=
@@ -806,12 +875,12 @@ log::keyvalue() {
         # echo "k '$key' v '$value'"
     fi
 
-    
-    # is_variable && 
-    # ! $is_variable && 
+
+    # is_variable &&
+    # ! $is_variable &&
     # local print_variable=false
     # if $is_variable; then
-        
+
     # fi
     # key="$(log::info -n "$1 ")"
     # key_length=${#key}
