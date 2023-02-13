@@ -35,8 +35,21 @@ export CURRENT_COMMAND=''
 export CURRENT_SUBCOMMAND=''
 export CURRENT_SUBCOMMANDS=()
 
+PS4=$(log::code "line: $LINENO: ")
+# PS4=$(log::code ${BASH_SOURCE[0]##*/}" $LINENO:
+# set -eE -o functrace
+# set -x
+# failure() {
+#   local lineno=$1
+#   local msg=$2
+#   local func=$3
+#   echo "Failed at $lineno: $msg in function: ${func}"
+# }
+# trap 'failure ${LINENO} "$BASH_COMMAND" ${FUNCNAME[0]}' ERR
+
 #######################################################################################################################
 #### Create a new command (e.g. 'geo <some_new_command>')
+# First argument commands
 #######################################################################################################################
 ## First argument commands
 #----------------------------------------------------------
@@ -140,7 +153,8 @@ _geo_check_db_image() {
 # Make sure that the postgres version in the main geo-cli myg db image is up to date.
 _geo_check_db_image_pg_version() {
     local image_name=$(_geo_get_image_name)
-    local image_postgres_version=$(_geo_get_pg_version_from_docker_object "$image_postgres_version")
+    [[ -n $1 ]] && image_name="$1"
+    local image_postgres_version=$(_geo_get_pg_version_from_docker_object "$image_name")
     if [[ -n $image_postgres_version ]] && ((image_postgres_version < 11)); then
         log::caution "Your current geo-cli db image is out of date. Its Postgres version is $image_postgres_version and the minimum supported version is 11."
         if ! prompt_continue "Rebuild the image now to update Postgres? (Y|n): "; then
@@ -247,14 +261,15 @@ geo_image() {
                             && log::success 'geo-cli Postgres image created' \
                             || { log::Error 'Failed to create geo-cli Postgres image' && return 1; }
                 else
-
                     dockerfile_contents="$(sed -E "s/ENV POSTGRES_VERSION .+/ENV POSTGRES_VERSION $pg_version/g" <<<"$dockerfile_contents")"
                     local tmp_dockerfile="$dockerfile.pg$pg_version"
                     log::debug "Using temp dockerfile: $tmp_dockerfile"
                     echo "$dockerfile_contents" > $tmp_dockerfile
                     echo
                     log::debug "docker build -t ${IMAGE}_${pg_version} -f $tmp_dockerfile ."
-                    docker build -t "${IMAGE}_${pg_version}" -f $tmp_dockerfile .
+                    docker build -t "$image_name" -f $tmp_dockerfile . \
+                            && log::success 'geo-cli Postgres image created' \
+                            || { log::Error 'Failed to create geo-cli Postgres image' && return 1; }
                     rm $tmp_dockerfile
                 fi
             fi
@@ -597,8 +612,9 @@ _geo_db_create() {
         return 1
     fi
 
-    local image_name=$IMAGE
-
+    local image_name=$(_geo_get_image_name)
+    # local image_name=$IMAGE
+    
     if [[ -n $pg_version ]]; then
         image_name="${IMAGE}_${pg_version}"
         # Create custom image if it doesn't exist.
@@ -656,7 +672,9 @@ _geo_db_create() {
             RUN mkdir -p /var/lib/postgresql/$pg_version/main
         "
         sql_password=password
-        docker build -t $image_name - <<< "$dockerfile"
+        ! docker build -t $image_name - <<< "$dockerfile" \
+            && log::Error "Failed to create empty Postgres $pg_version image for container." \
+            return 1
     fi
 
     log::debug "\ndocker create -v $vol_mount -p $port --name=$container_name --hostname=$hostname $image_name >/dev/null"
@@ -834,7 +852,7 @@ _geo_db_start() {
     geo_set LAST_DB_VERSION "$db_version"
 
     # VOL_NAME="geo_cli_db_${db_version}"
-    local container_name=$(_geo_container_name $db_version)
+    local container_name=$(_geo_container_name "$db_version")
 
     # docker run -v 2002:/var/lib/postgresql/11/main -p 5432:5432 postgres11
 
