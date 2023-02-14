@@ -41,14 +41,14 @@ def stop_db(arg=None):
     # print('Stopping DB')
 
 
-def run(arg_str, terminal=False):
+def run(arg_str, terminal=False, return_error=False, return_all=False, return_success_status=False):
     if terminal:
         run_in_terminal(arg_str)
     else:
-        return geo(arg_str)
+        return geo(arg_str, return_error, return_all, terminal, return_success_status)
 
 
-def geo(arg_str, return_error=False, return_all=False, terminal=False):
+def geo(arg_str, return_error=False, return_all=False, terminal=False, return_success_status=False):
     if terminal:
         run_in_terminal(arg_str)
         return
@@ -64,6 +64,7 @@ def geo(arg_str, return_error=False, return_all=False, terminal=False):
     except Exception as err:
         print(f'Error running geo("{arg_str}", {return_error}, {return_all}). result = {result}: err = {err}')
     if return_error: return result[1]
+    if return_success_status: return False if result[1] or process.returncode != 0 else True
     if return_all: return result
     return result[0]
 
@@ -126,6 +127,7 @@ def notifications_are_allowed():
 
 def is_update_available():
     ret = geo('dev update-available')
+    # print('is_update_available ' + ret)
     return ret == 'true'
 
 

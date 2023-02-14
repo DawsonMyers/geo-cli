@@ -105,8 +105,10 @@ class MyGeotabMenuItem(Gtk.MenuItem):
         geo.run_in_terminal(f'myg {cmd}', title=title)
 
     def monitor(self):
-        is_myg_running = geo.run('myg is-running')
-        is_running_with_gw = geo.run('myg is-running-with-gw')
+        is_myg_running = geo.run('myg is-running', return_success_status=True)
+        # print(f"MyGeotabMenuItem: is_myg_running is running: {is_myg_running}")
+        is_running_with_gw = geo.run('gw is-running', return_success_status=True)
+        # print(f"MyGeotabMenuItem: is_running_with_gw is running: {is_running_with_gw}")
         if is_myg_running:
             self.app.icon_manager.set_myg_running(True)
             self.show_running_items()

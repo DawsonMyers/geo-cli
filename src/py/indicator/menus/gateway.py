@@ -22,6 +22,7 @@ class GatewayMenuItem(Gtk.MenuItem):
     submenu = None
     running_items = set()
     stopped_items = set()
+    gw_running = False
     def __init__(self, app: IndicatorApp):
         super().__init__(label='Gateway')
         self.app = app
@@ -85,7 +86,8 @@ class GatewayMenuItem(Gtk.MenuItem):
         geo.run_in_terminal(f'gw {cmd}', title=title)
 
     def monitor(self):
-        is_running = geo.run('gw is-running')
+        is_running = geo.run('gw is-running', return_success_status=True)
+        self.gw_running = is_running
         if is_running:
             self.app.icon_manager.set_gateway_running(True)
             self.show_running_items()

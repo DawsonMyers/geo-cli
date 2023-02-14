@@ -42,7 +42,7 @@ GREEN = 'green'
 ORANGE = 'orange'
 
 class IconPaths():
-    def __init__(self, normal, myg, gw, update, myg_update, gw_update, myg_gw, update_myg_gw):
+    def __init__(self, normal, myg, gw, update, myg_update, gw_update, myg_gw, myg_gw_update):
         self.normal = normal
         self.myg = myg
         self.gw = gw
@@ -50,7 +50,7 @@ class IconPaths():
         self.myg_update = myg_update
         self.gw_update = gw_update
         self.myg_gw = myg_gw
-        self.update_myg_gw = update_myg_gw
+        self.myg_gw_update = myg_gw_update
         
 green_icon_paths = IconPaths(GREEN_PATH, GREEN_MYG_PATH, GREEN_GW_PATH, GREEN_UPDATE_PATH, GREEN_UPDATE_MYG_PATH, GREEN_UPDATE_GW_PATH, GREEN_MYG_GW_PATH, GREEN_UPDATE_MYG_GW_PATH)
 red_icon_paths = IconPaths(RED_PATH, RED_MYG_PATH, RED_GW_PATH, RED_UPDATE_PATH, RED_UPDATE_MYG_PATH, RED_UPDATE_GW_PATH, RED_MYG_GW_PATH, RED_UPDATE_MYG_GW_PATH)
@@ -67,13 +67,19 @@ class IconManager:
 
     def set_update_available(self, update_available):
         self.update_available = update_available
+        if self.update_available != update_available: 
+            print(f'IconManager.set_update_available: update_available: {update_available}')
         self.update_icon()
 
     def set_myg_running(self, myg_running):
+        if self.myg_running != myg_running: 
+            print(f'IconManager.set_myg_running: myg_running: {myg_running}')
         self.myg_running = myg_running
         self.update_icon()
 
     def set_gateway_running(self, gateway_running):
+        if self.gateway_running != gateway_running: 
+            print(f'IconManager.set_gateway_running: gateway_running: {gateway_running}')
         self.gateway_running = gateway_running
         self.update_icon()
 
@@ -103,6 +109,7 @@ class IconManager:
         if img_path != self.cur_icon_path:
             self.cur_icon_path = img_path
             self.indicator.set_icon_full(img_path, message)
+            print(f'IconManager.update_icon: {message}. Path: {img_path}')
 
     def set_icon(self, icon_type):
         icon_changed = self.cur_icon is not icon_type
@@ -113,11 +120,11 @@ class IconManager:
     def get_state_icon_path(self, icons):
         if self.update_available:
             if self.myg_running and self.gateway_running:
-                return icons.update_myg_gw
+                return icons.myg_gw_update
             if self.myg_running:
-                return icons.update_myg
+                return icons.myg_update
             if self.gateway_running:
-                return icons.update_gw
+                return icons.gw_update
             return icons.update
         if self.myg_running and self.gateway_running:
             return icons.myg_gw
