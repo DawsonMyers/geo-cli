@@ -836,7 +836,7 @@ _geo_db_start() {
         image_name="${IMAGE}_${pg_version}"
         # Create custom image if it doesn't exist.
         _geo_image_exists "$image_name" \
-            && prompt_continue "Image '$image_name' already exists. Would you like to rebuild it? (Y|n): " \
+            && prompt_continue "Postgres $pg_version image '$image_name' already exists. Would you like to rebuild it? (Y|n): " \
             && geo_image create -v $pg_version
     else
         if ! _geo_check_db_image; then
@@ -1661,6 +1661,12 @@ function geo_db_init() {
     done
     echo
 
+    local myg_version="$(geo_dev release)"
+    if [[ -n $myg_version ]]; then
+        log::detail "MyGeotab version of current branch: $myg_version"
+        prompt_continue "Initialize db with this version? (Y|n): " \
+            || { log::info "You can checkout the desired MyGeotab version and run 'geo db init' to initialize it later.\n"; return 1; }
+    fi
     local container_id=$(_geo_get_running_container_id)
     if [[ -z $container_id ]]; then
         log::Error 'No geo-cli containers are running to initialize.'
@@ -2486,6 +2492,8 @@ run_command_with_lock_file() {
     local lock_file="$1"
     local lock_file_content="$2"
     local cmd="${@:3}"
+
+    [[ -f $lock_file ]] && _geo_remove_file_if_older_than_last_reboot "$lock_file" &> /dev/null
     touch "$lock_file"
 
     trap '' EXIT
@@ -2493,7 +2501,7 @@ run_command_with_lock_file() {
         cleanup() {
             # Unlock file descriptor.
             flock -u "$FD"
-            [[ -f $lock_file ]] && { rm "$lock_file" || log::Error "Failed to remove lock file"; }
+            [[ -f $lock_file ]] && { rm "$lock_file" &> /dev/null || log::Error "Failed to remove lock file"; }
             # log::warn "run_command_with_lock_file: cleaned up successfully after interrupt"
             exit
         }
@@ -4201,11 +4209,12 @@ geo_id() {
             id=$(printf '%d' 0x$id)
             msg='Decoded long id'
         else
+            echo
             log::Error "Invalid input format. Length: ${#arg}, input: '$arg'"
-            log::warn "Guid ids must be 36 characters long."
-            log::warn "Encoded guid ids must be prefixed with 'a' and be 23 characters long."
-            log::warn "Encoded long ids must be prefixed with 'b'."
-            log::warn "Use 'geo id help' for usage info."
+            log::info "Guid ids must be 36 characters long."
+            log::info "Encoded guid ids must be prefixed with 'a' and be 23 characters long."
+            log::info "Encoded long ids must be prefixed with 'b'."
+            log::info "Use 'geo id help' for usage info."
             return 1
         fi
         $write_to_ref_var && _var_ref= $id && return
@@ -4221,11 +4230,11 @@ geo_id() {
         local valid_id_re='^[a-zA-Z0-9_-]{1,36}$'
         # [[ $clipboard =~ $valid_id_re]]
         # First try to convert the contents of the clipboard as an id.
-        if [[ -n $clipboard && ${#clipboard} -le 36 ]]; then
+        if [[ -n $clipboard && ${#clipboard} -le 36 ]] && convert_id $clipboard &> /dev/null; then
             # [[ $clipboard =~ $valid_id_re ]]
             # geo_id $clipboard
             # log::debug "Clip $clipboard"
-            output=$(convert_id $clipboard)
+            output=$(convert_id $clipboard 2>&1)
             # log::debug $output
 
             if [[ $output =~ Error ]]; then
@@ -4257,7 +4266,7 @@ geo_id() {
         ids=()
         res=
         for _id in "$@"; do
-            res=$(convert_id $_id)
+            res=$(convert_id $_id 2> /dev/null)
             if [[ -n $res ]]; then
                 ids+=($res)
                 $format_output && log::detail -b $res || echo $res
@@ -4269,7 +4278,7 @@ geo_id() {
     fi
 
     # Convert the id.
-    if ! convert_id -s $arg; then
+    if ! convert_id -s $arg 2>&1 /dev/null; then
         log::Error "Failed to convert id: $arg"
         return 1
     fi
@@ -5408,10 +5417,18 @@ geo_myg() {
             _geo_myg_start
             ;;
         is-running )
+            if [[ $GEO_RAW_OUTPUT == true ]]; then
+                _geo_myg_is_running
+                return
+            fi
             [[ -z $(_get_myg_pid) ]] && log::Error "MyG is not running" && return 1
             log::success $(_get_myg_pid)
             ;;
         is-running-with-gw )
+            if [[ $GEO_RAW_OUTPUT == true ]]; then
+                _geo_myg_is_running_with_gw
+                return
+            fi
             ! _geo_myg_is_running_with_gw && log::Error "MyG is not running with GW" && return 1
             log::success "Running MyG: $(_get_myg_pid)"
             log::success "Running GW: $(_get_gw_pid)"
@@ -5633,8 +5650,33 @@ _geo_myg_api_runner() {
     google-chrome "$url?$params#"
 }
 
+_geo_remove_file_if_older_than_last_reboot() {
+    local file="$1"
+    [[ -f $file ]] && _geo_file_older_than_last_reboot "$file" && rm "$file" &> /dev/null
+}
+
+_geo_file_older_than_last_reboot() {
+    local file="$1"
+    [[ ! -f $file ]] && return 1
+    local file_time=$(_geo_time_since_file_creation "$file")
+    local reboot_time=$(_geo_time_since_reboot)
+    (( file_time > reboot_time ))
+}
+_geo_time_since_file_creation() {
+    local seconds_since_modified="$(expr $(date +%s) - $(stat -c %Y $1))"
+    [[ -z $seconds_since_modified ]] && seconds_since_modified=0
+    echo -n $seconds_since_modified
+}
+_geo_time_since_reboot() {
+
+    local seconds="$(expr $(date +%s) - $(date -d  "$(uptime -s)" +%s))"
+    [[ -z $seconds ]] && seconds=0
+    echo -n $seconds
+}
+
 check_is_running() {
     local running_lock_file=$1
+    _geo_remove_file_if_older_than_last_reboot "$running_lock_file"
     [[ ! -f $running_lock_file ]] && return 1
     # Open a file descriptor on the lock file.
     exec {lock_fd}<> "$running_lock_file"
@@ -5772,6 +5814,10 @@ geo_gw() {
             _geo_gw_start
             ;;
         is-running )
+            if [[ $GEO_RAW_OUTPUT == true ]]; then
+                _geo_gw_is_running
+                return
+            fi
             [[ -z $(_get_gw_pid) ]] && log::Error "GW is not running" && return 1
             log::success $(_get_gw_pid)
             ;;
