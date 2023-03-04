@@ -40,6 +40,7 @@ class RunningDbMenuItem(Gtk.MenuItem):
         item_psql = Gtk.MenuItem(label='PSQL')
         # item_rm = Gtk.MenuItem(label='Remove')
         item_copy_db = CopyDatabaseMenuItem(app=app)
+        item_init_db = InitDatabaseMenuItem(app=app)
         item_stop_db.connect('activate', self.stop_db)
         item_ssh.connect('activate', lambda _: geo.run_in_terminal('db ssh'))
         item_psql.connect('activate', lambda _: geo.run_in_terminal('db psql'))
@@ -48,6 +49,7 @@ class RunningDbMenuItem(Gtk.MenuItem):
         self.stop_menu.append(item_ssh)
         self.stop_menu.append(item_psql)
         self.stop_menu.append(item_copy_db)
+        self.stop_menu.append(item_init_db)
         # self.stop_menu.append(item_rm)
         self.set_submenu(self.stop_menu)
         self.show_all()
@@ -394,3 +396,13 @@ class CopyDatabaseMenuItem(Gtk.MenuItem):
     def on_activate(self, widget):
         db_name = self.db_name if self.db_name else self.app.db
         geo.db(f'cp -i {db_name}', terminal=True)
+
+class InitDatabaseMenuItem(Gtk.MenuItem):
+    def __init__(self, app: IndicatorApp = None, db_name: str = None):
+        super().__init__(label='Init GeotabDemo')
+        self.db_name = db_name
+        self.app = app
+        self.connect('activate', self.on_activate)
+
+    def on_activate(self, widget):
+        geo.db('init', terminal=True )
