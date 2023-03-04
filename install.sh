@@ -56,6 +56,16 @@ sed -i '/#geo-cli-start/,/#geo-cli-end/d' ~/.bashrc
 [[ -f ~/.zshrc ]] && sed -i '/#geo-cli-start/,/#geo-cli-end/d' ~/.zshrc
 # sed -i '/source .*geo-cli-init.*/d' ~/.zshrc
 
+# Make the 'geo-cli' command globally available as an executable by adding a symbolic link from geo-cli to
+# ~/.local/bin/geo-cli. This allows the geo-cli command to be run by any type of shell (since the script will always
+# run in bash because of the shebang (#!/bin/bash) at the top of the file) as long as it is executed (like this 
+# 'geo-cli <args>' instead of 'source geo-cli.sh').
+if [[ ! -e $HOME/.local/bin/geo-cli ]]; then
+    mkdir -p $HOME/.local/bin
+    [[ -f $GEO_CLI_SRC_DIR/geo-cli.sh ]] \
+        && ln -L $GEO_CLI_SRC_DIR/geo-cli.sh $HOME/.local/bin/geo-cli
+fi
+
 # Append cli alias and env config to ~/.bashrc so that the geo command can be 
 # used in any terminal.
 # Substitute the env vars into init file text and append to .bashrc. 

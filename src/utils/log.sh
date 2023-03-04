@@ -2,13 +2,24 @@
 
 # This file contains various logging functions used throughout geo-cli. All public functions have the prefix 'log::'.
 
-# Gets the absolute path of the root geo-cli directory.
-export GEO_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
-export GEO_CLI_SRC_DIR="${GEO_CLI_DIR}/src"
+# These should already be defined.
+# # Gets the absolute path of the root geo-cli directory.
+# export GEO_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
+# export GEO_CLI_SRC_DIR="${GEO_CLI_DIR}/src"
+
+# # Import colour constants/functions.
+# . $GEO_CLI_SRC_DIR/utils/colors.sh
 
 # Import colour constants/functions.
 . $GEO_CLI_SRC_DIR/utils/colors.sh
 . $GEO_CLI_SRC_DIR/utils/util.sh
+
+# TODO: Use this where needed. Example: log_function() { echo "$@" >&3; }
+# standard output may be used as a return value in the functions
+# we need a way to write text on the screen in the functions so that
+# it won't interfere with the return value.
+# Exposing stream 3 as a pipe to standard output of the script itself
+exec 3>&1
 
 # Regexes for replacing old log function names.
 # (\W)(red|green|error|Error|info|detail|data|status|verbose|debug|purple|cyan|yellow|white|_stacktrace|data_header|success|prompt|prompt_n|warn) 

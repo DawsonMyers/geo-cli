@@ -1828,7 +1828,7 @@ function geo_db_init() {
     local myg_core_proj="$dev_repo/Checkmate/MyGeotab.Core.csproj"
     log::debug "dotnet build --project=$myg_core_proj"
     dotnet build --project=$myg_core_proj
-
+    
     # Minimum verbosity level (m).
     opts="-v m"
     
@@ -5692,10 +5692,16 @@ _geo_time_since_file_creation() {
     echo -n $seconds_since_modified
 }
 _geo_time_since_reboot() {
-
     local seconds="$(expr $(date +%s) - $(date -d  "$(uptime -s)" +%s))"
     [[ -z $seconds ]] && seconds=0
     echo -n $seconds
+}
+
+_geo_set_terminal_title() {
+    local d="$(date '+%d %H:%M:%S')"
+     local date_str=
+    [[ $1 == -d ]] && date_str=" - $(date '+%d %H:%M:%S')" && shift
+    echo -ne "\033]0;$* $date_str\007"
 }
 
 check_is_running() {
@@ -6695,10 +6701,13 @@ doc_handle_subcommand() {
 }
 
 init_completions() {
+    [[ -z $GEO_CLI_AUTOCOMPLETE_FILE ]] \
+        && log::warn "GEO_CLI_AUTOCOMPLETE_FILE environment variable wasn't set. Skipping initializing autocompletions for geo."
+        # && return 1
     local cmd=
     local completions=
 
-    [[ ! -f $GEO_CLI_AUTOCOMPLETE_FILE ]] && touch "$GEO_CLI_AUTOCOMPLETE_FILE"
+    [[ -d $GEO_CLI_CONFIG_DIR && ! -f $GEO_CLI_AUTOCOMPLETE_FILE ]] && touch "$GEO_CLI_AUTOCOMPLETE_FILE" && return
 
     while read line; do
         # Skip empty lines.
@@ -6717,6 +6726,8 @@ init_completions() {
 }
 
 geo_generate_autocompletions() {
+    [[ -z $GEO_CLI_AUTOCOMPLETE_FILE ]] \
+        && log::warn "GEO_CLI_AUTOCOMPLETE_FILE environment variable wasn't set. Skipping autocompletion file generation for geo."
     # populate the command info by running all of geo's help commands
     geo_help > /dev/null
     doc_handle_command 'DONE'
@@ -6745,8 +6756,14 @@ init_completions
 # echo "" > bcompletions.txt
 _geo_complete()
 {
+    # Disable ERR trap inheritance.
+    # set +E
+    # Prevent inherited ERR trap funciton from running.
+    trap -- ERR
+    # Uncomment line below to enable debug output
+    # echo "_geo_complete: $*" >&3
     local cur prev
-    # echo "COMP_WORDS: ${COMP_WORDS[@]}" >> bcompletions.txt
+    # echo "COMP_WORDS: ${COMP_WORDS[@]}" >> $HOME/.geo-cli/bcompletions.txt
     # echo "COMP_CWORD: $COMP_CWORD" >> bcompletions.txt
     cur=${COMP_WORDS[COMP_CWORD]}
     # echo "cur: ${COMP_WORDS[COMP_CWORD]}"  >> bcompletions.txt
@@ -6755,9 +6772,10 @@ _geo_complete()
     local full_cmd="${COMP_WORDS[@]}"
     # echo "prev: $prev"  >> bcompletions.txt
     case ${COMP_CWORD} in
+        0) COMPREPLY=($(compgen -W "geo geo-cli" -- ${cur})) ;;
         # e.g., geo
         1)
-            local cmds="${COMMANDS[@]}"
+            local cmds="${COMMANDS[*]}"
 
             COMPREPLY=($(compgen -W "$cmds" -- ${cur}))
             ;;
@@ -6818,6 +6836,8 @@ _geo_complete()
 
 _geo_autocomplete_filename() {
     [[ $full_cmd =~ mydecoder && ! $cur =~ ^- ]] && COMPREPLY=($(compgen -W "$(ls -A)" -- ${cur}))
+    return 0
 }
 
 complete -F _geo_complete geo
+complete -F _geo_complete geo-cli
