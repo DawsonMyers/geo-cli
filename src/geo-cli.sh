@@ -1,6 +1,19 @@
 #!/bin/bash
+[[ -z $BASH_VERSION ]] \
+    && echo "ERROR: geo-cli.sh: Not sourced into a BASH shell! This file can be sourced (to load the geo command) or executed directly, but it must do so in a BASH shell environtment ONLY. Example: 'source geo-cli.sh; geo <args>' OR 'geo-cli.sh <args>)' 4 geo-cli won't work properly in other shell environments." && exit 1
+
 # This file is sourced from ~/.bashrc to make geo cli available from any bash terminal.
 if [[ `whoami` = 'root' && -z $GEO_ALLOW_ROOT ]]; then echo 'ERROR: Do not run geo as root (sudo)'; exit; fi
+
+# echo "install.sh: \${BASH_SOURCE[0]} =  ${BASH_SOURCE[0]}"
+# cat ~/.config/fish/config.fish
+# set -E
+# err_trap() {
+#     echo "err_trap: args: $*"
+#     echo "err_trap: ${FUNCNAME[*]}"
+#     # echo "err_trap: ${BASH_SOURCE[*]}"
+# }
+# trap 'err_trap source "${BASH_SOURCE[0]}[$LINENO]" trace "${FUNCNAME[*]}"' ERR
 
 # Init geo config directory if it doesn't exist.
 export GEO_CLI_CONFIG_DIR="$HOME/.geo-cli"
@@ -26,7 +39,15 @@ alias brc=". ~/.bashrc"
 alias zrc=". ~/.zshrc"
 
 # Gets the absolute path of the root geo-cli directory.
-export GEO_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
+[[ -z $GEO_CLI_DIR ]] && export GEO_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
+if [[ -z $GEO_CLI_DIR || ! -f $GEO_CLI_DIR/install.sh ]]; then
+    msg="cli-handlers.sh: ERROR: Can't find geo-cli repo path."
+    [[ ! -f $HOMR/data/geo/repo-dir ]] && echo "$msg" && exit 1;
+    # Running from a symbolic link from geo-cli.sh. Try to get geo-cli from config dir.
+    GEO_CLI_DIR="${cat "$HOMR/data/geo/repo-dir"}"
+    [[ ! -f $GEO_CLI_DIR/install.sh ]] && echo "$msg" && exit 1;
+
+fi
 export GEO_CLI_SRC_DIR="${GEO_CLI_DIR}/src"
 
 # Load environment variable files.
@@ -42,20 +63,24 @@ fi
 # DIR_NAME=`dirname $SOURCE`
 # echo $SOURCE
 
+export GEO_RAW_OUTPUT=false
+export GEO_NO_UPDATE_CHECK=false
+
 # Import cli handlers to get access to all of the geo-cli commands and command names (through the COMMMAND array).
 . "$GEO_CLI_SRC_DIR/cli/cli-handlers.sh"
 . "$GEO_CLI_SRC_DIR/utils/log.sh"
 
 function geo()
 {
+    # set -E
     # Log call.
-    [[ $(geo_get LOG_HISTORY) == true ]] && echo "[$(date +"%Y-%m-%d_%H:%M:%S")] geo $@" >> ~/.geo-cli/history.txt
+    [[ $(geo_get LOG_HISTORY) == true ]] && echo "[$(date +"%Y-%m-%d_%H:%M:%S")] geo $*" >> ~/.geo-cli/history.txt
 
-    while [[ $1 == --raw-output || $1 == --no-update-check ]]; do
+    while [[ $# -gt 0 && $1 == --raw-output || $1 == --no-update-check ]]; do
         case "$1" in
              # Disabled formatted output if the --raw-output option is present.
-            --raw-output ) export GEO_RAW_OUTPUT=true ;;
-            --no-update-check ) export GEO_NO_UPDATE_CHECK=true ;;
+            --raw-output ) GEO_RAW_OUTPUT=true ;;
+            --no-update-check ) GEO_NO_UPDATE_CHECK=true ;;
         esac
         shift
     done
@@ -162,7 +187,7 @@ function geo()
 
 function check_for_docker_group_membership() {
     local docker_group=$(cat /etc/group | grep 'docker:')
-    if [[ -z $docker_group || ! $docker_group =~ "$USER" ]]; then
+    if [[ -z $docker_group || ! $docker_group =~ $USER ]]; then
         log::warn 'You are not a member of the docker group. This is required to be able to use the "docker" command without sudo.'
         if prompt_continue "Add your username to the docker group? (Y|n): "; then
             [[ -z $docker_group ]] && sudo groupadd docker
@@ -177,6 +202,6 @@ function check_for_docker_group_membership() {
 }
 
 # Run geo if this file was executed (instead of sourced) as a stand-alone script and arguments were passed in.
-if [[ -n $@ ]]; then
+if [[ -n $* ]]; then
     geo "$@"
 fi

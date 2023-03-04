@@ -1,5 +1,8 @@
 #!/bin/bash
-if [ -z "$BASH" ] ; then echo "Please run this script $0 with bash"; exit 1; fi
+if [[ -z $BASH_VERSION ]] ; then
+    echo "ERROR: geo-cli must run in a Bash terminal to function correctly. Please run this script with Bash (i.e. 'bash install.sh')"; exit 1;
+fi
+
 export GEO_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" 
 export GEO_CLI_SRC_DIR="${GEO_CLI_DIR}/src"
 

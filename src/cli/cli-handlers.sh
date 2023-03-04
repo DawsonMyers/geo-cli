@@ -1,11 +1,22 @@
 #!/bin/bash
+[[ -z $BASH_VERSION ]] \
+    && echo "ERROR: geo:cli-handers.sh: Not sourced into a BASH shell! This file MUST be sourced, not executed (i.e. 'source cli-handlers.sh' vs. '[bash|sh|zsh|fish] cli-handlers.sh)' into a BASH shell environtment by the main geo-cli file (geo-cli.sh) ONLY. geo-cli won't work properly in other shell environments." && exit 1
 
 # This file contains all geo-cli command logic.
 # All geo-cli commands will have at least 2 functions defined that follow the following format: geo_<command_name> and
 # geo_<command_name>_doc (e.g. geo db has functions called geo_db and geo_db_doc). These functions are called from src/geo-cli.sh.
 
 # Gets the absolute path of the root geo-cli directory.
-export GEO_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
+[[ -z $GEO_CLI_DIR ]] && export GEO_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
+
+if [[ -z $GEO_CLI_DIR || ! -f $GEO_CLI_DIR/install.sh ]]; then
+    msg="cli-handlers.sh: ERROR: Can't find geo-cli repo path."
+    [[ ! -f $HOMR/data/geo/repo-dir ]] && echo "$msg" && exit 1;
+    # Running via symbolic link from geo-cli.sh. Try to get geo-cli from config dir.
+    GEO_CLI_DIR="${cat "$HOMR/data/geo/repo-dir"}"
+    [[ ! -f $GEO_CLI_DIR/install.sh ]] && echo "$msg" && exit 1;
+
+fi
 export GEO_CLI_SRC_DIR="${GEO_CLI_DIR}/src"
 export GEO_CLI_UTILS_DIR="${GEO_CLI_SRC_DIR}/utils"
 
@@ -35,8 +46,10 @@ export CURRENT_COMMAND=''
 export CURRENT_SUBCOMMAND=''
 export CURRENT_SUBCOMMANDS=()
 
-PS4=$(log::code "line: $LINENO: ")
-# PS4=$(log::code ${BASH_SOURCE[0]##*/}" $LINENO:
+PS4=$(echo "line: ${BASH_SOURCE[0]}[$LINENO]: ")
+# PS4=$(log::code "line: $LINENO: ")
+# PS4=$(log::code ${BASH_SOURCE[0]##*/}" $LINENO: 
+
 # set -eE -o functrace
 # set -x
 # failure() {
