@@ -1460,6 +1460,14 @@ _geo_db_ls_volumes() {
     docker volume ls -f name=geo_cli
 }
 
+_geo_db_pg_db_exists() {
+    local pg_db_name="$1"
+    [[ -z $pg_version ]] && log::Error "_geo_db_pg_db_exists: No database name supplied" && return 1
+    local query="SELECT datname FROM pg_catalog.pg_database WHERE lower($pg_version) = lower('$pg_version')"
+    _geo_is_container_running || return 1
+    geo ssh -q "$query"
+}
+
 _geo_datediff() {
         number_re='^[0-9]+$'
         # Parse if a date string was passed in
@@ -1818,9 +1826,12 @@ function geo_db_init() {
 
     local dev_repo=$(geo_get DEV_REPO_DIR)
     local myg_core_proj="$dev_repo/Checkmate/MyGeotab.Core.csproj"
+    log::debug "dotnet build --project=$myg_core_proj"
+    dotnet build --project=$myg_core_proj
 
     # Minimum verbosity level (m).
     opts="-v m"
+    
     if $no_build; then
         opts+=' --no-build'
         log::status -b '\nSkipping build'
@@ -2176,7 +2187,7 @@ geo_ar() {
                 local user=
 
 
-                [[ $@ =~ --prompt ]] && prompt_for_cmd=true && shift
+                [[ $* =~ --prompt ]] && prompt_for_cmd=true && shift
 
                 local OPTIND
                 while getopts "slLp:P:u:" opt; do
