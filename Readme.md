@@ -75,15 +75,16 @@ The tool has also evolved over the years to include a taskbar UI menu as well as
 <!-- Make images > 892 px wide -->
 
 ## Tab Completion
-`geo-cli` has extensive support for tab completion (double pressing the <kbd>Tab</kbd> key). It will show you what commands/subcommands are available, as well as possible command arguments for certain commands such as `geo db start/rm`.
+If running in a bash sell, `geo-cli` has extensive support for tab completion (double pressing the <kbd>Tab</kbd> key). It will show you what commands/subcommands are available, as well as possible command arguments for certain commands such as `geo db start/rm`.
 
 Completion for `geo` shows all commands available:
 ```
-$ geo 
-analyze     dev         id          quarantine  test        
-ar          env         image       rm          uninstall   
-cd          get         indicator   set         update      
-db          help        init        stop        version
+$ geo <double press tab>
+analyze     edit        id          mydecoder   stop        
+ar          env         image       myg         test        
+cd          get         indicator   quarantine  uninstall   
+db          gw          init        rm          update      
+dev         help        loc         set         version
 ```
 
 Completion for `geo db start` will show all of your databases (that you created with `geo-cli`) that can be started:
@@ -128,10 +129,19 @@ Next, navigate into the repo directory
 ```bash
 cd geo-cli
 ```
-And finally, execute the install script
+And finally, if you are in a `bash` shell, run the following command to execute the install script.
 ```bash
 source install.sh
 ```
+If you use a shell other that `bash`, the install **must** be run like this:
+```bash
+bash install.sh
+```
+The installer will add support for `zsh` and `fish` to their corresponding config files. If you use a different shell, add the following alias to its config file:
+```bash
+alias geo="bash <full path geo-cli repo dir>/src/geo-cli.sh"
+```
+
 > Docker is required for `geo` to work. You will be prompted to install it during the install process if it is missing. **You must completely log out and then back in again after a Docker install for the new permissions to take effect.**
 
 You will be asked to enter the location of Development repo during the install. The tool needs to know where this is so that it knows the location of:
