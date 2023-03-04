@@ -2233,7 +2233,7 @@ geo_ar() {
                             break
                         done
                     else
-                        log::warn "'-l' option supplied, but there arn't any previous comands stored to choose from."
+                        log::warn "'-l' option supplied, but there aren't any previous commands stored to choose from."
                     fi
                 fi
 

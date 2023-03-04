@@ -1,3 +1,4 @@
+#!/bin/bash
 #**********************************************************************************************************************
 # This is a geo-cli command file. It is automatically executed from cli-handlers.sh when geo-cli is loaded into each 
 # new terminal.

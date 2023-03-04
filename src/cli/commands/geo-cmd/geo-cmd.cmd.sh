@@ -1,4 +1,4 @@
-
+#!/bin/bash
 #**********************************************************************************************************************
 # This is a geo-cli command file. It is automatically executed from cli-handlers.sh when geo-cli is loaded into each 
 # new terminal.
@@ -440,7 +440,7 @@ _geo_cmd_ls() {
 _geo_cmd_edit() {
     local cmd_name="$1"
     [[ -z $cmd_name ]] \
-        && log::Error "No command namd supplied" && return 1
+        && log::Error "No command name supplied" && return 1
     ! _geo_cmd_exists "$cmd_name" \
         && log::Error "Command '$cmd_name' doesn't exist" && return 1
     
