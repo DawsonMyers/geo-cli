@@ -1,7 +1,9 @@
 import os
 import subprocess
 import time
-
+import gi
+gi.require_version('Gtk', '3.0')
+from gi.repository import Gtk
 
 def run_in_terminal_then_close(cmd_to_run, title=''):
     if title:
@@ -46,3 +48,8 @@ def run_cmd_and_wait(cmd):
 
 def current_time_ms():
     return round(time.time() * 1000)
+# UI Utils
+def add_menu_item(menu, label='EMPTY', on_activate=lambda _: None):
+    item = Gtk.MenuItem(label=label)
+    item.connect('activate', on_activate)
+    menu.append(item)

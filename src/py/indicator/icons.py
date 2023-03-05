@@ -109,7 +109,7 @@ class IconManager:
         if img_path != self.cur_icon_path:
             self.cur_icon_path = img_path
             self.indicator.set_icon_full(img_path, message)
-            print(f'IconManager.update_icon: {message}. Path: {img_path}')
+            # print(f'IconManager.update_icon: {message}. Path: {img_path}')
 
     def set_icon(self, icon_type):
         icon_changed = self.cur_icon is not icon_type

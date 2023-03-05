@@ -3,6 +3,7 @@ import os
 import signal
 import time
 import subprocess
+import traceback
 
 import sys
 # Add local packages to python search path.
@@ -50,6 +51,8 @@ class IndicatorApp(object):
         self.indicator.set_menu(self.menu)
         print("=============== IndicatorApp: Starting up...")
 
+    def log(self, msg): print(f'[{type(self).__name__}]: {msg}')
+
     def get_state(self, key, default=None):
         return self.state[key] if key in self.state else default
 
@@ -71,6 +74,7 @@ class IndicatorApp(object):
         except Exception as e:
             print("show_quick_notification: exception occurred.")
             print(e)
+            traceback.print_exc()
             
         # Notification ref has to be held for the action to work.
         return n
@@ -98,6 +102,7 @@ class IndicatorApp(object):
         except Exception as e:
             print("show_quick_notification: exception occurred.")
             print(e)
+            traceback.print_exc()
 
     def show_notification(self, body, title='geo-cli', timeout=1500):
         if not geo.notifications_are_allowed():
@@ -141,25 +146,11 @@ class IndicatorApp(object):
         item_create_db = self.get_create_db_item()
         item_auto_switch_db_toggle = menus.AutoSwitchDbMenuItem(self)
         self.item_auto_switch_db_toggle = item_auto_switch_db_toggle
-
-        item_run_analyzers = self.get_analyzer_item()
-
-        item_npm = Gtk.MenuItem(label='npm install')
-        item_npm.connect('activate', lambda _: geo.run_in_terminal('init npm -c', stay_open_after=False))
-        item_id = Gtk.MenuItem(label='Convert Long/Guid Ids')
-        item_id_clipboard = Gtk.MenuItem(label='Convert Id From Clipboard')
-        item_run_tests = Gtk.MenuItem(label='Run Tests')
-        item_quarantine_test = Gtk.MenuItem(label='Quarantine Test')
         item_mygeotab = menus.MyGeotabMenuItem(self)
         item_gateway = menus.GatewayMenuItem(self)
 
-        # Run 'geo id -i' in terminal. This causes geo id to run interactively (-i), first trying to convert the contents of the clipboard.
-        item_id.connect('activate', lambda _: geo.run_in_terminal('id -i'))
-        item_id_clipboard.connect('activate', lambda _: geo.run_in_terminal('id -c', stay_open_after=False))
-        item_run_tests.connect('activate', lambda _: geo.run_in_terminal('test -i', stay_open_after=True))
-        item_quarantine_test.connect('activate', lambda _: geo.run_in_terminal('quarantine -i', stay_open_after=True))
         # Configure the id item to be activated when the app indicator is middle clicked on.
-        self.indicator.set_secondary_activate_target(item_id_clipboard)
+        # self.indicator.set_secondary_activate_target(item_id_clipboard)
 
         item_quit = Gtk.MenuItem(label='Quit')
         item_quit.connect('activate', self.quit)
@@ -173,16 +164,17 @@ class IndicatorApp(object):
         menu.append(item_auto_switch_db_toggle)
         menu.append(Gtk.SeparatorMenuItem())
 
-        menu.append(item_run_analyzers)
-        menu.append(item_npm)
-        menu.append(item_id)
-        menu.append(item_id_clipboard)
+
         menu.append(menus.AccessRequestMenuItem(self))
-        menu.append(item_run_tests)
-        menu.append(item_quarantine_test)
+
         menu.append(self.build_editor_menu())
+
+        menu.append(Gtk.SeparatorMenuItem())
         menu.append(item_mygeotab)
         menu.append(item_gateway)
+        menu.append(self.get_analyzer_item())
+        menu.append(self.build_tests_menu())
+        menu.append(self.build_myg_utils_menu())
         menu.append(Gtk.SeparatorMenuItem())
 
         menu.append(item_help)
@@ -210,21 +202,60 @@ class IndicatorApp(object):
         # self.box_outer.append(self.label)
         return self.box_outer
 
+    def convert_id_handler(self, caller):
+        geo.run_in_terminal('id -i', stay_open_after=True)
+        
+    def build_myg_utils_menu(self):
+        menu = Gtk.Menu()
+        self.add_menu_item(menu, 'npm install', lambda _: geo.run_in_terminal('init npm -c', stay_open_after=True))
+        # Run 'geo id -i' in terminal. This causes geo id to run interactively (-i), first trying to convert the contents
+        # of the clipboard.
+        self.add_menu_item(menu, 'Convert API Id (Long/Guid)', lambda _: geo.run_in_terminal('id -i', stay_open_after=True))
+        self.add_menu_item(menu, 'Convert API Id From Clipboard', lambda _: geo.run_in_terminal('id -c', stay_open_after=False),
+           set_as_app_icon_middle_click_action=True)
+
+        # The actual menu item that will be shown on the man UI menu.
+        item = Gtk.MenuItem(label='MYG Utils')
+        item.set_submenu(menu)
+        item.show_all()
+        return item
+
+    def build_tests_menu(self):
+        menu = Gtk.Menu()
+        self.add_menu_item(menu, 'Run Tests', lambda _: geo.run_in_terminal('test -i', stay_open_after=True))
+        self.add_menu_item(menu, 'Quarantine Test', lambda _: geo.run_in_terminal('quarantine -i', stay_open_after=True))
+
+        menu_item = self.get_item_with_submenu(menu, label='Tests')
+        return menu_item
+
+    def get_item_with_submenu(self, menu, label='EMPTY'):
+        item = Gtk.MenuItem(label=label)
+        item.set_submenu(menu)
+        item.show_all()
+        return item
+    
+    def add_menu_item(self, menu, label='EMPTY', on_activate=lambda _: print('add_menu_item: on_activate empty'), set_as_app_icon_middle_click_action=False):
+        item = Gtk.MenuItem(label=label)
+        item.connect('activate', on_activate)
+        menu.append(item)
+        # Set this item to be activated when the UI's G ican is middle clicked.
+        if set_as_app_icon_middle_click_action: self.indicator.set_secondary_activate_target(item)
+
     def build_editor_menu(self):
-        item = Gtk.MenuItem(label='Edit')
+        item = Gtk.MenuItem(label='Edit Files')
         menu = Gtk.Menu()
         server_config = Gtk.MenuItem(label='server.config')
         gitlab_ci = Gtk.MenuItem(label='.gitlab-ci.yml')
         bashrc = Gtk.MenuItem(label='.bashrc')
-        
+
         server_config.connect('activate', lambda _: geo.run('edit server.config'))
         gitlab_ci.connect('activate', lambda _: geo.run('edit gitlab-ci'))
         bashrc.connect('activate', lambda _: geo.run('edit bashrc'))
-        
+
         menu.append(server_config)
         menu.append(gitlab_ci)
         menu.append(bashrc)
-        
+
         item.set_submenu(menu)
         item.show_all()
         return item
@@ -245,7 +276,7 @@ class IndicatorApp(object):
         item = Gtk.MenuItem(label='Run Analyzers')
         item_run_all = Gtk.MenuItem(label='All')
         item_choose = Gtk.MenuItem(label='Choose')
-        item_previous = Gtk.MenuItem(label='Previous')
+        item_previous = Gtk.MenuItem(label='Repeat Last Run')
         item_run_all.connect('activate', lambda _: geo.run_in_terminal('analyze -b -a'))
         item_choose.connect('activate', lambda _: geo.run_in_terminal('analyze -b'))
         item_previous.connect('activate', lambda _: geo.run_in_terminal('analyze -b -'))
@@ -263,18 +294,28 @@ class MainMenu(Gtk.Menu):
         self.items = set()
 
     def append(self, item):
-        if item in self.items:
-            return
-        self.items.add(item)
-        item.show()
-        super().append(item)
-
+        try:
+            if item in self.items:
+                return
+            self.items.add(item)
+            item.show()
+            super().append(item)
+        except Exception as e:
+            print('MainMenu.append: ERROR')
+            print(e)
+            traceback.print_exc()
     def remove(self, item):
-        if item not in self.items:
-            return
-        self.items.remove(item)
-        item.hide()
-        super().remove(item)
+        try:
+            if item not in self.items:
+                return
+            self.items.remove(item)
+            item.hide()
+            super().remove(item)
+        except Exception as e:
+            print('MainMenu.remove: ERROR')
+            print(e)
+            traceback.print_exc()
+
 
 
 class DialogExample(Gtk.Dialog):
@@ -303,7 +344,7 @@ def main():
             retry = False
         except Exception as e:
                 print(f'main: IndicatorApp threw and exception. retry={retry_count}')
-                print(e)
+                traceback.print_exc()
                 retry_count += 1
                 retry = True
                 time.sleep(delay)
