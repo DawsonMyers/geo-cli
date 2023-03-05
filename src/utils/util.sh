@@ -349,14 +349,14 @@ util::get_var_sig() {
 }
 
 
-# Add eval "$(util::eval_enable_piped_args)" to a function to enable reading from stdin
-util::eval_enable_piped_args() {
+# Add eval "$(util::eval_to_enable_piped_args)" to a function to enable reading from stdin
+util::eval_to_enable_piped_args() {
     local _enable_piped_args_code=
     read -r -d '' _enable_piped_args_code <<-'EOF'
     local args
     # Allow this command to accept piped in arguments. Example: echo "text" | log::strip_color_codes
     if (( "$#" == 0 )); then
-        IFS= read -r args
+        IFS= read -r -t 0.01 args
         set -- "$args"
     fi
 EOF
@@ -379,23 +379,23 @@ util::get_ref_var_name() {
     $write_to_var && out_var="$__name" || echo $__name
 }
 
-util::arg_spread() {
-    local args=()
-    local cmd=$1
-    shift
-    # Allow this command to accept piped in arguments. Example: echo "text" | log::strip_color_codes
-    if (( "$#" == 0 )); then
-        IFS= read -r -a args
-        set -- "$args"
-        log::debug -V "$args"
-        log::debug -V "count: ${#args}"
+# util::arg_spread() {
+#     local args=()
+#     local cmd=$1
+#     shift
+#     # Allow this command to accept piped in arguments. Example: echo "text" | log::strip_color_codes
+#     if (( "$#" == 0 )); then
+#         IFS= read -r -t 0.5 -a args
+#         set -- "$args"
+#         log::debug -V "$args"
+#         log::debug -V "count: ${#args}"
 
 
-        (( "$#" == 0 )) && log::Error "No arguments supplied." && return 1
-    fi
+#         (( "$#" == 0 )) && log::Error "No arguments supplied." && return 1
+#     fi
 
-    $cmd "$@"
-}
+#     $cmd "$@"
+# }
 
 # declare -A map
 # keyvalues_to_map map 'short=a long=alt var=x'
@@ -454,5 +454,64 @@ util::set_map() {
         echo '_map_ref[$key]="$value" = ' "_map_ref[$key]=$value"
         echo "_map_ref[$key]= ${_map_ref[$key]}"
         shift 2
+    done
+}
+
+util::array_sort() {
+    local inplace=false
+    local reverse=false
+    local sort_opts=
+    if [[ $1 =~ ^-[ir] ]]; then
+        [[ $1 =~ i ]] && inplace=true
+        [[ $1 =~ r ]] && reverse=true && sort_opts='-r'
+        shift
+    fi
+
+    local -n _array_ref="$1"
+    local ar=()
+    ar=($(echo "${_array_ref[@]}" | tr " " "\n" | sort $sort_opts | tr "\n" " "))
+
+    if $inplace; then
+        local i=0
+        for item in "${ar[@]}"; do
+            eval "$1[i]=\"$item\""
+            ((i++))
+        done
+    else
+        echo "${ar[@]}"
+    fi
+}
+util::array_length() {
+    local -n _array_ref="$1"
+    echo ${#_array_ref[@]}
+}
+util::array_empty() {
+    local -n _array_ref="$1"
+    [[ ${#_array_ref[@]} -gt 0 ]]
+}
+util::array_to_path() {
+    local -n _array_ref="$1"
+    echo "${_array_ref[*]}" | tr ' ' '.'
+}
+util::array_concat() {
+    local -n _array_ref="$1"
+    echo "${_array_ref[*]}"
+}
+util::array_pop() {
+    local -n __array_ref="$1"
+    [[ ${#__array_ref[@]} -lt 1 ]] || return
+    echo "${__array_ref[-1]}"
+    unset __array_ref[-1]
+}
+util::array_push() {
+    local -n __array_ref="$1"
+    local value="$2"
+    echo "${__array_ref[@]}"
+    [[ ${#__array_ref[@]} -lt 1 ]] || return
+    local ar=("$value" "${__array_ref[@]}")
+    # evar ar
+    local i=0
+    for item in "${ar[@]}"; do
+        __array_ref[$((i++))]="$item"
     done
 }

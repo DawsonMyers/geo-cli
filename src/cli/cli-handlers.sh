@@ -46,7 +46,10 @@ export CURRENT_COMMAND=''
 export CURRENT_SUBCOMMAND=''
 export CURRENT_SUBCOMMANDS=()
 
-PS4=$(echo "line: ${BASH_SOURCE[0]}[$LINENO]: ")
+# The set -x debug line prefix
+#PS4='.'
+export PS4='.${BASH_SOURCE[0]##*/}[$LINENO]: '
+# PS4='.${BASH_SOURCE[0]}[$LINENO]: '
 # PS4=$(log::code "line: $LINENO: ")
 # PS4=$(log::code ${BASH_SOURCE[0]##*/}" $LINENO: 
 
@@ -320,15 +323,15 @@ geo_db_doc() {
     doc_cmd_sub_cmd 'start [option] [name]'
         doc_cmd_sub_cmd_desc 'Starts (creating if necessary) a versioned db container and volume. If no name is provided,
                             the most recent db container name is started.'
-    doc_cmd_sub_options_title
-        doc_cmd_sub_option '-y'
-            doc_cmd_sub_option_desc 'Accept all prompts.'
-        doc_cmd_sub_option '-b'
-            doc_cmd_sub_option_desc 'Skip building MyGeotab when initializing a new db with geotabdemo. This is faster, but you have to make sure the correct version of MyGeotab has already been built'
-        doc_cmd_sub_option '-d <database name>'
-                doc_cmd_sub_option_desc 'Sets the name of the db to be created (only used if initializing it as well).'
-            doc_cmd_sub_option '-v <pg version>'
-                doc_cmd_sub_option_desc 'Sets the Postgres version (e.g. 14) to use when creating the container.'
+        doc_cmd_sub_options_title
+            doc_cmd_sub_option '-y'
+                doc_cmd_sub_option_desc 'Accept all prompts.'
+            doc_cmd_sub_option '-b'
+                doc_cmd_sub_option_desc 'Skip building MyGeotab when initializing a new db with geotabdemo. This is faster, but you have to make sure the correct version of MyGeotab has already been built'
+            doc_cmd_sub_option '-d <database name>'
+                    doc_cmd_sub_option_desc 'Sets the name of the db to be created (only used if initializing it as well).'
+                doc_cmd_sub_option '-v <pg version>'
+                    doc_cmd_sub_option_desc 'Sets the Postgres version (e.g. 14) to use when creating the container.'
 
     doc_cmd_sub_cmd 'cp <source_db> <destination_db>'
         doc_cmd_sub_cmd_desc 'Makes a copy of an existing database container.'
@@ -4741,7 +4744,7 @@ geo_help_doc() {
     doc_cmd_desc 'Prints out help for all commands.'
 }
 geo_help() {
-    for cmd in "${COMMANDS[@]}"; do
+    for cmd in $(util::array_sort COMMANDS); do
         "geo_${cmd}_doc"
     done
 }
