@@ -1230,5 +1230,19 @@ For issues while running `geo db start <version>`, try the following (to make th
    * If you're trying to create a db using `geo db start <version>` and encounter a DbUnavilable exception, try running `geo db init`.
 
 3. **Unable to find image 'geo_cli_db_postgres:latest' locally**
-    * This error can happen when creating a db with `geo db start NAME`. This message indicates that `geo` cannot find the base Postgres image that it uses to create db containers. Fix this by running `geo image create`, followed by the same `geo db start NAME` command again. You may want to run `geo db rm NAME` first to remove anything that was created during the earlier failed attempt.
+    * This error can happen when creating a db with `geo db start NAME`. This message indicates that `geo` cannot find the base Postgres image that it uses to create db containers. Fix this by running `geo image create`, followed by the same `geo db start <DB_NAME>` command again. You may want to run `geo db rm NAME` first to remove anything that was created during the earlier failed attempt.
+
+4. **The MYG version of newly created databases doesn't match the version of the MYG repo branch used to initialize it**
+    * Possible causes and solutions:
+      > Make sure to remove any databases that were created with the incorrect version using `geo db rm some_db some_other_db...`
+      * You are using `git worktree` (or have multiple copies of the MYG repo)and haven't re-initialize `geo` to use that location as the MyGeotab repo. Fix:
+        * `cd` into whichever MYG repo/worktree you are currently using: `cd ~/path/to/current/worktree`
+        * Tell `geo` to use this location as the MYG repo directory: `geo init repo`
+        * Re-create the `geo` database: `geo db start <DB_NAME>`
+      * There is some kind of caching/state issue
+        * Run `geo myg clean`
+        * Restore NuGet
+        * Build MyGeotab.Core
+        * Re-create the `geo` database: `geo db start <DB_NAME>`
+      * If the issue persists, restart you computer and then repeat the steps from the previous point
 
