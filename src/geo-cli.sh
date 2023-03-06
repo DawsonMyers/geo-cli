@@ -81,7 +81,7 @@ function geo()
 #     trap 'set +x;' RETURN
 
     # Log call.
-    [[ $(geo_get LOG_HISTORY) == true ]] && echo "[$(date +"%Y-%m-%d_%H:%M:%S")] geo $*" >> ~/.geo-cli/history.txt
+    [[ $(geo-get LOG_HISTORY) == true ]] && echo "[$(date +"%Y-%m-%d_%H:%M:%S")] geo $*" >> ~/.geo-cli/history.txt
 
     while [[ $# -gt 0 && $1 == --raw-output || $1 == --no-update-check ]]; do
         case "$1" in

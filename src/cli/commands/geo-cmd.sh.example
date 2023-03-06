@@ -60,12 +60,12 @@
 # 
 # The three parts above have the following structure:
 #   COMMAND+=('command')
-#   geo_command_doc() {...}
-#   geo_command() {...}
+#   geo-command_doc() {...}
+#   geo-command() {...}
 # Example for the definition of 'geo db' command:
 #   COMMAND+=('db')
-#   geo_db_doc() {...}
-#   geo_db() {...}
+#   geo-db_doc() {...}
+#   geo-db() {...}
 #
 ## Start off a new command definition by making a copy of the template above and fill in your own logic. 
 # Some example documentation functions are also included in the template. They take care of formatting/colouring the
@@ -74,7 +74,7 @@
 # Template:
 #######################################################################################################################
 # COMMANDS+=('command')
-# geo_command_doc() {
+# geo-command_doc() {
 #   doc_cmd 'command'
 #       doc_cmd_desc 'Commands description.'
 #       
@@ -92,7 +92,7 @@
 #           doc_cmd_example 'geo db start 11.0'
 #           doc_cmd_example 'geo db start -y 11.0'
 # }
-# geo_command() {
+# geo-command() {
 #
 # }
 #######################################################################################################################

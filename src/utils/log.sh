@@ -383,7 +383,7 @@ log::stacktrace() {
     local start=1
     [[ $1 =~ ^- ]] && start=${1:1}
     # debug "start $start"
-    local debug_log=$(geo_get DEBUG_LOG)
+    local debug_log=$(geo-get DEBUG_LOG)
     if [[ $debug_log == true ]]; then
         # debug "_stacktrace: ${FUNCNAME[@]}"
         local stacktrace="${FUNCNAME[@]:start}"

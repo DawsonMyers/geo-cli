@@ -47,7 +47,7 @@ export GEO_CLI_COMMAND_DIR="$GEO_CLI_SRC_DIR/cli/commands"
 export GEO_CLI_USER_COMMAND_DIR="$HOME/.geo-cli/data/commands"
 
 COMMANDS+=('cmd')
-geo_cmd_doc() {
+geo-cmd_doc() {
   doc_cmd 'cmd'
       doc_cmd_desc "Commands for creating and updating custom geo-cli commands (i.e., 'geo <command_name>'). These commands are stored in files and automatically loaded into geo-cli (by cli-handlers.sh). You can either create a geo command for local use only OR you can have the command file added to the geo-cli repo. Add the command to the repo if you want to submit an MR for it to make it available for all geo-cli users."
       
@@ -75,7 +75,7 @@ geo_cmd_doc() {
           doc_cmd_example 'geo cmd rm ping'
           doc_cmd_example 'geo cmd ls'
 }
-geo_cmd() {    
+geo-cmd() {
     # local OPTIND
     # while getopts "v:" opt; do
     #     case "${opt}" in

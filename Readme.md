@@ -608,7 +608,7 @@ geo_manualprocess() {
 
 The code above could actually be reduced even more to look like this:
 ```bash
-geo_manualprocess() {
+geo-manualprocess() {
     if python3 geo_manualprocess.py "$@"; then
       log::success "Done"
     else

@@ -21,13 +21,13 @@ echo -n "$GEO_CLI_DIR" > "$GEO_CLI_CONFIG_DIR/data/geo/repo-dir"
 # This file contains environment vars for geo cli.
 [ ! -f "$GEO_CLI_CONFIG_DIR/.geo.conf" ] && cp "$GEO_CLI_SRC_DIR/config/.geo.conf" "$GEO_CLI_CONFIG_DIR"
 export GEO_CLI_VERSION=$(cat $GEO_CLI_DIR/version.txt)
-previously_installed_version=$(geo_get GEO_CLI_VERSION)
-geo_set GEO_CLI_DIR "$GEO_CLI_DIR"
-geo_set GEO_CLI_SRC_DIR "$GEO_CLI_SRC_DIR"
-geo_set GEO_CLI_CONFIG_DIR "$GEO_CLI_CONFIG_DIR"
-geo_set GEO_CLI_CONF_FILE "$GEO_CLI_CONF_FILE"
-geo_set GEO_CLI_VERSION "$GEO_CLI_VERSION"
-geo_set OUTDATED false
+previously_installed_version=$(geo-get GEO_CLI_VERSION)
+geo-set GEO_CLI_DIR "$GEO_CLI_DIR"
+geo-set GEO_CLI_SRC_DIR "$GEO_CLI_SRC_DIR"
+geo-set GEO_CLI_CONFIG_DIR "$GEO_CLI_CONFIG_DIR"
+geo-set GEO_CLI_CONF_FILE "$GEO_CLI_CONF_FILE"
+geo-set GEO_CLI_VERSION "$GEO_CLI_VERSION"
+geo-set OUTDATED false
 
 # The prev_commit is the commit hash that was stored last time geo-cli was updated. cur_commit is the commit hash of
 # this version of geo-cli. The commit messages between theses two hashes are shown to the user to show what's new in
@@ -36,7 +36,7 @@ prev_commit=$1
 cur_commit=$2
 
 # Check if the current branch is a feature branch.
-if [[ $(geo_get FEATURE) == true ]]; then
+if [[ $(geo-get FEATURE) == true ]]; then
     if _geo_check_if_feature_branch_merged; then
         cur_commit=$(git rev-parse HEAD)
         geo_rm FEATURE
@@ -45,8 +45,8 @@ if [[ $(geo_get FEATURE) == true ]]; then
         bash "$GEO_CLI_DIR/install.sh" $prev_commit $cur_commit
         exit
     fi
-    GEO_CLI_VERSION=$(geo_get FEATURE_VER_REMOTE)
-    previously_installed_version=$(geo_get FEATURE_VER_LOCAL)
+    GEO_CLI_VERSION=$(geo-get FEATURE_VER_REMOTE)
+    previously_installed_version=$(geo-get FEATURE_VER_LOCAL)
     [[ -z $GEO_CLI_VERSION ]] && GEO_CLI_VERSION=$previously_installed_version
 fi
 
@@ -101,11 +101,11 @@ if [[ -n $prev_commit && -n $cur_commit ]]; then
 fi
 
 # Enable notification if the SHOW_NOTIFICATIONS setting doesn't exist in the config file.
-show_notifications=$(geo_get SHOW_NOTIFICATIONS)
-[[ -z $show_notifications ]] && geo_set SHOW_NOTIFICATIONS true
+show_notifications=$(geo-get SHOW_NOTIFICATIONS)
+[[ -z $show_notifications ]] && geo-set SHOW_NOTIFICATIONS true
 
 # Reset update notification.
-geo_set UPDATE_NOTIFICATION_SENT false
+geo-set UPDATE_NOTIFICATION_SENT false
 
 # Generate geo autocompletions.
 geo_generate_autocompletions
@@ -165,9 +165,9 @@ python3 -m pip install setproctitle &> /dev/null
 
 # # Set up update cron job.
 # if type crontab > /dev/null; then
-#     check_for_updates_with_cron_job=$(geo_get CHECK_FOR_UPDATES_WITH_CRON_JOB)
+#     check_for_updates_with_cron_job=$(geo-get CHECK_FOR_UPDATES_WITH_CRON_JOB)
 #     # Add the CHECK_FOR_UPDATES_WITH_CRON_JOB setting if it doesn't exist; enabling it by default.
-#     [[ -z $check_for_updates_with_cron_job ]] && geo_set CHECK_FOR_UPDATES_WITH_CRON_JOB true && check_for_updates_with_cron_job=true
+#     [[ -z $check_for_updates_with_cron_job ]] && geo-set CHECK_FOR_UPDATES_WITH_CRON_JOB true && check_for_updates_with_cron_job=true
 #     cron_function=_geo_check_for_updates
 #     # Run the _geo_check_for_updates function every weekday at 9am.
 #     cronjob="0 9 * * 1-5 $cron_function"

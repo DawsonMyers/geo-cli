@@ -3,8 +3,8 @@
     && echo "ERROR: geo:cli-handers.sh: Not sourced into a BASH shell! This file MUST be sourced, not executed (i.e. 'source cli-handlers.sh' vs. '[bash|sh|zsh|fish] cli-handlers.sh)' into a BASH shell environtment by the main geo-cli file (geo-cli.sh) ONLY. geo-cli won't work properly in other shell environments." && exit 1
 
 # This file contains all geo-cli command logic.
-# All geo-cli commands will have at least 2 functions defined that follow the following format: geo_<command_name> and
-# geo_<command_name>_doc (e.g. geo db has functions called geo_db and geo_db_doc). These functions are called from src/geo-cli.sh.
+# All geo-cli commands will have at least 2 functions defined that follow the following format: geo-<command_name> and
+# geo-<command_name>_doc (e.g. geo db has functions called geo_db and geo_db_doc). These functions are called from src/geo-cli.sh.
 
 # Gets the absolute path of the root geo-cli directory.
 [[ -z $GEO_CLI_DIR ]] && export GEO_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
@@ -82,12 +82,12 @@ export PS4='.${BASH_SOURCE[0]##*/}[$LINENO]: '
 #
 # The three parts above have the following structure:
 #   COMMAND+=('command')
-#   geo_command_doc() {...}
-#   geo_command() {...}
+#   geo-command_doc() {...}
+#   geo-command() {...}
 # Example for the definition of 'geo db' command:
 #   COMMAND+=('db')
-#   geo_db_doc() {...}
-#   geo_db() {...}
+#   geo-db_doc() {...}
+#   geo-db() {...}
 #
 ## Start off a new command definition by making a copy of the template above and fill in your own logic.
 # Some example documentation functions are also included in the template. They take care of formatting/colouring the
@@ -96,7 +96,7 @@ export PS4='.${BASH_SOURCE[0]##*/}[$LINENO]: '
 # Template:
 #######################################################################################################################
 # COMMANDS+=('command')
-# geo_command_doc() {
+# geo-command_doc() {
 #   doc_cmd 'command'
 #       doc_cmd_desc 'Commands description.'
 #
@@ -114,7 +114,7 @@ export PS4='.${BASH_SOURCE[0]##*/}[$LINENO]: '
 #           doc_cmd_example 'geo db start 11.0'
 #           doc_cmd_example 'geo db start -y 11.0'
 # }
-# geo_command() {
+# geo-command() {
 #
 # }
 #######################################################################################################################
@@ -183,7 +183,7 @@ _geo_check_db_image_pg_version() {
 
 #######################################################################################################################
 COMMANDS+=('image')
-geo_image_doc() {
+geo-image_doc() {
     doc_cmd 'image'
     doc_cmd_desc 'Commands for working with db images.'
     doc_cmd_sub_cmds_title
@@ -196,7 +196,7 @@ geo_image_doc() {
         doc_cmd_examples_title
     doc_cmd_example 'geo image create'
 }
-geo_image() {
+geo-image() {
     local cmd=$1
     local pg_version=
 
@@ -252,7 +252,7 @@ geo_image() {
         shift $((OPTIND - 1))
 
         log::status 'Building image...'
-        local repo_dir="$(geo_get DEV_REPO_DIR)"
+        local repo_dir="$(geo-get DEV_REPO_DIR)"
         local docker_pg_dir="${repo_dir}/Checkmate/Docker/postgres"
         local dockerfile="Debug.Dockerfile"
 
@@ -301,7 +301,7 @@ geo_image() {
 
 #######################################################################################################################
 COMMANDS+=('db')
-geo_db_doc() {
+geo-db_doc() {
     doc_cmd 'db'
     doc_cmd_desc 'Database commands.'
 
@@ -412,7 +412,7 @@ geo_db_doc() {
         doc_cmd_example 'geo db psql -u mySqlUser -p mySqlPassword -d dbName'
         doc_cmd_example 'geo db psql -q "SELECT * FROM deviceshare LIMIT 10"'
 }
-geo_db() {
+geo-db() {
     # Check to make sure that the current user is added to the docker group. All subcommands in this command need to use docker.
     if ! _geo_check_docker_permissions; then
         return 1
@@ -587,7 +587,7 @@ _geo_db_create() {
 
     # if $build; then
     #     log::status -b 'Building MyGeotab'
-    #     local dev_repo=$(geo_get DEV_REPO_DIR)
+    #     local dev_repo=$(geo-get DEV_REPO_DIR)
     #     myg_core_proj="$dev_repo/Checkmate/MyGeotab.Core.csproj"
     #     [[ ! -f $myg_core_proj ]] && Error "Build failed. Cannot find csproj file at: $myg_core_proj" && return 1;
     #     if ! dotnet build "${myg_core_proj}"; then
@@ -751,7 +751,7 @@ _geo_copy_pgAdmin_server_config() {
 }
 
 _geo_show_repo_dir_reminder() {
-     local dev_repo=$(geo_get DEV_REPO_DIR)
+     local dev_repo=$(geo-get DEV_REPO_DIR)
     if [[ -n $dev_repo ]]; then
         log::info -f "Using the following path as the MyGeotab repo root. If this path needs to be updated, run $(txt_underline geo init repo) and select the correct location. Current MyGeotab repo path:"
         log::link "  $dev_repo"
@@ -840,7 +840,7 @@ _geo_db_start() {
     db_version=$(_geo_make_alphanumeric "$db_version")
 
     if [[ -z $db_version ]]; then
-        db_version=$(geo_get LAST_DB_VERSION)
+        db_version=$(geo-get LAST_DB_VERSION)
         if [[ -z $db_version ]]; then
             log::Error "No database version provided."
             return 1
@@ -864,7 +864,7 @@ _geo_db_start() {
         _geo_check_db_image_pg_version
     fi
 
-    geo_set LAST_DB_VERSION "$db_version"
+    geo-set LAST_DB_VERSION "$db_version"
 
     # VOL_NAME="geo_cli_db_${db_version}"
     local container_name=$(_geo_container_name "$db_version")
@@ -920,7 +920,7 @@ _geo_db_start() {
 
     if _geo_get_container_id -v container_id "$container_name"; then
         log::status -b "Starting existing container:"
-        [[ -z $db_version ]] && db_version=$(geo_get LAST_DB_VERSION)
+        [[ -z $db_version ]] && db_version=$(geo-get LAST_DB_VERSION)
         [[ -n $db_version ]] && log::keyvalue "Name" "$db_version"
         log::keyvalue "Docker name" "$container_name"
         # log::status -n "  Name: " && log::data "$db_version"
@@ -953,14 +953,14 @@ _geo_db_start() {
         fi
 
         #  Restore db user password in server.config
-        local db_user_password=$(geo_get "${container_name}_db_user_password")
+        local db_user_password=$(geo-get "${container_name}_db_user_password")
         if _geo_terminal_cmd_exists xmlstarlet && [[ -n $db_user_password && -f "$HOME/GEOTAB/Checkmate/server.config" ]]; then
             xmlstarlet ed --inplace -u "//LoginSettings/Password" -v "$db_user_password" "$HOME/GEOTAB/Checkmate/server.config"
         fi
 
     else
         # db_version was getting overwritten somehow, so get its value from the config file.
-        db_version=$(geo_get LAST_DB_VERSION)
+        db_version=$(geo-get LAST_DB_VERSION)
         # db_version="$1"
         # db_version=$(_geo_make_alphanumeric "$db_version")
 
@@ -1096,8 +1096,8 @@ _geo_db_copy() {
 }
 
 _geo_db_psql() {
-    local sql_user=$(geo_get SQL_USER)
-    local sql_password=$(geo_get SQL_PASSWORD)
+    local sql_user=$(geo-get SQL_USER)
+    local sql_password=$(geo-get SQL_PASSWORD)
     local db_name=geotabdemo
     local query=
     local docker_options='-it'
@@ -1344,7 +1344,7 @@ _geo_get_pg_version_from_docker_object() {
 
 _geo_get_pg_version_from_dockerfile() {
   [[ $1 == -v ]] && local -n var=$2 && shift 2
-    local repo_dir=$(geo_get DEV_REPO_DIR) 2> /dev/null
+    local repo_dir=$(geo-get DEV_REPO_DIR) 2> /dev/null
     local dockerfile_dir="${repo_dir}/Checkmate/Docker/postgres"
     local dockerfile="$dockerfile_dir/Debug.Dockerfile"
 
@@ -1699,7 +1699,7 @@ function geo_db_init() {
 
     # log::status 'A db can be initialized with geotabdemo or with a custom db name (just creates an empty database with provided name).'
     # if ! [ $accept_defaults ] && ! prompt_continue 'Would you like to initialize the db with geotabdemo? (Y|n): '; then
-    #     stored_name=`geo_get PREV_DB_NAME`
+    #     stored_name=`geo-get PREV_DB_NAME`
     #     prompt_txt='Enter the name of the db you would like to create: '
     #     if [[ -n $stored_name ]]; then
     #         log::data "Stored db name: $stored_name"
@@ -1719,7 +1719,7 @@ function geo_db_init() {
     #         done
     #         db_name="$prompt_return"
     #     fi
-    #     geo_set PREV_DB_NAME "$db_name"
+    #     geo-set PREV_DB_NAME "$db_name"
     # fi
 
     if [[ -z $db_name ]]; then
@@ -1728,10 +1728,10 @@ function geo_db_init() {
     fi
 
     log::status -b "Initializing db $db_name\n"
-    local user=$(geo_get DB_USER)
-    local password=$(geo_get DB_PASSWORD)
-    local sql_user=$(geo_get SQL_USER)
-    local sql_password=$(geo_get SQL_PASSWORD)
+    local user=$(geo-get DB_USER)
+    local password=$(geo-get DB_PASSWORD)
+    local sql_user=$(geo-get SQL_USER)
+    local sql_password=$(geo-get SQL_PASSWORD)
     local answer=''
 
     # Assign default values for sql user/passord.
@@ -1751,22 +1751,22 @@ function geo_db_init() {
 
     get_user() {
         prompt_for_info_n -v user "Enter MyGeotab admin username (your email): "
-        geo_set DB_USER "$user"
+        geo-set DB_USER "$user"
     }
 
     get_password() {
         prompt_for_info_n -v password "Enter MyGeotab admin password: "
-        geo_set DB_PASSWORD "$password"
+        geo-set DB_PASSWORD "$password"
     }
 
     get_sql_user() {
         prompt_for_info_n -v sql_user "Enter db admin username: "
-        geo_set SQL_USER "$sql_user"
+        geo-set SQL_USER "$sql_user"
     }
 
     get_sql_password() {
         prompt_for_info_n -v sql_password "Enter db admin password: "
-        geo_set SQL_PASSWORD "$sql_password"
+        geo-set SQL_PASSWORD "$sql_password"
     }
 
     if ! $accept_defaults; then
@@ -1826,7 +1826,7 @@ function geo_db_init() {
     #     fi
     # done
 
-    local dev_repo=$(geo_get DEV_REPO_DIR)
+    local dev_repo=$(geo-get DEV_REPO_DIR)
     local myg_core_proj="$dev_repo/Checkmate/MyGeotab.Core.csproj"
     log::debug "dotnet build --project=$myg_core_proj"
     dotnet build --project=$myg_core_proj
@@ -1846,13 +1846,13 @@ function geo_db_init() {
     if dotnet run $opts --project "$myg_core_proj" -- CreateDatabase postgres companyName="$db_name" administratorUser="$user" administratorPassword="$password" sqluser="$sql_user" sqlpassword="$sql_password" useMasterLogin='true'; then
     # if dotnet "${path}" CreateDatabase postgres companyName="$db_name" administratorUser="$user" administratorPassword="$password" sqluser="$sql_user" sqlpassword="$sql_password" useMasterLogin='true'; then
         local container_name=$(_geo_get_running_container_name)
-        geo_set "${container_name}_username" "$user"
-        geo_set "${container_name}_password" "$password"
-        geo_set "${container_name}_database" "$db_name"
+        geo-set "${container_name}_username" "$user"
+        geo-set "${container_name}_password" "$password"
+        geo-set "${container_name}_database" "$db_name"
 
         if _geo_terminal_cmd_exists xmlstarlet; then
             local db_user_password=$(xmlstarlet sel -t -v //LoginSettings/Password "$HOME/GEOTAB/Checkmate/server.config")
-            [[ -n $db_user_password ]] && geo_set "${container_name}_db_user_password" "$db_user_password"
+            [[ -n $db_user_password ]] && geo-set "${container_name}_db_user_password" "$db_user_password"
         fi
 
         log::success "$db_name initialized"
@@ -1890,7 +1890,7 @@ function geo_db_init() {
     fi
 }
 
-geo_db_rm() {
+geo-db_rm() {
     if [[ $1 =~ ^-*a(ll)?$ ]]; then
         shift
         local search_str="$1"
@@ -1980,7 +1980,7 @@ geo_db_rm() {
 }
 
 _geo_get_checkmate_dll_path() {
-    local dev_repo=$(geo_get DEV_REPO_DIR)
+    local dev_repo=$(geo-get DEV_REPO_DIR)
     local output_dir="${dev_repo}/Checkmate/bin/Debug"
     local accept_defaults=$1
     # Get full path of CheckmateServer.dll files, sorted from newest to oldest.
@@ -2025,7 +2025,7 @@ _geo_get_checkmate_dll_path() {
 }
 
 _geo_check_for_dev_repo_dir() {
-    local dev_repo=$(geo_get DEV_REPO_DIR)
+    local dev_repo=$(geo-get DEV_REPO_DIR)
 
     is_valid_repo_dir() {
         test -d "${1}/Checkmate"
@@ -2063,7 +2063,7 @@ _geo_check_for_dev_repo_dir() {
     [[ "$dev_repo" == -- ]] && return
 
     log::success "Checkmate directory found"
-    geo_set DEV_REPO_DIR "$dev_repo"
+    geo-set DEV_REPO_DIR "$dev_repo"
 }
 
 populate_prev_value_if_requested() {
@@ -2071,18 +2071,18 @@ populate_prev_value_if_requested() {
     local -n value_ref="$2"
     [[ -z $value_ref ]] && return
     if [[ $value_ref == - ]]; then
-        local saved_value=$(geo_get $key)
+        local saved_value=$(geo-get $key)
         [[ -z $saved_value ]] && log::Error "There is no value saved for key '$key'" && return 1
         value_ref="$saved_value"
         log::data "Using saved value: $(log::detail $value_ref)"
         return
     fi
-    geo_set $key "$value_ref"
+    geo-set $key "$value_ref"
 }
 
 #######################################################################################################################
 COMMANDS+=('ar')
-geo_ar_doc() {
+geo-ar_doc() {
     doc_cmd 'ar'
     doc_cmd_desc 'Helpers for working with access requests.'
     doc_cmd_sub_cmds_title
@@ -2126,7 +2126,7 @@ geo_ar_doc() {
         doc_cmd_example 'geo ar ssh -u dawsonmyers'
         doc_cmd_example 'geo ar ssh -u dawsonmyers -p 12345'
 }
-geo_ar() {
+geo-ar() {
     # ssh -L 127.0.0.1:5433:localhost:5432 -N <username>@127.0.0.1 -p <port from IAP>
     show_iap_password_prompt_message() {
         log::status -bu "Binding local port ${bind_port:-5432} to 5432 on remote host (through IAP tunnel)"
@@ -2239,7 +2239,7 @@ geo_ar() {
                     fi
                 fi
 
-                [[ -z $gcloud_cmd ]] && gcloud_cmd="$(geo_get AR_IAP_CMD)"
+                [[ -z $gcloud_cmd ]] && gcloud_cmd="$(geo-get AR_IAP_CMD)"
                 [[ -z $gcloud_cmd ]] && log::Error 'The gcloud compute start-iap-tunnel command (copied from MyAdmin for your access request) is required.' && return 1
 
                 while [[ ! $gcloud_cmd =~ ^$expected_cmd_start ]]; do
@@ -2248,7 +2248,7 @@ geo_ar() {
                     populate_prev_value_if_requested AR_IAP_CMD gcloud_cmd
                 done
 
-                geo_set AR_IAP_CMD "$gcloud_cmd"
+                geo-set AR_IAP_CMD "$gcloud_cmd"
                 _geo_ar_push_cmd "$gcloud_cmd"
                 local open_port=
                 if [[ -n $port ]]; then
@@ -2273,7 +2273,7 @@ geo_ar() {
                 if [[ -n $open_port ]]; then
                     local port_arg='--local-host-port=localhost:'$open_port
 
-                    geo_set AR_PORT "$open_port"
+                    geo-set AR_PORT "$open_port"
                     log::info "Using port: '$open_port' to open IAP tunnel"
                     log::info "Note: the port is saved and will be used when you call '$(log::txt_italic geo ar ssh)'"
                     echo
@@ -2282,7 +2282,7 @@ geo_ar() {
                     echo
                 fi
 
-                local geo_config_dir="$(geo_get CONFIG_DIR)"
+                local geo_config_dir="$(geo-get CONFIG_DIR)"
                 local geo_tmp_ar_dir="$geo_config_dir/tmp/ar"
                 [[ ! -d $geo_tmp_ar_dir ]] && mkdir -p "$geo_tmp_ar_dir"
                 local ar_request_name="${gcloud_cmd#gcloud compute start-iap-tunnel }"
@@ -2333,7 +2333,7 @@ geo_ar() {
                             fi
                         done
                         [[ -z $open_port ]] && log::Error 'Open port could not be found' && return 1
-                        geo_set AR_PORT "$open_port"
+                        geo-set AR_PORT "$open_port"
                         log::info "Using port: '$open_port' to open IAP tunnel"
                         log::info "Note: the port is saved and will be used when you call '$(log::txt_italic geo ar ssh)'"
                         echo
@@ -2386,9 +2386,9 @@ geo_ar() {
             ;;
         ssh)
             shift
-            local user=$(geo_get AR_USER)
+            local user=$(geo-get AR_USER)
             [[ -z $user ]] && user="$USER"
-            local port=$(geo_get AR_PORT)
+            local port=$(geo-get AR_PORT)
             local bind_port=5433
             local option_count=0
             local save='true'
@@ -2435,8 +2435,8 @@ geo_ar() {
             echo
 
             if [[ $save == true ]]; then
-                geo_set AR_USER "$user"
-                geo_set AR_PORT "$port"
+                geo-set AR_USER "$user"
+                geo-set AR_PORT "$port"
             fi
 
             local bind_cmd="ssh -L 127.0.0.1:$bind_port:localhost:5432 -N $user@127.0.0.1 -p $port"
@@ -2561,11 +2561,11 @@ run_command_with_lock_file() {
 _geo_ar_push_cmd() {
     local cmd="$1"
     [[ -z $cmd ]] && return 1
-    local prev_commands="$(geo_get AR_IAP_CMDS)"
+    local prev_commands="$(geo-get AR_IAP_CMDS)"
 
     if [[ -z $prev_commands ]]; then
         # log::debug "_geo_ar_push_cmd[$LINENO]: cmds was empty"
-        geo_set AR_IAP_CMDS "$cmd"
+        geo-set AR_IAP_CMDS "$cmd"
         return
     fi
     # Remove duplicates if cmd is already stored.
@@ -2588,8 +2588,8 @@ _geo_ar_push_cmd() {
         # Remove the oldest command, keeping only 5.
         prev_commands=$(echo $prev_commands | awk -F '@' '{ print $1"@"$2"@"$3"@"$4"@"$5 }')
     fi
-#    log::debug geo_set AR_IAP_CMDS "_geo_ar_push_cmd: setting cmds to: $prev_commands"
-    geo_set AR_IAP_CMDS "$prev_commands"
+#    log::debug geo-set AR_IAP_CMDS "_geo_ar_push_cmd: setting cmds to: $prev_commands"
+    geo-set AR_IAP_CMDS "$prev_commands"
 }
 
 _geo_ar_get_cmd_tags() {
@@ -2605,7 +2605,7 @@ _geo_ar_get_cmd() {
     local cmd_number="$1"
     [[ -z $cmd_number || $cmd_number -gt 5 || $cmd_number -lt 0 ]] && log::Error "Invalid command number. Expected a value between 0 and 5." && return 1
 
-    local cmds=$(geo_get AR_IAP_CMDS)
+    local cmds=$(geo-get AR_IAP_CMDS)
     if [[ -z $cmds ]]; then
         return
     fi
@@ -2614,7 +2614,7 @@ _geo_ar_get_cmd() {
 }
 
 _geo_ar_get_cmd_count() {
-    local cmds=$(geo_get AR_IAP_CMDS)
+    local cmds=$(geo-get AR_IAP_CMDS)
     # Get the count of how many commands there are.
     local count=$(echo $cmds | awk -F '@' '{ print NF }')
     echo $count
@@ -2622,13 +2622,13 @@ _geo_ar_get_cmd_count() {
 
 #######################################################################################################################
 COMMANDS+=('stop')
-geo_stop_doc() {
+geo-stop_doc() {
     doc_cmd 'stop'
     doc_cmd_desc 'Stops all geo-cli containers.'
     doc_cmd_examples_title
     doc_cmd_example 'geo stop'
 }
-geo_stop() {
+geo-stop() {
     geo_db stop "$1"
 }
 
@@ -2638,7 +2638,7 @@ geo_is_valid_repo_dir() {
 
 #######################################################################################################################
 COMMANDS+=('init')
-geo_init_doc() {
+geo-init_doc() {
     doc_cmd 'init'
     doc_cmd_desc 'Initialize repo directory.'
 
@@ -2667,7 +2667,7 @@ geo_init_doc() {
         doc_cmd_example 'geo init npm'
         doc_cmd_example 'geo init git-hook'
 }
-geo_init() {
+geo-init() {
     if [[ "$1" == '--' ]]; then shift; fi
 
     case $1 in
@@ -2681,7 +2681,7 @@ geo_init() {
             _geo_init_repo_find_myg_repo -v repo_dir
             [[ -z $repo_dir ]] && log::log::Error "Faild to locate the MyGeotab repo directory." && return 1
         fi
-        local current_repo_dir=$(geo_get DEV_REPO_DIR)
+        local current_repo_dir=$(geo-get DEV_REPO_DIR)
         if [[ -n $current_repo_dir ]]; then
             log::info -b "The current Development repo directory is:"
             log::info "    $current_repo_dir"
@@ -2689,7 +2689,7 @@ geo_init() {
                 return
             fi
         fi
-        geo_set DEV_REPO_DIR "$repo_dir"
+        geo-set DEV_REPO_DIR "$repo_dir"
         log::status "MyGeotab base repo (Development) path set to:"
         log::link "    $repo_dir"
         ;;
@@ -2707,7 +2707,7 @@ geo_init() {
         (
             local fail_count=0
 
-            local current_repo_dir=$(geo_get DEV_REPO_DIR)
+            local current_repo_dir=$(geo-get DEV_REPO_DIR)
             [[ -z $current_repo_dir ]] && log::Error "MyGeotab repo directory not set." && return 1
 
             cd $current_repo_dir/Checkmate/CheckmateServer/src/wwwroot
@@ -2752,7 +2752,7 @@ geo_init() {
 }
 
 _geo_init_auto_switch() {
-    local dev_repo_dir=$(geo_get DEV_REPO_DIR)
+    local dev_repo_dir=$(geo-get DEV_REPO_DIR)
     (
         cd "$dev_repo_dir"
         local myg_branches="$(git branch -r | sed 's/  //g' | grep --color=never -P '^origin/(release/\d+\.0|main)$')"
@@ -2850,8 +2850,8 @@ _geo_init_repo_find_myg_repo() {
 
 _geo_init_git_hook() {
     _geo_check_for_dev_repo_dir
-    local dev_repo=$(geo_get DEV_REPO_DIR)
-    local geo_src_dir=$(geo_get SRC_DIR)
+    local dev_repo=$(geo-get DEV_REPO_DIR)
+    local geo_src_dir=$(geo-get SRC_DIR)
     # cd "$dev_repo"
     if [[ ! -d $dev_repo/.git/hooks ]]; then
         log::Error ".git/hooks directory doesn't exist in Development repo directory."
@@ -2873,7 +2873,7 @@ _geo_init_git_hook() {
 
 }
 
-geo_init_pat() {
+geo-init_pat() {
     mkdir -p "$GEO_CLI_CONFIG_DIR/env"
     local pat_env_file_path="$GEO_CLI_CONFIG_DIR/env/gitlab-pat.sh"
 
@@ -2969,18 +2969,18 @@ _is_pat_valid() {
 
 #######################################################################################################################
 # COMMANDS+=('start')
-# geo_start_doc() {
+# geo-start_doc() {
 #     doc_cmd 'start <service>'
 #     doc_cmd_desc 'Start individual service.'
 #     doc_cmd_examples_title
 #     doc_cmd_example 'geo start web'
 # }
-# geo_start() {
+# geo-start() {
 #     exit_if_repo_dir_uninit
 #     if [ -n "${SERVICES_DICT[$1]}" ]; then
 #         if [[ $1 = 'runner' ]]; then
 #             # pm2-runtime start $GEO_REPO_DIR/runner/.geo-cli/ecosystem.config.js
-#             geo_runner start
+#             geo-runner start
 #         else
 #             cd $GEO_REPO_DIR/env/full
 #             dc_geo start $1
@@ -2992,12 +2992,12 @@ _is_pat_valid() {
 
 # #######################################################################################################################
 # COMMANDS+=('stop')
-# geo_stop_doc() {
+# geo-stop_doc() {
 #     doc_cmd 'stop <service>'
 #     doc_cmd_examples_title
 #     doc_cmd_example 'geo stop web'
 # }
-# geo_stop() {
+# geo-stop() {
 #     exit_if_repo_dir_uninit
 #     if [ -z $1 ]; then
 #         dc_geo stop
@@ -3017,27 +3017,27 @@ _is_pat_valid() {
 
 #######################################################################################################################
 # COMMANDS+=('restart')
-# geo_restart_doc() {
+# geo-restart_doc() {
 #     doc_cmd 'restart [service]'
 #     doc_cmd_desc 'Restart container [service] or the entire system if no service is provided.'
 #     doc_cmd_examples_title
 #     doc_cmd_example 'geo restart web'
 #     doc_cmd_example 'geo restart'
 # }
-# geo_restart() {
+# geo-restart() {
 #     exit_if_repo_dir_uninit
 #     if [ -z $1 ]; then
 #         # geo_down
-#         geo_stop
-#         geo_up
-#         geo_runner restart
+#         geo-stop
+#         geo-up
+#         geo-runner restart
 #         return
 #     fi
 
 #     if [ -n "${SERVICES_DICT[$1]}" ]; then
 #         if [[ $1 = 'runner' ]]; then
 #             # pm2 restart runner
-#             geo_runner restart
+#             geo-runner restart
 #         else
 #             cd $GEO_REPO_DIR/env/full
 #             dc_geo restart "$1"
@@ -3049,7 +3049,7 @@ _is_pat_valid() {
 
 #######################################################################################################################
 COMMANDS+=('env')
-geo_env_doc() {
+geo-env_doc() {
     doc_cmd 'env <cmd> [arg1] [arg2]'
     doc_cmd_desc 'Get, set, or list geo environment variable.'
 
@@ -3071,7 +3071,7 @@ geo_env_doc() {
     doc_cmd_example 'geo env set DEV_REPO_DIR /home/username/repos/Development'
     doc_cmd_example 'geo env ls'
 }
-geo_env() {
+geo-env() {
     # Check if there is any arguments.
     if [[ -z $1 ]]; then
         geo_env_doc
@@ -3084,12 +3084,12 @@ geo_env() {
         local key="$2"
         # Get the new value by concatenating the rest of the args together.
         local value="${@:3}"
-        geo_set -s "$key" "$value"
+        geo-set -s "$key" "$value"
         ;;
     'get')
         # Show error message if the key doesn't exist.
         geo_haskey "$2" || { log::Error "Key '$2' does not exist."; return 1; }
-        geo_get "$2"
+        geo-get "$2"
         ;;
     'rm')
         # Show error message if the key doesn't exist.
@@ -3114,7 +3114,7 @@ geo_env() {
 
 #######################################################################################################################
 COMMANDS+=('set')
-geo_set_doc() {
+geo-set_doc() {
     doc_cmd 'set <env_var> <value>'
     doc_cmd_desc 'Set geo environment variable.'
     doc_cmd_options_title
@@ -3123,7 +3123,7 @@ geo_set_doc() {
     doc_cmd_examples_title
     doc_cmd_example 'geo set DEV_REPO_DIR /home/username/repos/Development'
 }
-geo_set() {
+geo-set() {
     # Set value of env var
     # $1 - name of env var in conf file
     # $2 - value
@@ -3181,14 +3181,14 @@ geo_set() {
 
 #######################################################################################################################
 COMMANDS+=('get')
-geo_get_doc() {
+geo-get_doc() {
     doc_cmd 'get <env_var>'
     doc_cmd_desc 'Get geo environment variable.'
 
     doc_cmd_examples_title
     doc_cmd_example 'geo get DEV_REPO_DIR'
 }
-geo_get() {
+geo-get() {
     # Get value of env var.
     local key="${1^^}"
     [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
@@ -3212,14 +3212,14 @@ geo_haskey() {
 
 #######################################################################################################################
 COMMANDS+=('rm')
-geo_rm_doc() {
+geo-rm_doc() {
     doc_cmd 'rm <env_var>'
     doc_cmd_desc 'Removes a geo environment variable.'
 
     doc_cmd_examples_title
     doc_cmd_example 'geo rm DEV_REPO_DIR'
 }
-geo_rm() {
+geo-rm() {
     # Get value of env var.
     local key="${1^^}"
     [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
@@ -3250,11 +3250,11 @@ _geo_push() {
     local value="$2"
     [[ -z $key ]] && log::Error "_geo_push: Key cannot be empty" && return 1
     [[ -z $value ]] && log::Error "_geo_push: Value cannot be empty" && return 1
-    local stored_items="$(geo_get $key)"
+    local stored_items="$(geo-get $key)"
 
     if [[ -z $stored_items ]]; then
         # log::debug "_geo_push: stored_items was empty"
-        geo_set $key "$value"
+        geo-set $key "$value"
         return
     fi
     # Remove duplicates if cmd is already stored.
@@ -3277,13 +3277,13 @@ _geo_push() {
         # Remove the oldest item, keeping only 5.
         stored_items=$(echo $stored_items | awk -F '@' '{ print $1"@"$2"@"$3"@"$4"@"$5 }')
     fi
-#    log::debug geo_set $key "_geo_push: setting cmds to: $stored_items"
-    geo_set $key "$stored_items"
+#    log::debug geo-set $key "_geo_push: setting cmds to: $stored_items"
+    geo-set $key "$stored_items"
 }
 
 _geo_push_get_items() {
     [[ -z $1 ]] && return
-    geo_get $1 | tr '@' '\n'
+    geo-get $1 | tr '@' '\n'
 }
 
 _geo_push_get_item() {
@@ -3291,7 +3291,7 @@ _geo_push_get_item() {
     local item_number="$2"
     [[ -z $item_number || $item_number -gt 5 || $item_number -lt 0 ]] && log::Error "Invalid command number. Expected a value between 0 and 5." && return 1
 
-    local items=$(geo_get $key)
+    local items=$(geo-get $key)
     if [[ -z $items ]]; then
         return
     fi
@@ -3664,7 +3664,7 @@ _geo_timestamp_to_seconds() {
 
 #######################################################################################################################
 COMMANDS+=('update')
-geo_update_doc() {
+geo-update_doc() {
     doc_cmd 'update'
         doc_cmd_desc 'Update geo to latest version.'
     doc_cmd_options_title
@@ -3678,7 +3678,7 @@ geo_update_doc() {
         doc_cmd_example 'geo update --force'
         doc_cmd_example 'geo update docker-compose'
 }
-geo_update() {
+geo-update() {
     if [[ $1 == docker-compose ]]; then
         _geo_install_or_update_docker_compose
         return
@@ -3692,8 +3692,8 @@ geo_update() {
         return 1
     fi
 
-    local geo_cli_dir="$(geo_get GEO_CLI_DIR)"
-    local prev_commit="$(geo_get GIT_PREVIOUS_COMMIT)"
+    local geo_cli_dir="$(geo-get GEO_CLI_DIR)"
+    local prev_commit="$(geo-get GIT_PREVIOUS_COMMIT)"
     local new_commit=
 
     (
@@ -3709,7 +3709,7 @@ geo_update() {
         # the "What's new" section during upating. This shows the user what new changes are included in the  update.
         bash $geo_cli_dir/install.sh $prev_commit $new_commit
 
-        geo_set GIT_PREVIOUS_COMMIT "$new_commit"
+        geo-set GIT_PREVIOUS_COMMIT "$new_commit"
     )
     # log::debug "$prev_commit $new_commit"
 
@@ -3746,7 +3746,7 @@ _geo_check_if_feature_branch_merged() {
 
 #######################################################################################################################
 COMMANDS+=('uninstall')
-geo_uninstall_doc() {
+geo-uninstall_doc() {
     doc_cmd 'uninstall'
         doc_cmd_desc "Remove geo-cli installation. This prevents geo-cli from being loaded into new bash terminals, but does
             not remove the geo-cli repo directory. Navigate to the geo-cli repo directory and run 'bash install.sh' to reinstall."
@@ -3754,13 +3754,13 @@ geo_uninstall_doc() {
     doc_cmd_examples_title
         doc_cmd_example 'geo uninstall'
 }
-geo_uninstall() {
+geo-uninstall() {
     if ! prompt_continue "Are you sure that you want to remove geo-cli? (Y|n)"; then
         return
     fi
 
     geo_indicator disable
-    geo_set disabled true
+    geo-set disabled true
 
     # Remove lines from .bashrc that load geo-cli into terminals.
     sed -i '/#geo-cli-start/,/#geo-cli-end/d' ~/.bashrc
@@ -3776,7 +3776,7 @@ geo_uninstall() {
 
 #######################################################################################################################
 COMMANDS+=('analyze')
-geo_analyze_doc() {
+geo-analyze_doc() {
     doc_cmd 'analyze [option or analyzerIds]'
     doc_cmd_desc 'Allows you to select and run various pre-build analyzers. You can optionally include the list of analyzers if already known.'
 
@@ -3802,8 +3802,8 @@ geo_analyze_doc() {
         doc_cmd_example 'geo analyze -as # Run all analyzers, but skip the long-running ones'
         doc_cmd_example 'geo analyze 0 3 6'
 }
-geo_analyze() {
-    local dev_repo=$(geo_get DEV_REPO_DIR)
+geo-analyze() {
+    local dev_repo=$(geo-get DEV_REPO_DIR)
     MYG_CORE_PROJ='Checkmate/MyGeotab.Core.csproj'
     MYG_TEST_PROJ='Checkmate/MyGeotab.Core.Tests/MyGeotab.Core.Tests.csproj'
 
@@ -3852,7 +3852,7 @@ geo_analyze() {
     done
 
     log::hint "$(log::fmt_text "\nHint: When running all analyzers with the -a option, you can also add the -s option to skip long-running analyzers (GW-Linux-Debug and Build-All.sln). Example $(txt_underline geo analyze -as).")"
-    local prev_ids=$(geo_get ANALYZER_IDS)
+    local prev_ids=$(geo-get ANALYZER_IDS)
 
     log::status "\nValid IDs from 0 to ${max_id}"
     local prompt_txt='Enter the analyzer IDs that you would like to run (separated by spaces): '
@@ -3916,7 +3916,7 @@ geo_analyze() {
 
     # Check if the run previous analyzers option (-) was supplied.
     if [[ $1 =~ ^-$ ]]; then
-        ids=$(geo_get ANALYZER_IDS)
+        ids=$(geo-get ANALYZER_IDS)
         [[ -n $ids ]] && echo && log::status "\nUsing previous analyzer id(s): $ids"
         shift
     fi
@@ -3975,7 +3975,7 @@ geo_analyze() {
     local id_count=$(echo "$ids" | wc -w)
     local run_count=1
 
-    geo_set ANALYZER_IDS "$ids"
+    geo-set ANALYZER_IDS "$ids"
 
     # Switch to the development repo directory so that dotnet build can be run.
     (
@@ -4132,7 +4132,7 @@ geo_analyze() {
 
 #######################################################################################################################
 COMMANDS+=('id')
-geo_id_doc() {
+geo-id_doc() {
     doc_cmd 'id'
         doc_cmd_desc "Both encodes and decodes long and guid ids to simplify working with the MyGeotab API. The result is copied to your clipboard. Guid encoded ids must be prefixed with 'a' and long encoded ids must be prefixed with 'b'"
     doc_cmd_options_title
@@ -4144,7 +4144,7 @@ geo_id_doc() {
         doc_cmd_example 'geo id 00e74ee1-97e7-4f28-9f5e-2ad222451f6d => aAOdO4ZfnTyifXirSIkUfbQ'
         doc_cmd_example 'geo id aAOdO4ZfnTyifXirSIkUfbQ => 00e74ee1-97e7-4f28-9f5e-2ad222451f6d'
 }
-geo_id() {
+geo-id() {
     local interactive=false
     local use_clipboard=false
     local format_output=true
@@ -4320,20 +4320,20 @@ geo_id() {
 
 #######################################################################################################################
 COMMANDS+=('version')
-geo_version_doc() {
+geo-version_doc() {
     doc_cmd 'version, -v, --version'
     doc_cmd_desc 'Gets geo-cli version.'
 
     doc_cmd_examples_title
     doc_cmd_example 'geo version'
 }
-geo_version() {
-    log::verbose $(geo_get VERSION)
+geo-version() {
+    log::verbose $(geo-get VERSION)
 }
 
 #######################################################################################################################
 COMMANDS+=('cd')
-geo_cd_doc() {
+geo-cd_doc() {
     doc_cmd 'cd <dir>'
     doc_cmd_desc 'Change to directory'
     doc_cmd_sub_cmds_title
@@ -4348,10 +4348,10 @@ geo_cd_doc() {
     doc_cmd_example 'geo cd dev'
     doc_cmd_example 'geo cd cli'
 }
-geo_cd() {
+geo-cd() {
     case "$1" in
         dev | myg)
-            local path=$(geo_get DEV_REPO_DIR)
+            local path=$(geo-get DEV_REPO_DIR)
             if [[ -z $path ]]; then
                 log::Error "Development repo not set."
                 return 1
@@ -4359,7 +4359,7 @@ geo_cd() {
             cd "$path"
             ;;
         geo | cli)
-            local path=$(geo_get DIR)
+            local path=$(geo-get DIR)
             if [[ -z $path ]]; then
                 log::Error "geo-cli directory not set."
                 return 1
@@ -4374,7 +4374,7 @@ geo_cd() {
 
 #######################################################################################################################
 COMMANDS+=('indicator')
-geo_indicator_doc() {
+geo-indicator_doc() {
     doc_cmd 'indicator <command>'
     doc_cmd_desc 'Enables or disables the app indicator.'
 
@@ -4409,7 +4409,7 @@ geo_indicator_doc() {
     doc_cmd_example 'geo indicator enable'
     doc_cmd_example 'geo indicator disable'
 }
-geo_indicator() {
+geo-indicator() {
     local running_in_headless_ubuntu=$(dpkg -l ubuntu-desktop | grep 'no packages found')
     if [[ -n $running_in_headless_ubuntu ]]; then
         log::Error 'Cannot use geo-cli indicator with headless versions of Ubuntu.'
@@ -4426,13 +4426,13 @@ geo_indicator() {
     case "$1" in
         enable )
             log::status -b "Enabling app indicator"
-            geo_set 'APP_INDICATOR_ENABLED' 'true'
+            geo-set 'APP_INDICATOR_ENABLED' 'true'
 
             # Directory where user service files are stored.
             mkdir -p  ~/.config/systemd/user/
             mkdir -p  ~/.geo-cli/.data
             mkdir -p  ~/.geo-cli/.indicator
-            export src_dir=$(geo_get GEO_CLI_SRC_DIR)
+            export src_dir=$(geo-get GEO_CLI_SRC_DIR)
             # echo $src_dir > ~/.geo-cli/.data/geo-cli-src-dir.txt
             export geo_indicator_app_dir="$src_dir/py/indicator"
             local init_script_path="$geo_indicator_app_dir/geo-indicator.sh"
@@ -4478,7 +4478,7 @@ geo_indicator() {
         disable )
             systemctl --user stop --now $geo_indicator_service_name
             systemctl --user disable --now $geo_indicator_service_name
-            geo_set 'APP_INDICATOR_ENABLED' 'false'
+            geo-set 'APP_INDICATOR_ENABLED' 'false'
             log::success 'Indicator disabled'
             ;;
         status )
@@ -4488,9 +4488,9 @@ geo_indicator() {
             systemctl --user restart $geo_indicator_service_name
             ;;
         init )
-            indicator_enabled=$(geo_get 'APP_INDICATOR_ENABLED')
+            indicator_enabled=$(geo-get 'APP_INDICATOR_ENABLED')
 
-            [[ -z $indicator_enabled ]] && indicator_enabled=true && geo_set 'APP_INDICATOR_ENABLED' 'true'
+            [[ -z $indicator_enabled ]] && indicator_enabled=true && geo-set 'APP_INDICATOR_ENABLED' 'true'
             [[ $indicator_enabled == false ]] && log::detail "Indicator is disabled. Run $(log::txt_underline geo indicator enable) to enable it.\n" && return
             geo_indicator enable
             ;;
@@ -4566,7 +4566,7 @@ _geo_indicator_check_dependencies() {
 
 #######################################################################################################################
 COMMANDS+=('test')
-geo_test_doc() {
+geo-test_doc() {
     doc_cmd 'test <filter>'
         doc_cmd_desc 'Runs tests on the local build of MyGeotab.'
 
@@ -4585,8 +4585,8 @@ geo_test_doc() {
         doc_cmd_example 'geo test -r 3 UserTest.AddDriverScopeTest'
         doc_cmd_example 'geo test "FullyQualifiedName=Geotab.Checkmate.ObjectModel.Tests.JSONSerializer.DisplayDiagnosticSerializerTest.DateRangeTest|FullyQualifiedName=Geotab.Checkmate.ObjectModel.Tests.JSONSerializer.DisplayDiagnosticSerializerTest.NotificationUserModifiedValueInfoTest"'
 }
-geo_test() {
-    local dev_repo=$(geo_get DEV_REPO_DIR)
+geo-test() {
+    local dev_repo=$(geo-get DEV_REPO_DIR)
     local myg_tests_dir_path="${dev_repo}/Checkmate/MyGeotab.Core.Tests/"
     local script_path="${dev_repo}/gitlab-ci/scripts/StartDockerForTests.sh"
     local use_docker=false
@@ -4738,11 +4738,11 @@ geo_test() {
 
 #######################################################################################################################
 COMMANDS+=('help')
-geo_help_doc() {
+geo-help_doc() {
     doc_cmd 'help, -h, --help'
     doc_cmd_desc 'Prints out help for all commands.'
 }
-geo_help() {
+geo-help() {
     for cmd in $(util::array_sort COMMANDS); do
         "geo_${cmd}_doc"
     done
@@ -4750,7 +4750,7 @@ geo_help() {
 
 #######################################################################################################################
 COMMANDS+=('dev')
-geo_dev_doc() {
+geo-dev_doc() {
     doc_cmd 'dev'
     doc_cmd_desc 'Commands used for internal geo-cli development.'
 
@@ -4768,9 +4768,9 @@ geo_dev_doc() {
         doc_cmd_sub_cmd 'api'
             doc_cmd_sub_cmd_desc 'Opens the api runner and logs into geotabdemo.'
 }
-geo_dev() {
-    local geo_cli_dir="$(geo_get GEO_CLI_DIR)"
-    local myg_dir="$(geo_get DEV_REPO_DIR)"
+geo-dev() {
+    local geo_cli_dir="$(geo-get GEO_CLI_DIR)"
+    local myg_dir="$(geo-get DEV_REPO_DIR)"
     local force_update_after_checkout=false
     [[ $1 == -u ]] && force_update_after_checkout=true && shift
     case "$1" in
@@ -4800,8 +4800,8 @@ geo_dev() {
             (
                 cd $myg_dir
                 local cur_myg_branch=$(git branch --show-current)
-                local prev_myg_branch=$(geo_get MYG_BRANCH)
-                local prev_myg_release_tag=$(geo_get MYG_RELEASE)
+                local prev_myg_branch=$(geo-get MYG_BRANCH)
+                local prev_myg_release_tag=$(geo-get MYG_RELEASE)
                 local cur_myg_release_tag=$prev_myg_release_tag
 
                 if [[ -z $prev_myg_branch || -z $prev_myg_release_tag || $prev_myg_branch != $cur_myg_branch ]]; then
@@ -4815,9 +4815,9 @@ geo_dev() {
                     [[ $cur_myg_release_tag =~ ^5.7. ]] && cur_myg_release_tag=${cur_myg_release_tag##*.}
 
                     [[ $prev_myg_release_tag != $cur_myg_release_tag ]] &&
-                        geo_set MYG_RELEASE "$cur_myg_release_tag"
+                        geo-set MYG_RELEASE "$cur_myg_release_tag"
                     [[ $prev_myg_branch != $cur_myg_branch ]] &&
-                        geo_set MYG_BRANCH "$cur_myg_branch"
+                        geo-set MYG_BRANCH "$cur_myg_branch"
                 fi
                 echo -n $cur_myg_release_tag
             )
@@ -4830,7 +4830,7 @@ geo_dev() {
             _geo_auto_switch_server_config "$2" "$3"
             ;;
         open-iap-tunnels )
-            local geo_config_dir="$(geo_get CONFIG_DIR)"
+            local geo_config_dir="$(geo-get CONFIG_DIR)"
             local geo_tmp_ar_dir="$geo_config_dir/tmp/ar"
             [[ ! -d $geo_tmp_ar_dir ]] && return
 
@@ -4903,7 +4903,7 @@ remove_unused_lock_files_in_current_directory() {
 
 #######################################################################################################################
 COMMANDS+=('quarantine')
-geo_quarantine_doc() {
+geo-quarantine_doc() {
     doc_cmd 'quarantine [options] <FullyQualifiedTestName>'
     doc_cmd_desc 'Adds quarantine attributes to a broken test and, optionally, commits the test file.'
 
@@ -4918,7 +4918,7 @@ geo_quarantine_doc() {
         doc_cmd_example "geo quarantine -c CheckmateServer.Tests.Web.DriveApp.Login.ForgotPasswordTest.Test"
         doc_cmd_example "geo quarantine -c -m 'Quarentine test' CheckmateServer.Tests.Web.DriveApp.Login.ForgotPasswordTest.Test"
 }
-geo_quarantine() {
+geo-quarantine() {
     local interactive=false
     local blame=false
     local commit=false
@@ -4955,7 +4955,7 @@ geo_quarantine() {
     # [[ -z $full_name && $interactive == false ]] && log::Error "You must specify the fully qualified name of the test to quarantine." && return 1
     # [[ -z $full_name ]] && $interactive = true
 
-    local dev_repo=$(geo_get DEV_REPO_DIR)
+    local dev_repo=$(geo-get DEV_REPO_DIR)
 
     (
         cd "$dev_repo"
@@ -5109,7 +5109,7 @@ geo_quarantine() {
 
 #######################################################################################################################
 COMMANDS+=('mydecoder')
-geo_mydecoder_doc() {
+geo-mydecoder_doc() {
     doc_cmd 'mydecoder [options] <MyDecoderExportedDeviceData.json>'
         doc_cmd_desc 'Converts device data from MyDecoder (exported as JSON) into a MyGeotab text log file. The output file will be in the same directory, with the same name, but with a .txt file extension (i.e. filename.json => filename.txt).'
         doc_cmd_desc 'An HOS unit test can also be created for the data by using the -u option. When using this option, you can pass in the name of a log file (with a .txt extension) instead of a json one.'
@@ -5127,7 +5127,7 @@ geo_mydecoder_doc() {
         doc_cmd_example "geo mydecoder -u -d g560 MyDecoder_554215428_04_07_2022.json"
         doc_cmd_example "geo mydecoder -u -d g560 MyDecoder_554215428_04_07_2022.txt"
 }
-geo_mydecoder() {
+geo-mydecoder() {
     local interactive=false
     local make_unit_test=false
     local database=
@@ -5204,9 +5204,9 @@ geo_mydecoder() {
     }
     trap cleanup INT TERM QUIT EXIT
 
-    geo_set MYDECODER_CONVERTER_WAS_ENABLED false
+    geo-set MYDECODER_CONVERTER_WAS_ENABLED false
 
-    local dev_repo=$(geo_get DEV_REPO_DIR)
+    local dev_repo=$(geo-get DEV_REPO_DIR)
 
     (
         cd "$dev_repo"
@@ -5256,8 +5256,8 @@ geo_mydecoder() {
 
 _geo_mydecoder_converter_check() {
     local action=$1
-    local mydecoder_converter_was_enabled=$(geo_get MYDECODER_CONVERTER_WAS_ENABLED)
-    local dev_repo=$(geo_get DEV_REPO_DIR)
+    local mydecoder_converter_was_enabled=$(geo-get MYDECODER_CONVERTER_WAS_ENABLED)
+    local dev_repo=$(geo-get DEV_REPO_DIR)
     local converter_path="$dev_repo/Checkmate/Geotab.Checkmate.Demonstration/tests/ConvertMyDecoderJsonToTextLogFileMvp.cs"
     # log::debug "wasEnabled: $mydecoder_converter_was_enabled"
     [[ ! -f $converter_path ]] && log::Error "This feature is only available in MYG 9.0 and above. Checkout a compatible branch and rerun this command." && return 1
@@ -5272,7 +5272,7 @@ _geo_mydecoder_converter_check() {
             mydecoder_converter_was_enabled=true
         fi
     fi
-    geo_set MYDECODER_CONVERTER_WAS_ENABLED $mydecoder_converter_was_enabled
+    geo-set MYDECODER_CONVERTER_WAS_ENABLED $mydecoder_converter_was_enabled
 }
 
 _geo_mydecoder_generate_unit_test() {
@@ -5344,26 +5344,26 @@ _geo_auto_switch_server_config() {
 
 #######################################################################################################################
 COMMANDS+=('loc')
-geo_loc_doc() {
+geo-loc_doc() {
     doc_cmd 'loc <file_extension>'
         doc_cmd_desc 'Counts the lines in all files in this directory and subdirectories. file_extension is the file type extension to count lines of code for (e.g., py, cs, sh, etc.).'
     doc_cmd_examples_title
         doc_cmd_example "geo loc cs # Counts the lines in all *.cs files."
 }
-geo_loc() {
+geo-loc() {
     local file_type=$1
     find . -name '*'$file_type | xargs wc -l
 }
 
 _geo_get_mygeotab_csproj_path() {
-    local dev_repo=$(geo_get DEV_REPO_DIR)
+    local dev_repo=$(geo-get DEV_REPO_DIR)
     myg_core_proj="$dev_repo/Checkmate/MyGeotab.Core.csproj"
     echo -n "$myg_core_proj"
 }
 
 #######################################################################################################################
 COMMANDS+=('myg')
-geo_myg_doc() {
+geo-myg_doc() {
     doc_cmd 'myg [subcommand | options]'
         doc_cmd_desc 'Performs various tasks related to building and running MyGeotab.'
     doc_cmd_sub_cmds_title
@@ -5381,10 +5381,10 @@ geo_myg_doc() {
         doc_cmd_example "geo myg start"
         doc_cmd_example "geo myg clean"
 }
-geo_myg() {
+geo-myg() {
     local cmd="$1"
     shift
-    local dev_repo=$(geo_get DEV_REPO_DIR)
+    local dev_repo=$(geo-get DEV_REPO_DIR)
     local myg_dir="$dev_repo/Checkmate"
     local myg_core_proj="$(_geo_get_mygeotab_csproj_path)"
     [[ ! -f $myg_core_proj ]] && Error "Cannot find csproj file at: $myg_core_proj" && return 1
@@ -5615,7 +5615,7 @@ _geo_run_myg_gw(){
     geo_myg build
 
     # Copy certs if not present
-    local dev_repo=$(geo_get DEV_REPO_DIR)
+    local dev_repo=$(geo-get DEV_REPO_DIR)
     if [[ ! -f /usr/local/share/ca-certificates/myggatewayroot.crt ]]; then
       echo "copying cert"
       sudo cp $dev_repo/gitlab-ci/dockerfiles/MygTestContainer/geotabcommoncertroot.crt /usr/local/share/ca-certificates/myggatewayroot.crt
@@ -5635,9 +5635,9 @@ _geo_run_myg_gw(){
 }
 
 _geo_myg_api_runner() {
-    local use_local_api=$(geo_get USE_LOCAL_API)
-    local username=$(geo_get DB_USER)
-    local password=$(geo_get DB_PASSWORD)
+    local use_local_api=$(geo-get USE_LOCAL_API)
+    local username=$(geo-get DB_USER)
+    local password=$(geo-get DB_PASSWORD)
     local database=geotabdemo
 
     local container_name=$(_geo_get_running_container_name)
@@ -5645,9 +5645,9 @@ _geo_myg_api_runner() {
     [[ -z $container_name ]] && log::Error 'No container running' && return 1
 
     # Check if there is a specific user username/password that was saved when the db was created.
-    local db_username=$(geo_get "${container_name}_username")
-    local db_password=$(geo_get "${container_name}_password")
-    local db_name=$(geo_get "${container_name}_database")
+    local db_username=$(geo-get "${container_name}_username")
+    local db_password=$(geo-get "${container_name}_password")
+    local db_name=$(geo-get "${container_name}_database")
 
     # Use the versioned credentials if they exist.
     username=${db_username:-$username}
@@ -5770,7 +5770,7 @@ _geo_myg_start() {
 
 #######################################################################################################################
 COMMANDS+=('gw')
-geo_gw_doc() {
+geo-gw_doc() {
     doc_cmd 'gw [subcommand | options]'
         doc_cmd_desc 'Performs various tasks related to building and running Gateway.'
     doc_cmd_sub_cmds_title
@@ -5788,10 +5788,10 @@ geo_gw_doc() {
         doc_cmd_example "geo gw start"
         doc_cmd_example "geo gw clean"
 }
-geo_gw() {
+geo-gw() {
     local cmd="$1"
     shift
-    local dev_repo=$(geo_get DEV_REPO_DIR)
+    local dev_repo=$(geo-get DEV_REPO_DIR)
     local myg_dir="$dev_repo/Checkmate"
     local myg_core_proj="$(_geo_get_mygeotab_csproj_path)"
     [[ ! -f $myg_core_proj ]] && Error "Cannot find csproj file at: $myg_core_proj" && return 1
@@ -5959,7 +5959,7 @@ _geo_gw_start() {
 
 #######################################################################################################################
 COMMANDS+=('edit')
-geo_edit_doc() {
+geo-edit_doc() {
     doc_cmd 'edit <file>'
         doc_cmd_desc 'Opens up files for editing.'
     doc_cmd_options_title
@@ -5977,12 +5977,12 @@ geo_edit_doc() {
         doc_cmd_example "geo edit server.config"
         doc_cmd_example "geo edit --editor nano server.config"
 }
-geo_edit() {
-    local editor=$(geo_get EDITOR)
+geo-edit() {
+    local editor=$(geo-get EDITOR)
     [[ $1 == -e || $1 == --editor ]] && editor=$2 && shift 2
     local file="$1"
     local file_path=
-    local dev_repo=$(geo_get DEV_REPO_DIR)
+    local dev_repo=$(geo-get DEV_REPO_DIR)
     if [[ -z $editor ]]; then
         log::hint "You can set the default editor using: ""$(log::code -u 'geo set EDITOR <editor_command>')"
         if _geo_terminal_cmd_exists code; then
@@ -6017,19 +6017,19 @@ geo_edit() {
 
 #######################################################################################################################
 # COMMANDS+=('command')
-# geo_command_doc() {
+# geo-command_doc() {
 #
 # }
-# geo_command() {
+# geo-command() {
 #
 # }
 
 #######################################################################################################################
 # COMMANDS+=('python-plugin')
-# geo_python-plugin_doc() {
+# geo-python-plugin_doc() {
 
 # }
-# geo_python-plugin() {
+# geo-python-plugin() {
 #     python $path_to_py_file
 # }
 
@@ -6173,7 +6173,7 @@ _geo_print_messages_between_commits_after_update() {
     local prev_commit=$1
     local cur_commit=$2
 
-    local geo_cli_dir="$(geo_get GEO_CLI_DIR)"
+    local geo_cli_dir="$(geo-get GEO_CLI_DIR)"
 
     (
         cd $geo_cli_dir
@@ -6216,27 +6216,27 @@ _geo_print_messages_between_commits_after_update() {
 # Check for updates. Return true (0 return value) if updates are available.
 _geo_check_for_updates() {
     [[ $GEO_NO_UPDATE_CHECK == true ]] && return 1
-    local geo_cli_dir="$(geo_get GEO_CLI_DIR)"
+    local geo_cli_dir="$(geo-get GEO_CLI_DIR)"
     local cur_branch=$(cd $geo_cli_dir && git rev-parse --abbrev-ref HEAD)
     local v_remote=
 
     if [[ $cur_branch != master && -f $geo_cli_dir/feature-version.txt ]]; then
-        geo_set FEATURE true
+        geo-set FEATURE true
         # log::debug "cur_branch = $cur_branch"
         v_remote=$(git archive --remote=git@git.geotab.com:dawsonmyers/geo-cli.git $cur_branch feature-version.txt | tar -xO)
         # log::debug "v_remote = $v_remote"
         if [[ -n $v_remote ]]; then
             local feature_version=$(cat $geo_cli_dir/feature-version.txt)
-            geo_set FEATURE_VER_LOCAL "${cur_branch}_V$feature_version"
-            geo_set FEATURE_VER_REMOTE "${cur_branch}_V$v_remote"
+            geo-set FEATURE_VER_LOCAL "${cur_branch}_V$feature_version"
+            geo-set FEATURE_VER_REMOTE "${cur_branch}_V$v_remote"
             # log::debug "current feature version = $feature_version, remote = $v_remote"
             if [[ $feature_version == MERGED || $v_remote == MERGED || $v_remote -gt $feature_version ]]; then
                 # log::debug setting outdated true
-                geo_set OUTDATED true
+                geo-set OUTDATED true
                 return
             fi
         fi
-        geo_set OUTDATED false
+        geo-set OUTDATED false
         return 1
     fi
     geo_rm FEATURE
@@ -6250,37 +6250,37 @@ _geo_check_for_updates() {
         log::Error 'Unable to pull geo-cli remote version'
         v_remote='0.0.0'
     else
-        geo_set REMOTE_VERSION "$v_remote"
+        geo-set REMOTE_VERSION "$v_remote"
     fi
 
     # The sed cmds filter out any colour codes that might be in the text
-    local v_current=$(geo_get VERSION) #  | sed -r "s/[[:cntrl:]]\[[0-9]{1,3}m//g"`
+    local v_current=$(geo-get VERSION) #  | sed -r "s/[[:cntrl:]]\[[0-9]{1,3}m//g"`
     if [[ -z $v_current ]]; then
-        geo_cli_dir="$(geo_get GEO_CLI_DIR)"
+        geo_cli_dir="$(geo-get GEO_CLI_DIR)"
         v_current=$(cat "$geo_cli_dir/version.txt")
-        geo_set VERSION "$v_current"
+        geo-set VERSION "$v_current"
     fi
     # ver converts semver to int (e.g. 1.2.3 => 001002003) so that it can easliy be compared
     if [ $(ver $v_current) -lt $(ver $v_remote) ]; then
-        geo_set OUTDATED true
+        geo-set OUTDATED true
         # _geo_show_update_notification
         return
     else
-        geo_set OUTDATED false
+        geo-set OUTDATED false
         return 1
     fi
 }
 
 _geo_is_outdated() {
-    outdated=$(geo_get OUTDATED)
+    outdated=$(geo-get OUTDATED)
     [[ $outdated =~ true ]]
 }
 
 # Sends an urgent geo-cli notification. This notification must be clicked by the user to dismiss.
 _geo_show_update_notification() {
     # log::debug _geo_show_update_notification
-    local notification_shown=$(geo_get UPDATE_NOTIFICATION_SENT)
-    geo_set UPDATE_NOTIFICATION_SENT true
+    local notification_shown=$(geo-get UPDATE_NOTIFICATION_SENT)
+    geo-set UPDATE_NOTIFICATION_SENT true
     [[ $notification_shown == true ]] && return
     local title="Update Available"
     local msg="Run 'geo update' in a terminal to update geo-cli."
@@ -6298,7 +6298,7 @@ _geo_show_critical_notification() {
 _geo_show_notification() {
     ! type notify-send &> /dev/null && return 1
     [[ -z $GEO_CLI_DIR ]] && return
-    local show_notifications=$(geo_get SHOW_NOTIFICATIONS)
+    local show_notifications=$(geo-get SHOW_NOTIFICATIONS)
     [[ $show_notifications != true ]] && return
 
     local msg="$1"
@@ -6317,7 +6317,7 @@ _geo_show_notification() {
 # way it would work.
 _geo_show_msg_if_outdated() {
     [[ $GEO_RAW_OUTPUT == true ]] && return
-    # outdated=`geo_get OUTDATED`
+    # outdated=`geo-get OUTDATED`
     if _geo_is_outdated; then
         # if [[ $outdated =~ true ]]; then
         log::warn -b "New version of geo-cli is available. Run $(log::txt_underline 'geo update') to get it."

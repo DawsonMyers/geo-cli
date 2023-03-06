@@ -72,12 +72,12 @@ export new_command_name_command_directory_path="$(dirname "${BASH_SOURCE[0]}")"
 # 
 # The three parts above have the following structure:
 #   COMMAND+=('command')
-#   geo_command_doc() {...}
-#   geo_command() {...}
+#   geo-command_doc() {...}
+#   geo-command() {...}
 # Example for the definition of 'geo db' command:
 #   COMMAND+=('db')
-#   geo_db_doc() {...}
-#   geo_db() {...}
+#   geo-db_doc() {...}
+#   geo-db() {...}
 # 
 #######################################################################################################################
 #### Subcommand and helper functions naming conventions
