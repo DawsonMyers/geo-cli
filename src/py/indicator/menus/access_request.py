@@ -11,7 +11,7 @@ class AccessRequestMenuItem(Gtk.MenuItem):
         item_create = Gtk.MenuItem(label='Create Access Request')
         item_create.connect('activate', lambda _: geo.run('ar create'))
 
-        item_iap = Gtk.MenuItem(label='IAP Tunnel')
+        item_iap = Gtk.MenuItem(label='Start IAP Tunnel')
         iap_menu = Gtk.Menu()
         item_iap_start_new = Gtk.MenuItem(label='Start New')
         item_iap_start_new_bind = Gtk.MenuItem(label='Start New & Bind pgAdmin Port 5433')
@@ -29,9 +29,9 @@ class AccessRequestMenuItem(Gtk.MenuItem):
 
         item_open_tunnels = OpenIapTunnelMenu()
 
-        submenu.append(item_create)
         submenu.append(item_iap)
         submenu.append(item_open_tunnels)
+        submenu.append(item_create)
         self.set_submenu(submenu)
         submenu.show_all()
 

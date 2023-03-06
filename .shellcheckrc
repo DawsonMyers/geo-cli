@@ -1,0 +1,3 @@
+disable=SC3033 # POSIX name enforcement
+disable=SC2120 # foo references arguments, but none are ever passed
+external-sources=true

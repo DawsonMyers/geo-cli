@@ -3,6 +3,4 @@ tmp/*
 dist
 node_modules
 *.pyc
-.idea
-/**/.idea
-/**/.idea.py.dir
+.idea/**/*

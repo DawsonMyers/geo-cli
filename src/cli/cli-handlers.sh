@@ -11,9 +11,9 @@
 
 if [[ -z $GEO_CLI_DIR || ! -f $GEO_CLI_DIR/install.sh ]]; then
     msg="cli-handlers.sh: ERROR: Can't find geo-cli repo path."
-    [[ ! -f $HOMR/data/geo/repo-dir ]] && echo "$msg" && exit 1;
+    [[ ! -f $HOME/data/geo/repo-dir ]] && echo "$msg" && exit 1;
     # Running via symbolic link from geo-cli.sh. Try to get geo-cli from config dir.
-    GEO_CLI_DIR="${cat "$HOMR/data/geo/repo-dir"}"
+    GEO_CLI_DIR="$(cat "$HOME/data/geo/repo-dir")"
     [[ ! -f $GEO_CLI_DIR/install.sh ]] && echo "$msg" && exit 1;
 
 fi
@@ -137,7 +137,6 @@ export GEO_COMMAND_FILE_PATHS=("${GEO_COMMAND_REPO_FILE_PATHS[@]}" "${GEO_COMMAN
 # Load command files.
 if [[ -n ${#GEO_COMMAND_FILE_PATHS[@]} ]]; then
     for command_file in "${GEO_COMMAND_FILE_PATHS[@]}" ; do
-    # for command_file in "${all_cmd_files[@]}" ; do
         . "$command_file"
     done
 fi

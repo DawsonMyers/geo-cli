@@ -7,8 +7,8 @@ export GEO_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export GEO_CLI_SRC_DIR="${GEO_CLI_DIR}/src"
 
 # Import config file utils for writing to the geo config file (~/.geo-cli/.geo.conf).
-. $GEO_CLI_SRC_DIR/cli-handlers.sh
-. $GEO_CLI_SRC_DIR/utils/log.sh
+. $GEO_CLI_SRC_DIR/cli/cli-handlers.sh
+# . $GEO_CLI_SRC_DIR/utils/log.sh
 
 export GEO_CLI_CONFIG_DIR="$HOME/.geo-cli"
 export GEO_CLI_CONF_FILE="$GEO_CLI_CONFIG_DIR/.geo.conf"
@@ -63,13 +63,13 @@ sed -i '/#geo-cli-start/,/#geo-cli-end/d' ~/.bashrc
 if [[ ! -e $HOME/.local/bin/geo-cli ]]; then
     mkdir -p $HOME/.local/bin
     [[ -f $GEO_CLI_SRC_DIR/geo-cli.sh ]] \
-        && ln -L $GEO_CLI_SRC_DIR/geo-cli.sh $HOME/.local/bin/geo-cli
+        && ln -s $GEO_CLI_SRC_DIR/geo-cli.sh $HOME/.local/bin/geo-cli
 fi
 
 # Append cli alias and env config to ~/.bashrc so that the geo command can be 
 # used in any terminal.
 # Substitute the env vars into init file text and append to .bashrc. 
-envsubst < $GEO_CLI_DIR/src/init/bashrc.sh >> ~/.bashrc
+envsubst < "$GEO_CLI_DIR"/src/init/bashrc.sh >> ~/.bashrc
 # Add geo to the .zshrc file if it exists.
 [[ -f $HOME/.zshrc ]] && sed "s+GEO_CLI_SRC_DIR+$GEO_CLI_SRC_DIR+" $GEO_CLI_SRC_DIR/init/zshrc.sh >> ~/.zshrc
 
