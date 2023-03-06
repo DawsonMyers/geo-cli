@@ -44,7 +44,7 @@ if [[ -z $GEO_CLI_DIR || ! -f $GEO_CLI_DIR/install.sh ]]; then
     msg="cli-handlers.sh: ERROR: Can't find geo-cli repo path."
     [[ ! -f $HOME/data/geo/repo-dir ]] && echo "$msg" && exit 1;
     # Running from a symbolic link from geo-cli.sh. Try to get geo-cli from config dir.
-    GEO_CLI_DIR="$(cat "$HOME/data/geo/repo-dir")"
+    GEO_CLI_DIR="$(cat "$GEO_CLI_CONFIG_DIR/data/geo/repo-dir")"
     [[ ! -f $GEO_CLI_DIR/install.sh ]] && echo "$msg" && exit 1;
 
 fi
@@ -67,6 +67,7 @@ export GEO_RAW_OUTPUT=false
 export GEO_NO_UPDATE_CHECK=false
 
 # Import cli handlers to get access to all of the geo-cli commands and command names (through the COMMMAND array).
+# Shellcheck source=src/cli/cli-handlers.sh
 . "$GEO_CLI_SRC_DIR/cli/cli-handlers.sh"
 #. "$GEO_CLI_SRC_DIR/utils/log.sh"
 
@@ -74,6 +75,11 @@ function geo()
 {
     # set -E
      set -e
+     # The set -x debug line prefix
+#    set -x
+#     PS4='.${BASH_SOURCE[0]##*/}[$LINENO]: '
+#     trap 'set +x;' RETURN
+
     # Log call.
     [[ $(geo_get LOG_HISTORY) == true ]] && echo "[$(date +"%Y-%m-%d_%H:%M:%S")] geo $*" >> ~/.geo-cli/history.txt
 

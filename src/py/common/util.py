@@ -8,7 +8,7 @@ from gi.repository import Gtk
 def run_in_terminal_then_close(cmd_to_run, title=''):
     if title:
         title = "--title='%s'" % title
-    cmd = "gnome-terminal %s --geometry=80x30 -- bash -c \"bash %s; cd $HOME\"" % (title, cmd_to_run)
+    cmd = f"gnome-terminal {title} --geometry=80x30 -- bash -c \"bash {cmd_to_run}; cd $HOME\""
     try:
         os.system(cmd)
     except Exception as err:
@@ -18,7 +18,7 @@ def run_in_terminal_then_close(cmd_to_run, title=''):
 def run_in_terminal(cmd_to_run, title=''):
     if title:
         title = "--title='%s'" % title
-    cmd = "gnome-terminal %s --geometry=80x30 -- bash -c \"bash %s; cd $HOME; exec bash\"" % (title, cmd_to_run)
+    cmd = f"gnome-terminal {title} --geometry=80x30 -- bash -c \"echo '{cmd_to_run}' >> $HOME/.bash_history; bash {cmd_to_run}; cd $HOME; exec bash\""
     try:
         os.system(cmd)
     except Exception as err:
@@ -49,7 +49,13 @@ def run_cmd_and_wait(cmd):
 def current_time_ms():
     return round(time.time() * 1000)
 # UI Utils
-def add_menu_item(menu, label='EMPTY', on_activate=lambda _: None):
+def get_item_with_submenu(self, menu, label='EMPTY'):
+        item = Gtk.MenuItem(label=label)
+        item.set_submenu(menu)
+        item.show_all()
+        return item
+    
+def add_menu_item(self, menu, label='EMPTY', on_activate=lambda _: print('add_menu_item: on_activate empty')):
     item = Gtk.MenuItem(label=label)
     item.connect('activate', on_activate)
     menu.append(item)
