@@ -39,7 +39,8 @@ alias brc=". ~/.bashrc"
 alias zrc=". ~/.zshrc"
 
 # Gets the absolute path of the root geo-cli directory.
-[[ -z $GEO_CLI_DIR ]] && export GEO_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
+[[ -z $GEO_CLI_DIR ]] \
+    && export GEO_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
 if [[ -z $GEO_CLI_DIR || ! -f $GEO_CLI_DIR/install.sh ]]; then
     msg="cli-handlers.sh: ERROR: Can't find geo-cli repo path."
     [[ ! -f $HOME/data/geo/repo-dir ]] && echo "$msg" && exit 1;
@@ -54,7 +55,7 @@ export GEO_CLI_SRC_DIR="${GEO_CLI_DIR}/src"
 [[ ! -d $GEO_CLI_CONFIG_DIR/env ]] && mkdir -p "$GEO_CLI_CONFIG_DIR/env"
 if [[ $(ls -A $GEO_CLI_CONFIG_DIR/env) ]]; then
     for file in $GEO_CLI_CONFIG_DIR/env/*.sh ; do
-        . $file
+        . "$file"
     done
 fi
 
@@ -62,32 +63,81 @@ fi
 # SOURCE="${BASH_SOURCE[0]}"
 # DIR_NAME=`dirname $SOURCE`
 # echo $SOURCE
+# export GEO_ERR_TRAP='${BASH_SOURCE[*]}[$LINENO]: '
+# export GEO_ERR_TRAP='${BASH_SOURCE[*]}[$LINENO]: '
+export GEO_ERR_TRAP='$BCyan\${BASH_SOURCE[0]##\${HOME}*/}${Purple}[\$LINENO]:${Yellow}\${FUNCNAME:-FuncNameNull}: $Off'
+# export GEO_ERR_TRAP="\$BCyan\${BASH_SOURCE[0]}\${Purple}[\$LINENO]:\${Yellow}\${FUNCNAME:-FuncNameNull0}: \$Off"
+# export GEO_ERR_TRAP='${BASH_SOURCE[0]##*/}[$LINENO]:${FUNCNAME:-FuncNameNull}: '
+export PS4=".${GEO_ERR_TRAP}"
+#export GEO_ERR_TRAP="$BCyan\${BASH_SOURCE[0]##*/}${Purple}[\$LINENO]:${Yellow}\${FUNCNAME:-FuncNameNull}: $Off"
+# export GEO_ERR_TRAP="$BCyan\${BASH_SOURCE[1]}.\${BASH_SOURCE[0]}${Purple}[\$LINENO]:${Yellow}\${FUNCNAME:-FuncNameNull}: $Off"
+# export PS4='.${BASH_SOURCE[0]##*/}[$LINENO]:${FUNCNAME:-FuncNameNull}: '
+# export PS4='.${BASH_SOURCE[*]}[$LINENO]:  '
+# export PS4='.${BASH_SOURCE[0]##*/}[$LINENO]:  '
+# export GEO_ERR_TRAP='${BASH_SOURCE[0]##*/}[$LINENO]: '
+export GEO_DEV_MODE=false
 
 export GEO_RAW_OUTPUT=false
 export GEO_NO_UPDATE_CHECK=false
 
-# Import cli handlers to get access to all of the geo-cli commands and command names (through the COMMMAND array).
-# Shellcheck source=src/cli/cli-handlers.sh
+# Import cli handlers to get access to all of the geo-cli commands and command names (through the COMMANDS array).
+# shellcheck source=cli/cli-handlers.sh
 . "$GEO_CLI_SRC_DIR/cli/cli-handlers.sh"
-#. "$GEO_CLI_SRC_DIR/utils/log.sh"
+# set -E
+# trap "$GEO_ERR_TRAP" ERR
 
-function geo()
-{
+function geo() {
+    if [[ $(@geo_get debug) == true || -n $GEO_DEBUG ]]; then
+        export GEO_DEBUG=true
+        # set -E
+        # trap "$GEO_ERR_TRAP" ERR
+
+    fi
+    # TODO: Allow commands to specify if they should not run in a subshell (to persist a dir change (for@geo_cd), for example).
+    if [[ $(@geo_get dev_mode) == true ]] || $GEO_DEV_MODE; then
+        export GEO_DEV_MODE=true
+        (
+            __geo "$@"
+        )
+    else
+        __geo "$@"
+    fi
+}
+
+function __geo() {
     # set -E
-     set -e
+     export GEO_CALLER_ARGS="$*"
+#     set -e
      # The set -x debug line prefix
 #    set -x
-#     PS4='.${BASH_SOURCE[0]##*/}[$LINENO]: '
+    
+#     trap 'set +x;' RETURN
 #     trap 'set +x;' RETURN
 
     # Log call.
-    [[ $(geo-get LOG_HISTORY) == true ]] && echo "[$(date +"%Y-%m-%d_%H:%M:%S")] geo $*" >> ~/.geo-cli/history.txt
+    [[ $(@geo_get LOG_HISTORY) == true ]] && echo "[$(date +"%Y-%m-%d_%H:%M:%S")] geo $*" >> ~/.geo-cli/history.txt
 
-    while [[ $# -gt 0 && $1 == --raw-output || $1 == --no-update-check ]]; do
-        case "$1" in
+    # If false, 
+    export GEO_INTERACTIVE=true
+    # [[ $- =~ i ]] && GEO_INTERACTIVE=false
+
+    while [[ $# -gt 0 && $1 =~ ^-{1,2} ]]; do
+    # echo "arg = $1"
+    # while [[ $# -gt 0 && $1 == --raw-output || $1 == --no-update-check ]]; do
+        # Extracts the option prefix (- or --). Removes everything from to end of the string up to and including the first hyphen.
+        # A hyphen is then concatenated to the result to account for the one that was removed.
+        local opt_prefix="${1%-*}-"
+        # Strips '-' or '--' option prefix.
+        local arg="${1#*-}"
+        arg="${arg:-$opt_prefix}"
+        case "$arg" in
              # Disabled formatted output if the --raw-output option is present.
-            --raw-output ) GEO_RAW_OUTPUT=true ;;
-            --no-update-check ) GEO_NO_UPDATE_CHECK=true ;;
+            raw-output | r ) GEO_RAW_OUTPUT=true ;;
+            no-update-check | U) GEO_NO_UPDATE_CHECK=true ;;
+            non-interactive | I ) GEO_INTERACTIVE=false ;;
+            -- ) echo 'End of options'; break ;;
+            - ) echo "'-' is not an option."; return ;; # TODO: Rerun prev cmd
+            * ) break ;; # End of options.
         esac
         shift
     done
@@ -96,12 +146,10 @@ function geo()
     ( _geo_check_for_updates >& /dev/null & )
 
     # Check if the MyGeotab base repo dir has been set.
-    if ! geo_haskey DEV_REPO_DIR && [[ "$1 $2" != "init repo" ]]; then
+    if ! @geo_haskey DEV_REPO_DIR && [[ "$1 $2" != "init repo" ]]; then
         log::warn 'MyGeotab repo directory not set.'
         log::detail "Fix: Run $(txt_underline geo init repo) and select from possible repo locations that geo-cli finds. Alternatively, navigate to the MyGeotab base repo (Development) directory, then run $(txt_underline geo init repo) for geo-cli to use the current directory as the repo root.\n"
     fi
-
-    
 
     # Check if colour variables have been changed by the terminal (wraped in \[ ... \]). Reload everything if they have to fix.
     # This issue would cause coloured log output to start with '\[\] some log message'.
@@ -124,7 +172,7 @@ function geo()
     re='^-{1,2}h(elp)?$'
     if [[ $cmd =~ $re ]]; then
         log::detail -bu 'Available commands:'
-        geo_help
+        @geo_help
         _geo_show_msg_if_outdated
         # exit
         return
@@ -137,7 +185,7 @@ function geo()
     #   geo -v
     #   geo --version
     if [[ $cmd =~ ^-*v(ersion)? ]]; then
-        geo_version
+        @geo_version
         _geo_show_msg_if_outdated
         return
     fi
@@ -146,7 +194,7 @@ function geo()
     [[ $cmd == -f ]] && return
         
     # Quit if the command isn't valid
-    if ! _geo_cmd_exists "$cmd"; then
+    if ! _geo__is_registered_cmd "$cmd"; then
         [[ -z $cmd ]] && echo && log::warn "geo was run without any command"
         [[ -n $cmd ]] && echo && log::warn "Unknown command: '$cmd'"
         
@@ -171,7 +219,7 @@ function geo()
     #  geo up help
     # if [[ $1 =~ ^-h$ ]] || [[ $1 =~ ^--help$ ]]; then
     if [[ $1 =~ ^-*h(elp)? ]]; then
-        "geo_${cmd}_doc"
+        "@geo_${cmd}_doc"
         echo
         _geo_show_msg_if_outdated
         # exit
@@ -184,8 +232,8 @@ function geo()
 
     # At this point we know that the command is valid and command help isn't being 
     # requested. So run the command.
-    "geo_${cmd}" "$@" || was_successful=false
-    
+    "@geo_${cmd}" "$@" || was_successful=false
+
     # Don't show outdated msg if update was just run.
     [[ $cmd != update ]] && _geo_show_msg_if_outdated
 

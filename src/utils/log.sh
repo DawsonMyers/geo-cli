@@ -163,12 +163,14 @@ make_logger_function_vte() {
             local opts=e
 
             # Only parse options if a message to be printed was also supplied (allows messages like '-e' to be printed instead of being treated like an option).
-            if [[ \$1 =~ ^-[a-zA-Z]+$ && -n \$2 ]]; then
+            if [[ \$1 =~ ^--$|^-[a-zA-Z]+$ && -n \$2 ]]; then
                 options=\$1
                 msg=\"\${@:2}\"
             fi
 
             case \$options in
+                # Don't try to parse options if -- was supplied.
+                -- ) break ;;
                 # Make file paths relative (replace full path of home dir with a tilde).
                 *r* )
                     msg=\"\$(log::make_path_relative_to_user_dir \"\$msg\")\"
@@ -226,14 +228,31 @@ make_logger_function_vte() {
 # TODO: Clean up these functions
 get_func_path() {
     local ignore_count=${1:-1}
-    local func_names="${FUNCNAME[@]:ignore_count}"
-    local line_num=${BASH_LINENO[$((${#BASH_LINENO[@]} - $ignore_count))]}
+    local line_num=${BASH_LINENO[$ignore_count]}
+    local file=${BASH_SOURCE[$ignore_count]##*/}
+#    local line_num=${BASH_LINENO[$((${#BASH_LINENO[@]} - $ignore_count))]}
     local func_path=
+    local func_names="${FUNCNAME[@]:ignore_count}"
+#    set -x
     for func in $func_names; do
+        [[ $func =~ ^__geo$ ]] && continue
+        # Skip first so that there isn't '.' at the end of the path (e.g., geo.geo_db.).
         [[ -z $func_path ]] && func_path="$func" && continue
         func_path="$func.$func_path"
     done
-    [[ -n $func_path ]] && echo -n "$func_path"
+    [[ $func_path =~ \.$ ]] && func_path="${func_path: -1}"
+
+    # Remove @ from path.
+    func="${func//@}"
+
+    [[ -n $func_path ]] && echo -n "at: ${func_path} in $file[$line_num]"
+#    set +x
+    if [[ $(@geo_get LOG_DEBUG_TRACE) == true ]]; then
+        echo
+        for ((i=0; i < ${#BASH_LINENO[@]}; i++)); do
+            log::debug "${BASH_SOURCE[i]}[${BASH_LINENO[i]}]::${FUNCNAME[i]}"
+        done
+    fi
 }
 
 get_line_number_in_call_stack() {
@@ -383,7 +402,7 @@ log::stacktrace() {
     local start=1
     [[ $1 =~ ^- ]] && start=${1:1}
     # debug "start $start"
-    local debug_log=$(geo-get DEBUG_LOG)
+    local debug_log=$(@geo_get DEBUG_LOG)
     if [[ $debug_log == true ]]; then
         # debug "_stacktrace: ${FUNCNAME[@]}"
         local stacktrace="${FUNCNAME[@]:start}"
@@ -400,7 +419,7 @@ log::stacktrace() {
 make_logger_function Error BIRed
 log::Error() {
     echo -e "${BIRed}✘  Error: $(log::fmt_text_and_indent_after_first_line -d 10 -a 10 "$@")${Off}" >&2
-    log::debug "  Source: $(get_func_path 2)"
+    log::debug "  => $(get_func_path 2)"
     # echo -e "❌  ${BIRed}Error: $@${Off}" >&2
 
     log::stacktrace
@@ -474,7 +493,7 @@ log::fmt_text() {
 
     # The --x option prevents command options from being parsed. This is necessary when formatting help text for commands.
     # This type of text often starts with the option, e.g., "-h, --help".
-    if [[ $1 == --x ]]; then
+    if [[ $1 =~ --x? ]]; then
         shift
     else
         while getopts "kd:tri:s:" opt; do

@@ -1,3 +1,6 @@
 disable=SC3033 # POSIX name enforcement
 disable=SC2120 # foo references arguments, but none are ever passed
+disable=SC3043 # In POSIX sh, 'local' is undefined
+disable=SC3010 # In POSIX sh, [[ ]] is undefined
+
 external-sources=true

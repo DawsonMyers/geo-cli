@@ -1,6 +1,7 @@
 CHECK_MARK="\033[0;32m\xE2\x9C\x94\033[0m"
 EMOJI_CHECK_MARK=✔️
 EMOJI_RED_X=❌
+EMOJI_BULLET='•'
 
 # Reset
 Off='\033[0m'       # Text Reset

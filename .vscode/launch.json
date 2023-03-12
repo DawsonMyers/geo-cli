@@ -25,6 +25,12 @@
             "request": "launch",
             "name": "Bash-Debug (simplest configuration)",
             "program": "${file}"
+        },
+        {
+            "type": "bash selected text",
+            "request": "launch",
+            "name": "Bash-Debug (simplest configuration)",
+            "program": "${selectedText}"
         }
     ]
 }

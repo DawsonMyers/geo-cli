@@ -363,17 +363,24 @@ EOF
  [[ $1 == -v ]] && local -n var="$2" && var="$_enable_piped_args_code" && return
  echo "$_enable_piped_args_code"
 }
+util::eval_trap_error_and_log() {
+    # local err_trap="$BCyan\${BASH_SOURCE[0]##\${HOME}*/}${Purple}[\$LINENO]:${Yellow}\${FUNCNAME:-FuncNameNull}: $Off"
+    err_trap="${GEO_ERR_TRAP:-$err_trap}"
+    export PS4='.${err_trap}'
+    trap "$err_trap" ERR
+#    export PS4='.${BASH_SOURCE[0]##*/}[$LINENO]: '
+}
 
 util::get_ref_var_name() {
     local write_to_var=false
     [[ $1 == -v ]] && local -n out_var=$2 && write_to_var=true && shift 2
     local __name="$1"
     local re="declare -n [-_a-zA-Z0-9]{1,}=[\"']?([-_a-zA-Z0-9]{1,})['\"]?"
-    local type_signature="$(declare -p "$__name" 2>/dev/null)"
+    local type_signature="$(declare -p "$__name" 2> /dev/null)"
     while [[ $type_signature =~ $re ]]; do
     # while [[ $type_signature =~ declare -n ]]; do
         __name="${BASH_REMATCH[1]}"
-        type_signature="$(declare -p "$__name" 2>/dev/null)"
+        type_signature="$(declare -p "$__name" 2> /dev/null)"
         # echo "while type_signature = $type_signature"
     done
     $write_to_var && out_var="$__name" || echo $__name
@@ -499,11 +506,16 @@ util::array_concat() {
 }
 util::array_pop() {
     local -n __array_ref="$1"
-    [[ ${#__array_ref[@]} -lt 1 ]] || return
+    [[ ${#__array_ref[@]} -lt 1 ]] || return 0
     echo "${__array_ref[-1]}"
     unset __array_ref[-1]
 }
 util::array_push() {
+    local -n __array_ref="$1"
+    local value="$2"
+    __array_ref+=("$value")
+}
+util::array_push_front() {
     local -n __array_ref="$1"
     local value="$2"
     echo "${__array_ref[@]}"

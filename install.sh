@@ -7,7 +7,7 @@ export GEO_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export GEO_CLI_SRC_DIR="${GEO_CLI_DIR}/src"
 
 # Import config file utils for writing to the geo config file (~/.geo-cli/.geo.conf).
-. $GEO_CLI_SRC_DIR/cli/cli-handlers.sh
+. "$GEO_CLI_SRC_DIR/cli/cli-handlers.sh"
 # . $GEO_CLI_SRC_DIR/utils/log.sh
 
 export GEO_CLI_CONFIG_DIR="$HOME/.geo-cli"
@@ -21,13 +21,13 @@ echo -n "$GEO_CLI_DIR" > "$GEO_CLI_CONFIG_DIR/data/geo/repo-dir"
 # This file contains environment vars for geo cli.
 [ ! -f "$GEO_CLI_CONFIG_DIR/.geo.conf" ] && cp "$GEO_CLI_SRC_DIR/config/.geo.conf" "$GEO_CLI_CONFIG_DIR"
 export GEO_CLI_VERSION=$(cat $GEO_CLI_DIR/version.txt)
-previously_installed_version=$(geo-get GEO_CLI_VERSION)
-geo-set GEO_CLI_DIR "$GEO_CLI_DIR"
-geo-set GEO_CLI_SRC_DIR "$GEO_CLI_SRC_DIR"
-geo-set GEO_CLI_CONFIG_DIR "$GEO_CLI_CONFIG_DIR"
-geo-set GEO_CLI_CONF_FILE "$GEO_CLI_CONF_FILE"
-geo-set GEO_CLI_VERSION "$GEO_CLI_VERSION"
-geo-set OUTDATED false
+previously_installed_version=$(@geo_get GEO_CLI_VERSION)
+@geo_set GEO_CLI_DIR "$GEO_CLI_DIR"
+@geo_set GEO_CLI_SRC_DIR "$GEO_CLI_SRC_DIR"
+@geo_set GEO_CLI_CONFIG_DIR "$GEO_CLI_CONFIG_DIR"
+@geo_set GEO_CLI_CONF_FILE "$GEO_CLI_CONF_FILE"
+@geo_set GEO_CLI_VERSION "$GEO_CLI_VERSION"
+@geo_set OUTDATED false
 
 # The prev_commit is the commit hash that was stored last time geo-cli was updated. cur_commit is the commit hash of
 # this version of geo-cli. The commit messages between theses two hashes are shown to the user to show what's new in
@@ -36,7 +36,7 @@ prev_commit=$1
 cur_commit=$2
 
 # Check if the current branch is a feature branch.
-if [[ $(geo-get FEATURE) == true ]]; then
+if [[ $(@geo_get FEATURE) == true ]]; then
     if _geo_check_if_feature_branch_merged; then
         cur_commit=$(git rev-parse HEAD)
         geo_rm FEATURE
@@ -45,8 +45,8 @@ if [[ $(geo-get FEATURE) == true ]]; then
         bash "$GEO_CLI_DIR/install.sh" $prev_commit $cur_commit
         exit
     fi
-    GEO_CLI_VERSION=$(geo-get FEATURE_VER_REMOTE)
-    previously_installed_version=$(geo-get FEATURE_VER_LOCAL)
+    GEO_CLI_VERSION=$(@geo_get FEATURE_VER_REMOTE)
+    previously_installed_version=$(@geo_get FEATURE_VER_LOCAL)
     [[ -z $GEO_CLI_VERSION ]] && GEO_CLI_VERSION=$previously_installed_version
 fi
 
@@ -55,16 +55,6 @@ fi
 sed -i '/#geo-cli-start/,/#geo-cli-end/d' ~/.bashrc
 [[ -f ~/.zshrc ]] && sed -i '/#geo-cli-start/,/#geo-cli-end/d' ~/.zshrc
 # sed -i '/source .*geo-cli-init.*/d' ~/.zshrc
-
-# Make the 'geo-cli' command globally available as an executable by adding a symbolic link from geo-cli to
-# ~/.local/bin/geo-cli. This allows the geo-cli command to be run by any type of shell (since the script will always
-# run in bash because of the shebang (#!/bin/bash) at the top of the file) as long as it is executed (like this 
-# 'geo-cli <args>' instead of 'source geo-cli.sh').
-if [[ ! -e $HOME/.local/bin/geo-cli ]]; then
-    mkdir -p $HOME/.local/bin
-    [[ -f $GEO_CLI_SRC_DIR/geo-cli.sh ]] \
-        && ln -s $GEO_CLI_SRC_DIR/geo-cli.sh $HOME/.local/bin/geo-cli
-fi
 
 # Append cli alias and env config to ~/.bashrc so that the geo command can be 
 # used in any terminal.
@@ -101,11 +91,11 @@ if [[ -n $prev_commit && -n $cur_commit ]]; then
 fi
 
 # Enable notification if the SHOW_NOTIFICATIONS setting doesn't exist in the config file.
-show_notifications=$(geo-get SHOW_NOTIFICATIONS)
-[[ -z $show_notifications ]] && geo-set SHOW_NOTIFICATIONS true
+show_notifications=$(@geo_get SHOW_NOTIFICATIONS)
+[[ -z $show_notifications ]] && @geo_set SHOW_NOTIFICATIONS true
 
 # Reset update notification.
-geo-set UPDATE_NOTIFICATION_SENT false
+@geo_set UPDATE_NOTIFICATION_SENT false
 
 # Generate geo autocompletions.
 geo_generate_autocompletions
@@ -113,7 +103,7 @@ geo_generate_autocompletions
 # Set up app indicator service if not in headless Ubuntu (no UI).
 running_in_headless_ubuntu=$(dpkg -l ubuntu-desktop | grep 'no packages found')
 if [[ -z $running_in_headless_ubuntu ]]; then
-    geo_indicator init
+    @geo_indicator init
     echo
 fi
 
@@ -137,6 +127,37 @@ fi
 log::success "$installed_msg"
 # log::success "$(log::fmt_text_and_indent_after_first_line -d 4 "$installed_msg" 0 5)"
 echo
+
+# Make the 'geo-cli' command globally available as an executable by adding a symbolic link from geo-cli to
+# ~/.local/bin/geo-cli. This allows the geo-cli command to be run by any type of shell (since the script will always
+# run in bash because of the shebang (#!/bin/bash) at the top of the file) as long as it is executed (like this
+# 'geo-cli <args>' instead of 'source geo-cli.sh').
+[[ ! -e $HOME/.local/bin/geo-cli ]] && mkdir -p "$HOME"/.local/bin
+if [[ -f $GEO_CLI_SRC_DIR/geo-cli.sh ]]; then
+    myg_branch_version="$(@geo_dev release)"
+    myg_branch_version=${myg_branch_version:-11.0}
+
+    if ln -fs "$GEO_CLI_SRC_DIR"/geo-cli.sh $HOME/.local/bin/geo-cli; then
+        log::status "Linking $(log::txt_underline 'geo-cli') executable to $(log::txt_underline "~/.local/bin/geo-cli")" # " to make it available in all terminals."
+        echo
+
+        geo_cli_exec_text="$EMOJI_BULLET The $(log::txt_underline 'geo-cli') command is available to be run in $(log::txt_underline 'any') type of shell (bash, zsh, fish, etc.) as an executable (which will always run in bash, regardless of the shell type that executes it) to $(log::link "~/.local/bin/geo-cli")."
+        geo_exec_text="$EMOJI_BULLET The $(log::txt_underline 'geo') command is available in bash shells only. It is loaded as a function into each bash shell via the .bashrc file."
+
+        log::info -b 'geo-cli any shell'
+        log::info "$(log::fmt_text_and_indent_after_first_line "$geo_cli_exec_text" 1 3)"
+        echo
+        log::info "$(log::fmt_text_and_indent_after_first_line "$geo_exec_text" 1 3)"
+        echo
+        log::info "$(log::txt_underline Example): Create/start a geo-cli managed database container for MyGeotab"
+        log::code "    geo db start $myg_branch_version     "
+        log::detail " OR"
+        log::code "    geo-cli db start $myg_branch_version"
+        echo
+    else
+        log::error "Failed to make symlink"
+    fi
+fi
 
 log::info -b "Next step: create a database container and start geotabdemo"
 step1="1. Build MyGeotab.Core in your IDE (required when creating new dbs)"
@@ -165,9 +186,9 @@ python3 -m pip install setproctitle &> /dev/null
 
 # # Set up update cron job.
 # if type crontab > /dev/null; then
-#     check_for_updates_with_cron_job=$(geo-get CHECK_FOR_UPDATES_WITH_CRON_JOB)
+#     check_for_updates_with_cron_job=$@geo_get CHECK_FOR_UPDATES_WITH_CRON_JOB)
 #     # Add the CHECK_FOR_UPDATES_WITH_CRON_JOB setting if it doesn't exist; enabling it by default.
-#     [[ -z $check_for_updates_with_cron_job ]] && geo-set CHECK_FOR_UPDATES_WITH_CRON_JOB true && check_for_updates_with_cron_job=true
+#     [[ -z $check_for_updates_with_cron_job ]] && @geo_set CHECK_FOR_UPDATES_WITH_CRON_JOB true && check_for_updates_with_cron_job=true
 #     cron_function=_geo_check_for_updates
 #     # Run the _geo_check_for_updates function every weekday at 9am.
 #     cronjob="0 9 * * 1-5 $cron_function"
