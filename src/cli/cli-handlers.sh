@@ -17,13 +17,18 @@ if [[ -z $GEO_CLI_DIR || ! -f $GEO_CLI_DIR/install.sh ]]; then
     [[ ! -f $GEO_CLI_DIR/install.sh ]] && echo "$msg" && exit 1;
 
 fi
+
 export GEO_CLI_SRC_DIR="${GEO_CLI_DIR}/src"
 export GEO_CLI_UTILS_DIR="${GEO_CLI_SRC_DIR}/utils"
 
 # Import colour constants/functions and config file read/write helper functions.
+# shellcheck source=../utils/colors.sh
 . $GEO_CLI_UTILS_DIR/colors.sh
+# shellcheck source=../utils/config-file-utils.sh
 . $GEO_CLI_UTILS_DIR/config-file-utils.sh
+# shellcheck source=../utils/log.sh
 . $GEO_CLI_UTILS_DIR/log.sh
+# shellcheck source=../utils/util.sh
 . $GEO_CLI_UTILS_DIR/util.sh
 
 # Set up config paths (used to store config info about geo-cli)
