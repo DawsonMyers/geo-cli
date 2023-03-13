@@ -106,18 +106,11 @@ export GEO_NO_UPDATE_CHECK=false
 
 function geo() {
     # set -E
-     export GEO_CALLER_ARGS="$*"
-#     set -e
-     # The set -x debug line prefix
-#    set -x
-    
-#     trap 'set +x;' RETURN
-#     trap 'set +x;' RETURN
-
+     set -e
     # Log call.
     [[ $(@geo_get LOG_HISTORY) == true ]] && echo "[$(date +"%Y-%m-%d_%H:%M:%S")] geo $*" >> ~/.geo-cli/history.txt
 
-    # If false, 
+    # If false,
     export GEO_INTERACTIVE=true
     # [[ $- =~ i ]] && GEO_INTERACTIVE=false
 
