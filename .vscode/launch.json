@@ -29,7 +29,7 @@
         {
             "type": "bash selected text",
             "request": "launch",
-            "name": "Bash-Debug (simplest configuration)",
+            "name": "Bash-Debug - Selected Text)",
             "program": "${selectedText}"
         }
     ]

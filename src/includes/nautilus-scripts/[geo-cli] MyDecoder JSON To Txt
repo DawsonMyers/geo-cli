@@ -1,0 +1,13 @@
+#!/bin/bash
+# Available environment variables:
+# $NAUTILUS_SCRIPT_SELECTED_FILE_PATHS
+# $NAUTILUS_SCRIPT_SELECTED_URIS
+# $NAUTILUS_SCRIPT_CURRENT_URI
+# $NAUTILUS_SCRIPT_WINDOW_GEOMETRY
+
+# Remove trailing linefeed.
+export file="${NAUTILUS_SCRIPT_SELECTED_FILE_PATHS:0:-1}"
+cmd="trap 'echo In ERR trap; sleep 10000' ERR; $(cat "$HOME"/.geo-cli/data/geo/repo-dir)/src/geo-cli.sh mydecoder ${file}; echo 'Press Enter to exit'; read"
+gnome-terminal -- bash -c "$cmd"
+#gnome-terminal -- bash -c "trap 'echo In ERR trap; sleep 10000' ERR; $(cat "$HOME"/.geo-cli/data/geo/repo-dir)/src/geo-cli.sh mydecoder ${file}; echo 'Press Enter to exit'; read"
+

@@ -1,0 +1,16 @@
+# Finds strings starting with 'geo_' which are neither preceded '_' nor succeeded by 'cli'. Used for refactoring top-level
+# geo cli command function names (e.g. geo_db)
+# => replace with new command name format.
+    (?<!_)geo_(?!cli)
+    (?<![/.])(?:_)?geo-(set|get|rm)
+(?<![/.])(?:_)?geo-(cmd|top|pw|image|db|ar|stop|init|env|set|get|rm|update|uninstall|analyze|id|version|cd|indicator|test|help|dev|quarantine|mydecoder|loc|myg|gw|edit)
+(?<![/.@])(?:_)?geo-(cmd|top|pw|image|db|ar|stop|init|env|set|get|rm|update|uninstall|analyze|id|version|cd|indicator|test|help|dev|quarantine|mydecoder|loc|myg|gw|edit)(_doc)?(?!_)
+replace: @geo_$1$2
+
+COMMANDS\+=\('(\w+)'\)
+@register_geo_cmd  '$1'
+
+geo_(?!cmd|top|pw|image|db|ar|stop|init|env|set|get|rm|update|uninstall|analyze|id|version|cd|indicator|test|help|dev|quarantine|mydecoder|loc|myg|gw|edit)
+
+(?<![./@"-])geo\-(?!cli)-?(_(doc|cmd|top|pw|image|db|ar|stop|init|env|set|get|rm|update|uninstall|analyze|id|version|cd|indicator|test|help|dev|quarantine|mydecoder|loc|myg|gw|edit))?(?!\.)
+@geo_$1$2
