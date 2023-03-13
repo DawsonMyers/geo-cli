@@ -59,30 +59,30 @@
 # 
 # The three parts above have the following structure:
 #   COMMAND+=('command')
-#   geo-command_doc() {...}
-#   geo-command() {...}
+#   @geo_command_doc() {...}
+#   @geo_command() {...}
 # Example for the definition of 'geo db' command:
 #   COMMAND+=('db')
-#   geo-db_doc() {...}
-#   geo-db() {...}
+#   @geo_db_doc() {...}
+#   @geo_db() {...}
 #
 
 #*** DON'T FORGET TO ADD A SECTION TO THE README ABOUT YOUR NEW COMMAND ***
 
 # The full path to this file.
-export new_command_name_handler_file_path="${BASH_SOURCE[0]}"
+export {{new_command_name}}_handler_file_path="${BASH_SOURCE[0]}"
 
-COMMANDS+=('new_command_name')
-geo_new_command_name_doc() {
+@register_geo_cmd  '{{new_command_name}}'
+geo_{{new_command_name}}_doc() {
     # Replace the following template documentation with relevant info about the command.
-  doc_cmd 'new_command_name'
+  doc_cmd '{{new_command_name}}'
       doc_cmd_desc 'Commands description.'
       
-      doc_cmd_sub_cmds_title
+      doc_cmd_sub_cmd_title
       
       doc_cmd_sub_cmd 'create [options] <arg>'
           doc_cmd_sub_cmd_desc 'This command takes options and arguments'
-          doc_cmd_sub_options_title
+          doc_cmd_sub_option_title
               doc_cmd_sub_option '-y'
                   doc_cmd_sub_option_desc 'Accept all prompts.'
               doc_cmd_sub_option '-p <port_number>'
@@ -92,16 +92,16 @@ geo_new_command_name_doc() {
           doc_cmd_sub_cmd_desc '...'
 
       doc_cmd_examples_title
-          doc_cmd_example 'geo new_command_name create -p 22 my_db'
-          doc_cmd_example 'geo new_command_name create -y my_other_db'
+          doc_cmd_example 'geo {{new_command_name}} create -p 22 my_db'
+          doc_cmd_example 'geo {{new_command_name}} create -y my_other_db'
 }
-geo_new_command_name() {
+geo_{{new_command_name}}() {
     local accept_all=false
     local port=21
     
     local OPTIND
     # Add the options to the getopts "" string. Add a : to the option if it takes an argument. 
-    # For example 'getopts "p:"' will allow for the -p option to take an arg: 'geo new_command_name -p 22 ...'.
+    # For example 'getopts "p:"' will allow for the -p option to take an arg: 'geo {{new_command_name}} -p 22 ...'.
     # The argument will be available below in the $OPTARG variable.
     # google 'bash getopts' for more info on parsing options.
     while getopts "yp:" opt; do
@@ -125,15 +125,15 @@ geo_new_command_name() {
     case "$cmd" in
         test )
             # Passes all remaining arguments to the geo_handler_create sub-handler to keep things easy to read.
-            log::success "Command 'new_command_name' is now using geo-cli. Add your logic to the handler file at $new_command_name_handler_file_path"
-            prompt_continue "Edit your command now in VS Code? (Y|n): " && code $new_command_name_handler_file_path
+            log::success "Command '{{new_command_name}}' is now using geo-cli. Add your logic to the handler file at ${{new_command_name}}_handler_file_path"
+            prompt_continue "Edit your command now in VS Code? (Y|n): " && code ${{new_command_name}}_handler_file_path
             ;;
         create )
             # Passes all remaining arguments to the geo_handler_create sub-handler to keep things easy to read.
-            _geo_new_command_name_create "$@"
+            _geo_{{new_command_name}}_create "$@"
             ;;
         rm | remove )
-            _geo_new_command_name_remove "$@"
+            _geo_{{new_command_name}}_remove "$@"
             ;;
         * ) 
             [[ -z $cmd ]] && log::Error "No arguments provided" && return 1 
@@ -143,10 +143,10 @@ geo_new_command_name() {
 }
 
 # Sub-handler functions are named like this: _geo_<command_name>_<sub_command_name>
-_geo_new_command_name_create() {
-    log::debug "_geo_new_command_name_create $@"
+_geo_{{new_command_name}}_create() {
+    log::debug "_geo_{{new_command_name}}_create $@"
 }
 
-_geo_new_command_name_remove() {
+_geo_{{new_command_name}}_remove() {
     log::debug "_geo_new_command_name_remove $@"
 }

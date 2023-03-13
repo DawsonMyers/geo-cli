@@ -86,25 +86,25 @@ export GEO_NO_UPDATE_CHECK=false
 # set -E
 # trap "$GEO_ERR_TRAP" ERR
 
+# function geo() {
+#     if [[ $(@geo_get debug) == true || -n $GEO_DEBUG ]]; then
+#         export GEO_DEBUG=true
+#         # set -E
+#         # trap "$GEO_ERR_TRAP" ERR
+
+#     fi
+#     # TODO: Allow commands to specify if they should not run in a subshell (to persist a dir change (for@geo_cd), for example).
+#     if [[ $(@geo_get dev_mode) == true ]] || $GEO_DEV_MODE; then
+#         export GEO_DEV_MODE=true
+#         (
+#             __geo "$@"
+#         )
+#     else
+#         __geo "$@"
+#     fi
+# }
+
 function geo() {
-    if [[ $(@geo_get debug) == true || -n $GEO_DEBUG ]]; then
-        export GEO_DEBUG=true
-        # set -E
-        # trap "$GEO_ERR_TRAP" ERR
-
-    fi
-    # TODO: Allow commands to specify if they should not run in a subshell (to persist a dir change (for@geo_cd), for example).
-    if [[ $(@geo_get dev_mode) == true ]] || $GEO_DEV_MODE; then
-        export GEO_DEV_MODE=true
-        (
-            __geo "$@"
-        )
-    else
-        __geo "$@"
-    fi
-}
-
-function __geo() {
     # set -E
      export GEO_CALLER_ARGS="$*"
 #     set -e

@@ -8,7 +8,9 @@ export GEO_CLI_SRC_DIR="${GEO_CLI_DIR}/src"
 
 # Import config file utils for writing to the geo config file (~/.geo-cli/.geo.conf).
 . "$GEO_CLI_SRC_DIR/cli/cli-handlers.sh"
+. "$GEO_CLI_SRC_DIR/utils/install-utils.sh"
 # . $GEO_CLI_SRC_DIR/utils/log.sh
+
 
 export GEO_CLI_CONFIG_DIR="$HOME/.geo-cli"
 export GEO_CLI_CONF_FILE="$GEO_CLI_CONFIG_DIR/.geo.conf"
@@ -31,7 +33,7 @@ previously_installed_version=$(@geo_get GEO_CLI_VERSION)
 
 # The prev_commit is the commit hash that was stored last time geo-cli was updated. cur_commit is the commit hash of
 # this version of geo-cli. The commit messages between theses two hashes are shown to the user to show what's new in
-# this update. The hashes are passed in as params when the 'goe update' command runs this script.
+# this update. The hashes are passed in as params when the 'geo update' command runs this script.
 prev_commit=$1
 cur_commit=$2
 
@@ -39,9 +41,9 @@ cur_commit=$2
 if [[ $(@geo_get FEATURE) == true ]]; then
     if _geo_check_if_feature_branch_merged; then
         cur_commit=$(git rev-parse HEAD)
-        geo_rm FEATURE
-        geo_rm FEATURE_VER_LOCAL
-        geo_rm FEATURE_VER_REMOTE
+        @geo_rm FEATURE
+        @geo_rm FEATURE_VER_LOCAL
+        @geo_rm FEATURE_VER_REMOTE
         bash "$GEO_CLI_DIR/install.sh" $prev_commit $cur_commit
         exit
     fi
@@ -107,57 +109,59 @@ if [[ -z $running_in_headless_ubuntu ]]; then
     echo
 fi
 
-# Ensure GitLab environment variable file has correct permissions.
-PAT_ENV_VAR_FILE_PATH="$GEO_CLI_CONFIG_DIR/env/gitlab-pat.sh"
-[[ -f $PAT_ENV_VAR_FILE_PATH && $(stat -L -c '%a' $PAT_ENV_VAR_FILE_PATH) != 600 ]] && chmod 600 "$PAT_ENV_VAR_FILE_PATH"
+install-utils::init-gitlab-pat
+# # Ensure GitLab environment variable file has correct permissions.
+# PAT_ENV_VAR_FILE_PATH="$GEO_CLI_CONFIG_DIR/env/gitlab-pat.sh"
+# [[ -f $PAT_ENV_VAR_FILE_PATH && $(stat -L -c '%a' $PAT_ENV_VAR_FILE_PATH) != 600 ]] && chmod 600 "$PAT_ENV_VAR_FILE_PATH"
 
-# Set up the nautilius context menu scripts.
-[ ! -d ~/.local/share/nautilus/scripts ] && mkdirp ~/.local/share/nautilus/scripts
-cp $GEO_CLI_SRC_DIR/includes/nautilus-scripts/* ~/.local/share/nautilus/scripts/
+# _geo_check_for_dev_repo_dir
 
-_geo_check_for_dev_repo_dir
-
-installed_msg=''
-if [[ $previously_installed_version ]]; then
-    . ~/.bashrc
-    installed_msg="The new version of geo-cli is now available in this terminal, as well as all new ones."
-else
-    installed_msg="Open a new terminal or source .bashrc by running '. ~/.bashrc' in this one to start using geo-cli."
-fi
-log::success "$installed_msg"
+# installed_msg=''
+# if [[ $previously_installed_version ]]; then
+#     . ~/.bashrc
+#     installed_msg="The new version of geo-cli is now available in this terminal, as well as all new ones."
+# else
+#     installed_msg="Open a new terminal or source .bashrc by running '. ~/.bashrc' in this one to start using geo-cli."
+# fi
+# log::success "$installed_msg"
 # log::success "$(log::fmt_text_and_indent_after_first_line -d 4 "$installed_msg" 0 5)"
 echo
+
+install-utils::install-nautilus-scripts
 
 # Make the 'geo-cli' command globally available as an executable by adding a symbolic link from geo-cli to
 # ~/.local/bin/geo-cli. This allows the geo-cli command to be run by any type of shell (since the script will always
 # run in bash because of the shebang (#!/bin/bash) at the top of the file) as long as it is executed (like this
 # 'geo-cli <args>' instead of 'source geo-cli.sh').
-[[ ! -e $HOME/.local/bin/geo-cli ]] && mkdir -p "$HOME"/.local/bin
-if [[ -f $GEO_CLI_SRC_DIR/geo-cli.sh ]]; then
-    myg_branch_version="$(@geo_dev release)"
-    myg_branch_version=${myg_branch_version:-11.0}
+install-utils::install-geo-cli-executable
 
-    if ln -fs "$GEO_CLI_SRC_DIR"/geo-cli.sh $HOME/.local/bin/geo-cli; then
-        log::status "Linking $(log::txt_underline 'geo-cli') executable to $(log::txt_underline "~/.local/bin/geo-cli")" # " to make it available in all terminals."
-        echo
 
-        geo_cli_exec_text="$EMOJI_BULLET The $(log::txt_underline 'geo-cli') command is available to be run in $(log::txt_underline 'any') type of shell (bash, zsh, fish, etc.) as an executable (which will always run in bash, regardless of the shell type that executes it) to $(log::link "~/.local/bin/geo-cli")."
-        geo_exec_text="$EMOJI_BULLET The $(log::txt_underline 'geo') command is available in bash shells only. It is loaded as a function into each bash shell via the .bashrc file."
+# [[ ! -e $HOME/.local/bin/geo-cli ]] && mkdir -p "$HOME"/.local/bin
+# if [[ -f $GEO_CLI_SRC_DIR/geo-cli.sh ]]; then
+#     myg_branch_version="$(@geo_dev release)"
+#     myg_branch_version=${myg_branch_version:-11.0}
 
-        log::info -b 'geo-cli any shell'
-        log::info "$(log::fmt_text_and_indent_after_first_line "$geo_cli_exec_text" 1 3)"
-        echo
-        log::info "$(log::fmt_text_and_indent_after_first_line "$geo_exec_text" 1 3)"
-        echo
-        log::info "$(log::txt_underline Example): Create/start a geo-cli managed database container for MyGeotab"
-        log::code "    geo db start $myg_branch_version     "
-        log::detail " OR"
-        log::code "    geo-cli db start $myg_branch_version"
-        echo
-    else
-        log::error "Failed to make symlink"
-    fi
-fi
+#     if ln -fs "$GEO_CLI_SRC_DIR"/geo-cli.sh $HOME/.local/bin/geo-cli; then
+#         log::status "Linking $(log::txt_underline 'geo-cli') executable to $(log::txt_underline "~/.local/bin/geo-cli")" # " to make it available in all terminals."
+#         echo
+
+#         geo_cli_exec_text="$EMOJI_BULLET The $(log::txt_underline 'geo-cli') command is available to be run in $(log::txt_underline 'any') type of shell (bash, zsh, fish, etc.) as an executable (which will always run in bash, regardless of the shell type that executes it) to $(log::link "~/.local/bin/geo-cli")."
+#         geo_exec_text="$EMOJI_BULLET The $(log::txt_underline 'geo') command is available in bash shells only. It is loaded as a function into each bash shell via the .bashrc file."
+
+#         log::info -b 'geo-cli any shell'
+#         log::info "$(log::fmt_text_and_indent_after_first_line "$geo_cli_exec_text" 1 3)"
+#         echo
+#         log::info "$(log::fmt_text_and_indent_after_first_line "$geo_exec_text" 1 3)"
+#         echo
+#         log::info "$(log::txt_underline Example): Create/start a geo-cli managed database container for MyGeotab"
+#         log::code "    geo db start $myg_branch_version     "
+#         log::detail " OR"
+#         log::code "    geo-cli db start $myg_branch_version"
+#         echo
+#     else
+#         log::error "Failed to make symlink"
+#     fi
+# fi
 
 log::info -b "Next step: create a database container and start geotabdemo"
 step1="1. Build MyGeotab.Core in your IDE (required when creating new dbs)"
