@@ -63,12 +63,34 @@ fi
 # SOURCE="${BASH_SOURCE[0]}"
 # DIR_NAME=`dirname $SOURCE`
 # echo $SOURCE
+# EMOJI_CHECK_MARK_GREEN='\033[0;32m✔\033[0m'
+# EMOJI_RED_X_SMALL_RED='\033[0;31m✘\033[0m'
+# =$'\033[32m'
+# red_color=$'\033[41m'
+# exit_color=$normal_color
+
+exit_color() {
+    exit_code=$?
+    if [ "$exit_code" != 0 ]; then
+        echo -e "$Red✘"
+    else
+        echo -e "$Green✔"
+    fi
+    return "$exit_code"
+}
+# '$(echo -e ${log_RETURN_CODE_TO_EMOJI[$?]}-)' 
+# ret_emoji='$(exit_color)'
+# ret_emoji='$([[ $? -eq 0 ]] && echo "\033[0;32m✔\033[0m" || echo "\033[0;32m✔\033[0m")'
+trap_string_parts=('$(exit_color) ' "$BCyan" '${BASH_SOURCE[0]##${HOME}*/}' "${Purple}" '[$LINENO]:' "${Yellow}" '${FUNCNAME:-FuncNameNull}:' "$Off ")
+
+export GEO_ERR_TRAP="$(util::array_concat -z trap_string_parts)"
+export PS4=".${GEO_ERR_TRAP}"
+
+# export GEO_ERR_TRAP="$BCyan"${BASH_SOURCE[0]##${HOME}*/}${Purple}[$LINENO]:${Yellow}${FUNCNAME:-FuncNameNull}:$Off '
 # export GEO_ERR_TRAP='${BASH_SOURCE[*]}[$LINENO]: '
 # export GEO_ERR_TRAP='${BASH_SOURCE[*]}[$LINENO]: '
-export GEO_ERR_TRAP='$BCyan\${BASH_SOURCE[0]##\${HOME}*/}${Purple}[\$LINENO]:${Yellow}\${FUNCNAME:-FuncNameNull}: $Off'
 # export GEO_ERR_TRAP="\$BCyan\${BASH_SOURCE[0]}\${Purple}[\$LINENO]:\${Yellow}\${FUNCNAME:-FuncNameNull0}: \$Off"
 # export GEO_ERR_TRAP='${BASH_SOURCE[0]##*/}[$LINENO]:${FUNCNAME:-FuncNameNull}: '
-export PS4=".${GEO_ERR_TRAP}"
 #export GEO_ERR_TRAP="$BCyan\${BASH_SOURCE[0]##*/}${Purple}[\$LINENO]:${Yellow}\${FUNCNAME:-FuncNameNull}: $Off"
 # export GEO_ERR_TRAP="$BCyan\${BASH_SOURCE[1]}.\${BASH_SOURCE[0]}${Purple}[\$LINENO]:${Yellow}\${FUNCNAME:-FuncNameNull}: $Off"
 # export PS4='.${BASH_SOURCE[0]##*/}[$LINENO]:${FUNCNAME:-FuncNameNull}: '

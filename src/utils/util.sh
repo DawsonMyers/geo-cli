@@ -82,9 +82,9 @@ EOF
 
     local template_type=$1
 
-    case template_type in
+    case "$template_type" in
         o | opt | option | options )
-            case $2 in
+            case "$2" in
                 long | l ) echo "$option_long_template" ;;
                 long-group | long-groups | lg ) echo "$option_long_args_and_groups_template" ;;
                 * ) echo "$option_template" ;;
@@ -501,20 +501,49 @@ util::array_to_path() {
     echo "${_array_ref[*]}" | tr ' ' '.'
 }
 util::array_concat() {
+    # local join_str=' '
+    local default_join_str=' '
+    local join_str="$default_join_str"
+    [[ $1 == -z ]] && join_str='' && shift
+    [[ $2 == -z ]] && join_str='' && set -- "$1"
     local -n _array_ref="$1"
-    echo "${_array_ref[*]}"
+    [[ -n $2 ]] && local join_str="${*:2}"
+    [[ $join_str == "$default_join_str" ]] && echo "${_array_ref[*]}" && return
+    
+    local str=''
+    for item in "${_array_ref[@]}"; do
+        [[ -z $str ]] && str="$item" && continue
+        str+="${join_str}${item}"
+    done
+    echo "$str"
 }
+alias util::array_join=util::array_concat
+alias util::join=util::array_concat
+alias array-join=util::array_concat
+
 util::array_pop() {
     local -n __array_ref="$1"
     [[ ${#__array_ref[@]} -lt 1 ]] || return 0
     echo "${__array_ref[-1]}"
     unset __array_ref[-1]
 }
+alias array-pop=util::array_pop
+
+util::array_pop_front() {
+    local -n __array_ref="$1"
+    [[ ${#__array_ref[@]} -lt 1 ]] || return 0
+    echo "${__array_ref[0]}"
+    unset __array_ref[0]
+}
+alias array-pop-front=util::array_pop_front
+
 util::array_push() {
     local -n __array_ref="$1"
     local value="$2"
     __array_ref+=("$value")
 }
+alias array-push=util::array_push
+
 util::array_push_front() {
     local -n __array_ref="$1"
     local value="$2"
@@ -527,3 +556,5 @@ util::array_push_front() {
         __array_ref[$((i++))]="$item"
     done
 }
+alias array-push-front=util::array_push_front
+alias array-shift=util::array_push_front
