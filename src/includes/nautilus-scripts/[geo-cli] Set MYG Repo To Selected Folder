@@ -1,13 +1,15 @@
 #!/bin/bash
-# Available environment variables:
-# $NAUTILUS_SCRIPT_SELECTED_FILE_PATHS
-# $NAUTILUS_SCRIPT_SELECTED_URIS
-# $NAUTILUS_SCRIPT_CURRENT_URI
-# $NAUTILUS_SCRIPT_WINDOW_GEOMETRY
+###################################################################################################
+#** This file was installed by geo-cli.
+#** Do NOT make any changes to this file! It may be overwritten when geo-cli updates.
+###################################################################################################
+#* Available environment variables:
+#   $NAUTILUS_SCRIPT_SELECTED_FILE_PATHS
+#   $NAUTILUS_SCRIPT_SELECTED_URIS
+#   $NAUTILUS_SCRIPT_CURRENT_URI
+#   $NAUTILUS_SCRIPT_WINDOW_GEOMETRY
 
 export selected_file_path="${NAUTILUS_SCRIPT_SELECTED_FILE_PATHS:0:-1}"
-# export geo_repo_dir="$(cat "$HOME"/.geo-cli/data/geo/repo-dir)"
-# export geo_cli_script="$geo_repo_dir/src/geo-cli.sh"
 
 # Open interactive terminal and run geo command.
 # the -i option makes bash run in interactive mode. This mode sources the .bashrc file, making geo for us to use.
