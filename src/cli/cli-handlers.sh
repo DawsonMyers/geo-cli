@@ -4593,7 +4593,8 @@ _geo_check_if_feature_branch_merged() {
             local option='-b'
             # Can use -b-2 to get the logs since 2 boots ago or -b-3 to all since 3 boots ago.
             [[ -n $2 ]] && option="$2"
-            journalctl --user -u $geo_indicator_service_name $option
+            # -r reverses logs, showing newest first
+            journalctl --user -r -u $geo_indicator_service_name $option
             ;;
         * )
             log::Error "Unknown argument: '$1'"

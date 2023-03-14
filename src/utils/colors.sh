@@ -1,3 +1,5 @@
+#Regex to find color control codes: (\\\[)?(\\e|\\033)\[(\d+;)*\d+m
+
 CHECK_MARK="\033[0;32m\xE2\x9C\x94\033[0m"
 EMOJI_CHECK_MARK=✔️
 EMOJI_CHECK_MARK_GREEN='\033[0;32m✔\033[0m'
@@ -142,7 +144,7 @@ txt_hide() {
     echo -en "\e[8m$@\e[28m"
 }
 
-
+# (\\\[)? \d+m?;\d+m(\\\])?
 
 # Bash colors
 #####################

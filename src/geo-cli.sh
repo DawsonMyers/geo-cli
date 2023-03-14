@@ -69,6 +69,16 @@ fi
 # red_color=$'\033[41m'
 # exit_color=$normal_color
 
+# Define error handlers before loading cli-handlers.sh, then set again with color afterwards.
+# This is because we need to have util::array_concat imported.
+export GEO_ERR_TRAP='${BASH_SOURCE[0]##*/}[$LINENO]:${FUNCNAME:-FuncNameNull}: '
+export PS4=".${GEO_ERR_TRAP}"
+export PS4='.${BASH_SOURCE[0]##*/}[$LINENO]:${FUNCNAME:-FuncNameNull}: '
+
+# Import cli handlers to get access to all of the geo-cli commands and command names (through the COMMANDS array).
+# shellcheck source=cli/cli-handlers.sh
+. "$GEO_CLI_SRC_DIR/cli/cli-handlers.sh"
+
 exit_color() {
     exit_code=$?
     if [ "$exit_code" != 0 ]; then
@@ -78,13 +88,14 @@ exit_color() {
     fi
     return "$exit_code"
 }
-# '$(echo -e ${log_RETURN_CODE_TO_EMOJI[$?]}-)' 
+# '$(echo -e ${log_RETURN_CODE_TO_EMOJI[$?]}-)'
 # ret_emoji='$(exit_color)'
 # ret_emoji='$([[ $? -eq 0 ]] && echo "\033[0;32m✔\033[0m" || echo "\033[0;32m✔\033[0m")'
 trap_string_parts=('$(exit_color) ' "$BCyan" '${BASH_SOURCE[0]##${HOME}*/}' "${Purple}" '[$LINENO]:' "${Yellow}" '${FUNCNAME:-FuncNameNull}:' "$Off ")
+#type util::array_concat
+GEO_ERR_TRAP="$(util::array_concat -z trap_string_parts)"
+PS4=".${GEO_ERR_TRAP}"
 
-export GEO_ERR_TRAP="$(util::array_concat -z trap_string_parts)"
-export PS4=".${GEO_ERR_TRAP}"
 
 # export GEO_ERR_TRAP="$BCyan"${BASH_SOURCE[0]##${HOME}*/}${Purple}[$LINENO]:${Yellow}${FUNCNAME:-FuncNameNull}:$Off '
 # export GEO_ERR_TRAP='${BASH_SOURCE[*]}[$LINENO]: '
@@ -102,9 +113,6 @@ export GEO_DEV_MODE=false
 export GEO_RAW_OUTPUT=false
 export GEO_NO_UPDATE_CHECK=false
 
-# Import cli handlers to get access to all of the geo-cli commands and command names (through the COMMANDS array).
-# shellcheck source=cli/cli-handlers.sh
-. "$GEO_CLI_SRC_DIR/cli/cli-handlers.sh"
 # set -E
 # trap "$GEO_ERR_TRAP" ERR
 
@@ -136,6 +144,7 @@ function geo() {
     export GEO_INTERACTIVE=true
     # [[ $- =~ i ]] && GEO_INTERACTIVE=false
 
+    local OPTIND
     while [[ $# -gt 0 && $1 =~ ^-{1,2} ]]; do
     # echo "arg = $1"
     # while [[ $# -gt 0 && $1 == --raw-output || $1 == --no-update-check ]]; do
@@ -143,7 +152,7 @@ function geo() {
         # A hyphen is then concatenated to the result to account for the one that was removed.
         local opt_prefix="${1%-*}-"
         # Strips '-' or '--' option prefix.
-        local arg="${1#*-}"
+        local arg="${1/-?}"
         arg="${arg:-$opt_prefix}"
         case "$arg" in
              # Disabled formatted output if the --raw-output option is present.
@@ -156,6 +165,8 @@ function geo() {
         esac
         shift
     done
+    # e $GEO_RAW_OUTPUT
+    # shift $((OPTIND - 1))
 
     # Check for updates in background process
     ( _geo_check_for_updates >& /dev/null & )

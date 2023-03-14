@@ -27,7 +27,7 @@
             "program": "${file}"
         },
         {
-            "type": "bash selected text",
+            "type": "bashdb",
             "request": "launch",
             "name": "Bash-Debug - Selected Text)",
             "program": "${selectedText}"
