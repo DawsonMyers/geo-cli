@@ -29,7 +29,7 @@ class HelpMenuItem(Gtk.MenuItem):
 
         item_force_update = Gtk.MenuItem(label='Force Update')
         item_force_update.connect('activate', lambda _: geo.run_in_terminal('update -f', stay_open_after=True))
-        item_restart_ui = Gtk.MenuItem(label='Restart geo-ui')
+        item_restart_ui = Gtk.MenuItem(label='⟲ Restart geo-ui')
         item_restart_ui.connect('activate', lambda _: geo.run('indicator restart'))
          
         submenu.append(item_show_notifications)

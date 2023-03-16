@@ -15,7 +15,7 @@ EOF
 }
 util::template() {
     [[ $1 =~ (^-h)|(^--help) ]] && util::template_doc && return
-    
+
     read -r -d '' option_template <<-'EOF'
 local OPTIND
 while getopts "v:p" opt; do
@@ -23,8 +23,8 @@ while getopts "v:p" opt; do
         v ) caller_variable=$OPTARG ;;
         p ) print_result=true ;;
         # Standard error handling.
-        : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
-        \? ) log::Error "Invalid option: ${opt}"; return 1 ;;
+        : ) log::Error "Option '${OPTARG}'  expects an argument."; return 1 ;;
+        \? ) log::Error "Invalid option: ${OPTARG}"; return 1 ;;
     esac
 done
 shift $((OPTIND - 1))
@@ -34,15 +34,15 @@ EOF
 while [[ -n $1 && $1 =~ ^-{1,2} ]]; do
     opt="$(echo $1 | sed -E 's/^-{1,2}//g')"
     case "${opt}" in
-        v | var ) 
+        v | var )
             local -n caller_var_ref="$2"
             write_to_caller_variable=true
             shift
             ;;
         p | print ) print_to_stdout=true ;;
         s | silent ) silent=true ;;
-        : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
-        \? ) log::Error "Invalid option: $1"; return 1 ;;
+        : ) log::Error "Option '${OPTARG}'  expects an argument."; return 1 ;;
+        \? ) log::Error "Invalid option: $OPTARG"; return 1 ;;
     esac
     shift
 done
@@ -55,8 +55,8 @@ parse_option() {
         r | raw ) raw=true && echo raw;;
         t ) add_timestamp=true ;;
         # Standard error handling.
-        : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
-        \? ) log::Error "Invalid option: $1"; return 1 ;;
+        : ) log::Error "Option '${OPTARG}'  expects an argument."; return 1 ;;
+        \? ) log::Error "Invalid option: $OPTARG"; return 1 ;;
     esac
 }
 
@@ -88,7 +88,7 @@ EOF
                 long | l ) echo "$option_long_template" ;;
                 long-group | long-groups | lg ) echo "$option_long_args_and_groups_template" ;;
                 * ) echo "$option_template" ;;
-            esac   
+            esac
             ;;
         * ) echo "$option_template" ;;
     esac
@@ -111,13 +111,13 @@ util::print_array() {
             s ) same_line=true ;;
             # f ) formatted=$OPTARG ;;
             # Standard error handlers.
-            : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
-            \? ) log::Error "Invalid option: ${opt}"; return 1 ;;
+            : ) log::Error "Option '${OPTARG}'  expects an argument."; return 1 ;;
+            \? ) log::Error "Invalid option: ${OPTARG}"; return 1 ;;
         esac
     done
     shift $((OPTIND - 1))
     local text=
-    
+
     for item in "${array[@]}"; do
         echo "$item"
     done
@@ -169,12 +169,12 @@ util::join_array() {
             I ) indent=true && indent_amount="$OPTARG" ;;
             # f ) formatted=$OPTARG ;;
             # Standard error handlers.
-            : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
-            \? ) log::Error "Invalid option: ${opt}"; return 1 ;;
+            : ) log::Error "Option '${OPTARG}' expects an argument."; return 1 ;;
+            \? ) log::Error "Invalid option: ${OPTARG}"; return 1 ;;
         esac
     done
     shift $((OPTIND - 1))
-    
+
     $formatted && newlines=true && brackets=true && indent=true
 
     # log::debug "args: $@"
@@ -194,7 +194,7 @@ util::join_array() {
 
     local line_break=
     $newlines && line_break="$nl"
-    
+
     local count=${#array[@]}
     for ((i=0; i<count; i++)); do
         local end="$delim"
@@ -207,7 +207,7 @@ util::join_array() {
     $indent && ((indent_amount > 0)) && text="$(log::indent -i $indent_amount "$text")"
 
     $brackets && echo "[$line_break$text$line_break]" || echo "$text"
-    
+
     # $brackets && echo ""
 
 }
@@ -251,7 +251,7 @@ util::typeof () {
     local is_type=false
     local silent=false
     local is_ref=false
-    
+
     local OPTIND
     while getopts "aAmhst:T:r" opt; do
         case "${opt}" in
@@ -265,8 +265,8 @@ util::typeof () {
             S ) silent=true ;;
             r ) is_ref=true ;;
             # Standard error handling.
-            : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
-            \? ) log::Error "Invalid option: ${opt}"; return 1 ;;
+            : ) log::Error "Option '${OPTARG}' expects an argument."; return 1 ;;
+            \? ) log::Error "Invalid option: ${OPTARG}"; return 1 ;;
         esac
     done
     shift $((OPTIND - 1))
@@ -277,12 +277,12 @@ util::typeof () {
     local root_name=$1
     # local type_signature=$(declare -p "var_ref" 2>/dev/null)
     # echo "type_signature = $type_signature"
-    
+
     local _name=
     util::get_ref_var_name -v _name $1
     # log::debug util::get_ref_var_name -v _name $1
 
-    local -n var_ref=$_name 
+    local -n var_ref=$_name
     # log::debug "local -n var_ref=$_name "
 
     # local type_signature=
@@ -328,20 +328,20 @@ util::typeof () {
 }
 
 # Check to see if the variable name is a reference that points to another variable.
-util::is_ref_var() { 
+util::is_ref_var() {
     local var_type
     util::get_var_type -v var_type $1
     [[ $var_type == ref ]]
 }
 
 # Check to see if the variable name is a reference that points to another variable.
-util::is_var() { 
+util::is_var() {
     local var_type
     util::get_var_type -v var_type $1
     [[ $var_type == ref ]]
 }
 
-util::get_var_sig() { 
+util::get_var_sig() {
     local has_var=false
     [[ $1 == -v ]] && local -n __ref=$2 && has_var=true && shift 2
     local sig="$(declare -p "$1" 2>/dev/null)"
@@ -353,18 +353,18 @@ util::get_var_sig() {
 util::eval_to_enable_piped_args() {
     local _enable_piped_args_code=
     read -r -d '' _enable_piped_args_code <<-'EOF'
-    local args
+    local __args
     # Allow this command to accept piped in arguments. Example: echo "text" | log::strip_color_codes
     if (( "$#" == 0 )); then
-        IFS= read -r -t 0.01 args
-        set -- "$args"
+        IFS= read -r -t 0.01 __args
+        set -- "__args"
     fi
 EOF
  [[ $1 == -v ]] && local -n var="$2" && var="$_enable_piped_args_code" && return
  echo "$_enable_piped_args_code"
 }
 util::eval_trap_error_and_log() {
-    # local err_trap="$BCyan\${BASH_SOURCE[0]##\${HOME}*/}${Purple}[\$LINENO]:${Yellow}\${FUNCNAME:-FuncNameNull}: $Off"
+     local err_trap="$BCyan\${BASH_SOURCE[0]##\${HOME}*/}${Purple}[\$LINENO]:${Yellow}\${FUNCNAME:-FuncNameNull}: $Off"
     err_trap="${GEO_ERR_TRAP:-$err_trap}"
     export PS4='.${err_trap}'
     trap "$err_trap" ERR
@@ -450,7 +450,7 @@ util::set_map() {
     local -n _map_ref="$1"
     echo "var name = $1"
     shift
-    
+
     local count="$#"
     # for (())
     # for key in "$@"; do
@@ -509,7 +509,7 @@ util::array_concat() {
     local -n _array_ref="$1"
     [[ -n $2 ]] && local join_str="${*:2}"
     [[ $join_str == "$default_join_str" ]] && echo "${_array_ref[*]}" && return
-    
+
     local str=''
     for item in "${_array_ref[@]}"; do
         [[ -z $str ]] && str="$item" && continue

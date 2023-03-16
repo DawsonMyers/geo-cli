@@ -28,10 +28,10 @@ log_RETURN_CODE_TO_EMOJI[0]="$Green✔$Off"
 log_RETURN_CODE_TO_EMOJI[1]="$Red✘$Off"
 
 # Regexes for replacing old log function names.
-# (\W)(red|green|error|Error|info|detail|data|status|verbose|debug|purple|cyan|yellow|white|_stacktrace|data_header|success|prompt|prompt_n|warn) 
-# (\W)(warn) 
-# \W(red|green|error|Error|info|detail|data|status|verbose|debug|purple|cyan|yellow|white|_stacktrace|data_header|success|prompt|prompt_n) 
-# log::$1 
+# (\W)(red|green|error|Error|info|detail|data|status|verbose|debug|purple|cyan|yellow|white|_stacktrace|data_header|success|prompt|prompt_n|warn)
+# (\W)(warn)
+# \W(red|green|error|Error|info|detail|data|status|verbose|debug|purple|cyan|yellow|white|_stacktrace|data_header|success|prompt|prompt_n)
+# log::$1
 
 # A function that dynamically creates multiple colour/format variants of logger functions.
 # This works by using the eval function to dynamically create new functions each time
@@ -219,7 +219,7 @@ make_logger_function_vte() {
                     opts+=n
                     ;;&
             esac
-            
+
             # echo interprets '-e' as a command line switch, so a space is added to it so that it will actually be printed.
             re='^ *-e$'
             [[ \$msg =~ \$re ]] && msg+=' '
@@ -234,6 +234,8 @@ make_logger_function_vte() {
 # TODO: Clean up these functions
 get_func_path() {
     local ignore_count=${1:-1}
+    e BASH_LINENO
+    e BASH_SOURCE
     local line_num=${BASH_LINENO[$ignore_count]}
     local file=${BASH_SOURCE[$ignore_count]##*/}
 #    local line_num=${BASH_LINENO[$((${#BASH_LINENO[@]} - $ignore_count))]}
@@ -241,7 +243,7 @@ get_func_path() {
     local func_names="${FUNCNAME[@]:ignore_count}"
 #    set -x
     for func in $func_names; do
-        [[ $func =~ ^__geo$ ]] && continue
+        [[ $func =~ ^__geo$ || $func =~ ^log:: ]] && continue
         # Skip first so that there isn't '.' at the end of the path (e.g., geo.geo_db.).
         [[ -z $func_path ]] && func_path="$func" && continue
         func_path="$func.$func_path"
@@ -249,9 +251,10 @@ get_func_path() {
     [[ $func_path =~ \.$ ]] && func_path="${func_path: -1}"
 
     # Remove @ from path.
-    func="${func//@}"
+    func_path="${func_path//@}"
 
-    [[ -n $func_path ]] && echo -n "at: ${func_path} in $file[$line_num]"
+    [[ -n $func_path ]] && echo -n "${func_path} in $file[$line_num]"
+#    [[ -n $func_path ]] && echo -n "at: ${func_path} in $file[$line_num]"
 #    set +x
     if [[ $(@geo_get LOG_DEBUG_TRACE) == true ]]; then
         echo
@@ -424,8 +427,10 @@ log::stacktrace() {
 # ✘❌
 make_logger_function Error BIRed
 log::Error() {
+    local add_to_stack_depth=0
+    [[ $1 == --ignore-stack-depth && $2 =~ ^[0-9] ]] && add_to_stack_depth=$2 && shift 2
     echo -e "${BIRed}✘  Error: $(log::fmt_text_and_indent_after_first_line -d 10 -a 10 "$@")${Off}" >&2
-    log::debug "  => $(get_func_path 2)"
+    log::debug "  ↪ $(get_func_path $((2 + add_to_stack_depth)))"
     # echo -e "❌  ${BIRed}Error: $@${Off}" >&2
 
     log::stacktrace
@@ -437,6 +442,16 @@ log::Error_trace() {
 log::error() {
     echo -e "${BIRed}✘  $(log::fmt_text_and_indent_after_first_line -d 4 -a 3 "$@")${Off}" >&2
     # echo -e "❌  ${BIRed}$@${Off}" >&2
+}
+#
+log::getopts_option_expects_argument_error() {
+    log::Error --ignore-stack-depth 1 "Option '${OPTARG}' expects an argument."
+     return 1
+}
+#
+log::getopts_option_invalid_error() {
+    log::Error --ignore-stack-depth 1 "Invalid option: ${OPTARG}"
+    return 1
 }
 
 log::data_header() {
@@ -458,14 +473,14 @@ log::success() {
     echo -e "${BIGreen}✔${Off}   ${BIGreen}$(log::fmt_text_and_indent_after_first_line -d 4 -a 4 "$@")${Off}"
     # echo -e "${BIGreen}✔${Off}   ${BIGreen}$@${Off}"
 }
-make_logger_function prompt BCyan 
+make_logger_function prompt BCyan
 log::prompt() {
     _log_prompt "$@"
 }
 
 # Echo without new line
 log::prompt_n() {
-    echo -en "${BCyan}$@${Off}"
+    echo -en "${BCyan}$*${Off}"
 }
 
 # Logging helpers
@@ -511,19 +526,19 @@ log::fmt_text() {
                 i ) indent=$OPTARG  ;;
                 s ) indent_str=$OPTARG  ;;
                 : )
-                    log::Error "Option '${opt}' expects an argument."
+                    log::Error "Option '${OPTARG}' expects an argument."
                     return 1
                     ;;
                 \? )
                 log::debug '----------------------------'
-                    log::Error "Invalid option: ${opt} $OPTARG"
+                    log::Error "Invalid option: $OPTARG"
                     return 1
                     ;;
             esac
         done
         shift $((OPTIND - 1))
     fi
-    
+
     local txt="$1"
 
     # Remove all color and formatting characters.
@@ -536,7 +551,7 @@ log::fmt_text() {
 
     # Set default indent string to a space.
     indent_str=${indent_str:- }
-    
+
     # Set indent string to an empty string if the indent is 0.
     [[ $indent -eq 0 ]] && indent_str=''
 
@@ -581,12 +596,12 @@ log::fmt_text() {
 
 # Takes a long string and wraps it according to the terminal width (like left justifying text in Word or Goggle Doc),
 # but it allows wrapped lines to be indented more than the first line. All lines created can also have a base indent.
-# 
+#
 # Parameters:
 #   1 (long_text):  The long line of text
 #   2 (base_indent): The base indent amount that all of the text will be indented by (the number of spaces to add to prefix each line with)
 #   3 (additional_indent): The number of additional spaces to prefix wrapped lines with
-# 
+#
 # Example:
 #   (Assuming the terminal width is 40)
 #   long_text="A very very very very very very very very very very very very very very very very long line"
@@ -623,12 +638,12 @@ log::fmt_text_and_indent_after_first_line() {
                 t ) tight_margins=true ;;
                 r ) remove_color=true ;;
                 : )
-                    log::Error "Option '${opt}' expects an argument."
+                    log::Error "Option '${OPTARG}' expects an argument."
                     return 1
                     ;;
                 \? )
                     log::debug '----------------------------'
-                    log::Error "Invalid option: ${opt}"
+                    log::Error "Invalid option: ${OPTARG}"
                     return 1
                     ;;
             esac
@@ -651,18 +666,18 @@ log::fmt_text_and_indent_after_first_line() {
     local wrapped_line_indent_str=$(printf "$indent_char%.0s" $(seq 1 $additional_indent))
     # log::debug "'${wrapped_line_indent_str}'"
     # local lines=$(log::fmt_text "$long_text" $base_indent)
-    
+
     local fmt_option=" -k "
     $strip_spaces && fmt_option=
     $tight_margins && fmt_option+=" -t "
     local decrement_option=
     (( decrement_first_line_width_by > 0 )) && decrement_option=" -d $decrement_first_line_width_by "
     local lines=$(log::fmt_text $decrement_option $fmt_option "$long_text" $base_indent )
-   
+
     local line_number=0
     local output=''
 
-    # Get the first line from the formatted stirng. We need to know how log it is so that we can format the remaing 
+    # Get the first line from the formatted stirng. We need to know how log it is so that we can format the remaing
     # text again with the additional indent.
     local first_line=$(head -1 <<<"$lines")
     local first_line_length=${#first_line}
@@ -706,12 +721,12 @@ log::indent() {
             s ) indent_str="$OPTARG"  ;;
             v ) local -n caller_var_ref="$OPTARG" && write_to_caller_variable=true  ;;
             : )
-                log::Error "Option '${opt}' expects an argument."
+                log::Error "Option '${OPTARG}' expects an argument."
                 return 1
                 ;;
             \? )
                 log::debug '----------------------------'
-                log::Error "Invalid option: ${opt}"
+                log::Error "Invalid option: ${OPTARG}"
                 return 1
                 ;;
         esac
@@ -736,7 +751,7 @@ log::strip_color_codes() {
         IFS= read -r args
         set -- "$args"
     fi
-    echo -n "$@" | sed -r "s/(\x1B|\\e)\[([0-9]{1,3}(;[0-9]{1,3})*)?[mGK]//g" 
+    echo -n "$@" | sed -r "s/(\x1B|\\e)\[([0-9]{1,3}(;[0-9]{1,3})*)?[mGK]//g"
     # \e[38;5;${i}m
     # '\033[1;31m'
     # echo -n "$@" | sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g"
@@ -853,8 +868,8 @@ log::keyvalue() {
                 # log::debug "key_name: $key_name"
                 ;;
             # Standard error handling.
-            : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
-            \? ) log::Error "Invalid option: ${opt}"; return 1 ;;
+            : ) log::Error "Option '${OPTARG}' expects an argument."; return 1 ;;
+            \? ) log::Error "Invalid option: ${OPTARG}"; return 1 ;;
         esac
     done
     shift $((OPTIND - 1))

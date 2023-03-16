@@ -1,14 +1,14 @@
 #**********************************************************************************************************************
-# This is a geo-cli handler file. It is automatically executed from cli-handlers.sh when geo-cli is loaded into each 
+# This is a geo-cli handler file. It is automatically executed from cli-handlers.sh when geo-cli is loaded into each
 # new terminal.
-# 
+#
 # All of the exported constants and functions available to geo-cli are available here.
 #**********************************************************************************************************************
 
 #######################################################################################################################
 # Global Constants and Functions
 #######################################################################################################################
-# [Path Constants]  
+# [Path Constants]
 # GEO_CLI_DIR         The full path to the geo-cli repo.
 # GEO_CLI_SRC_DIR     The full path to the geo-cli src dir, located in the root of the repo (geo-cli/src).
 # GEO_CLI_CONFIG_DIR  The full path to the geo-cli config dir, located at $HOME/.geo-cli.
@@ -38,9 +38,9 @@
 #   log::warn                   log::file
 #   log::data_header            log::info
 #   log::green                  log::txt_invert
-#   log::white                  log::prompt                 
-#   log::debug                  log::success                    
-  
+#   log::white                  log::prompt
+#   log::debug                  log::success
+
 #######################################################################################################################
 #### Create a new command (e.g. 'geo <some_new_command>')
 #######################################################################################################################
@@ -54,9 +54,9 @@
 #        - This function is run when the user requests help via 'geo <command> --help'. Also, these functions are called
 #           for every command in the COMMANDS array when the user runs 'geo help' or 'geo -h'.
 #   3. Command function
-#       - The actual command that gets executed when the user runs 'geo <your_command>'. All the arguments passed to 
+#       - The actual command that gets executed when the user runs 'geo <your_command>'. All the arguments passed to
 #           geo following the command name will be passed to this function as positional arguments (e.g.. $1, $2, ...).
-# 
+#
 # The three parts above have the following structure:
 #   COMMAND+=('command')
 #   @geo_command_doc() {...}
@@ -77,9 +77,9 @@ geo_{{new_command_name}}_doc() {
     # Replace the following template documentation with relevant info about the command.
   doc_cmd '{{new_command_name}}'
       doc_cmd_desc 'Commands description.'
-      
+
       doc_cmd_sub_cmd_title
-      
+
       doc_cmd_sub_cmd 'create [options] <arg>'
           doc_cmd_sub_cmd_desc 'This command takes options and arguments'
           doc_cmd_sub_option_title
@@ -87,7 +87,7 @@ geo_{{new_command_name}}_doc() {
                   doc_cmd_sub_option_desc 'Accept all prompts.'
               doc_cmd_sub_option '-p <port_number>'
                   doc_cmd_sub_option_desc 'Sets the port for connecting to...'
-    
+
     doc_cmd_sub_cmd 'rm'
           doc_cmd_sub_cmd_desc '...'
 
@@ -98,22 +98,22 @@ geo_{{new_command_name}}_doc() {
 geo_{{new_command_name}}() {
     local accept_all=false
     local port=21
-    
+
     local OPTIND
-    # Add the options to the getopts "" string. Add a : to the option if it takes an argument. 
+    # Add the options to the getopts "" string. Add a : to the option if it takes an argument.
     # For example 'getopts "p:"' will allow for the -p option to take an arg: 'geo {{new_command_name}} -p 22 ...'.
     # The argument will be available below in the $OPTARG variable.
     # google 'bash getopts' for more info on parsing options.
     while getopts "yp:" opt; do
         case "${opt}" in
-            y ) 
+            y )
                 accept_all=true
                 ;;
-            p ) 
+            p )
                 port=$OPTARG ;;
             # Generic error handling
-            : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
-            \? ) log::Error "Invalid option: ${opt}"; return 1 ;;
+            : ) log::Error "Option '${OPTARG}'  expects an argument."; return 1 ;;
+            \? ) log::Error "Invalid option: ${OPTARG}"; return 1 ;;
         esac
     done
     # Shifts out positional args used for options.
@@ -135,9 +135,9 @@ geo_{{new_command_name}}() {
         rm | remove )
             _geo_{{new_command_name}}_remove "$@"
             ;;
-        * ) 
-            [[ -z $cmd ]] && log::Error "No arguments provided" && return 1 
-            log::Error "The following command is unknown: $cmd" && return 1 
+        * )
+            [[ -z $cmd ]] && log::Error "No arguments provided" && return 1
+            log::Error "The following command is unknown: $cmd" && return 1
             ;;
     esac
 }

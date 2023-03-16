@@ -1,15 +1,15 @@
 #!/bin/bash
 #**********************************************************************************************************************
-# This is a geo-cli command file. It is automatically executed from cli-handlers.sh when geo-cli is loaded into each 
+# This is a geo-cli command file. It is automatically executed from cli-handlers.sh when geo-cli is loaded into each
 # new terminal.
-# 
+#
 # All of the exported constants and functions available to geo-cli are available here.
 #**********************************************************************************************************************
 
 #######################################################################################################################
 # Global Constants and Functions
 #######################################################################################################################
-# [Path Constants]  
+# [Path Constants]
 # GEO_CLI_DIR         The full path to the geo-cli repo.
 # GEO_CLI_SRC_DIR     The full path to the geo-cli src dir, located in the root of the repo (geo-cli/src).
 # GEO_CLI_CONFIG_DIR  The full path to the geo-cli config dir, located at $HOME/.geo-cli.
@@ -39,9 +39,9 @@
 #   log::warn                   log::file
 #   log::data_header            log::info
 #   log::green                  log::txt_invert
-#   log::white                  log::prompt                 
-#   log::debug                  log::success                    
-  
+#   log::white                  log::prompt
+#   log::debug                  log::success
+
 
 export GEO_CLI_COMMAND_DIR="$GEO_CLI_SRC_DIR/cli/commands"
 export GEO_CLI_USER_COMMAND_DIR="$HOME/.geo-cli/data/commands"
@@ -50,9 +50,9 @@ export GEO_CLI_USER_COMMAND_DIR="$HOME/.geo-cli/data/commands"
 @geo_cmd_doc() {
   doc_cmd 'cmd'
       doc_cmd_desc "Commands for creating and updating custom geo-cli commands (i.e., 'geo <command_name>'). These commands are stored in files and automatically loaded into geo-cli (by cli-handlers.sh). You can either create a geo command for local use only OR you can have the command file added to the geo-cli repo. Add the command to the repo if you want to submit an MR for it to make it available for all geo-cli users."
-      
+
       doc_cmd_sub_cmd_title
-      
+
       doc_cmd_sub_cmd 'create <command_name>'
           doc_cmd_sub_cmd_desc "Creates a new command file."
         #   "These files are automatically loaded into geo-cli by cli-handlers.sh and are available in all terminals via 'geo <command_name>'). They are stored in the geo-cli repo in the /src/cli/commands directory. If you want to make your command available to all geo-cli users, please create a branch with your command and submit an MR for it. Alternatively, you can also create the command outside of the repo if you are just experimenting with the command and don't want to commit anything to the repo."
@@ -80,8 +80,8 @@ export GEO_CLI_USER_COMMAND_DIR="$HOME/.geo-cli/data/commands"
     # while getopts "v:" opt; do
     #     case "${opt}" in
     #         # v ) [[ $OPTARG =~ ^[[:digit:]]+$ ]] && pg_version=$OPTARG ;;
-    #         : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
-    #         \? ) log::Error "Invalid option: ${opt}"; return 1 ;;
+    #         : ) log::Error "Option '${OPTARG}' expects an argument."; return 1 ;;
+    #         \? ) log::Error "Invalid option: ${OPTARG}"; return 1 ;;
     #     esac
     # done
 
@@ -103,9 +103,9 @@ export GEO_CLI_USER_COMMAND_DIR="$HOME/.geo-cli/data/commands"
         edit )
             @geo_cmd::edit "$@"
             ;;
-        * ) 
-            [[ -z $cmd ]] && log::Error "No arguments provided" && return 1 
-            log::Error "The following cmd is unknown: $cmd" && return 1 
+        * )
+            [[ -z $cmd ]] && log::Error "No arguments provided" && return 1
+            log::Error "The following cmd is unknown: $cmd" && return 1
             ;;
     esac
 }
@@ -121,12 +121,12 @@ export GEO_CLI_USER_COMMAND_DIR="$HOME/.geo-cli/data/commands"
             f ) force_create=true ;;
             r ) add_cmd_to_repo=true ;;
             D ) create_cmd_directory=false ;;
-            : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
-            \? ) log::Error "Invalid option: ${opt}"; return 1 ;;
+            : ) log::Error "Option '${OPTARG}' expects an argument."; return 1 ;;
+            \? ) log::Error "Invalid option: ${OPTARG}"; return 1 ;;
         esac
     done
     shift $((OPTIND - 1))
-    
+
     local template_file="$GEO_CLI_COMMAND_DIR/geo-cmd/geo-cmd-template.sh"
     # local template_file="$GEO_CLI_SRC_DIR/includes/commands/geo-cmd-template.sh"
 
@@ -136,7 +136,7 @@ export GEO_CLI_USER_COMMAND_DIR="$HOME/.geo-cli/data/commands"
         log::warn "Command '$cmd_name' already exists"
         prompt_continue "Continue anyways? (Y|n) : " || return 1
     fi
-    
+
     [[ ! -f $template_file ]] && log::Error "Couldn't find template file at $template_file" && return 1
 
     local alphanumeric_re='^[^-_0-9]([-[:alnum:]]+)$'
@@ -157,7 +157,7 @@ export GEO_CLI_USER_COMMAND_DIR="$HOME/.geo-cli/data/commands"
     local local_cmd_dir="$GEO_CLI_CONFIG_DIR/data/commands"
     local command_file_dir="$repo_cmd_file_dir$command_dir_name"
     ! $add_cmd_to_repo && command_file_dir="$local_cmd_dir$command_dir_name"
-    
+
     if $add_cmd_to_repo; then
         log::info "Your command will be added to the $(txt_underline /src/cli/commands) directory in your local geo-cli repo, by default, which makes it easy to add it to a branch and submit an MR for it.\n"
         log::info "Alternatively, if you are just experimenting and don't plan to commit it to the repo yet, the command file can instead be added outside of the repo, in the $(txt_underline 'user commands') directory ($(txt_underline '~/.geo-cli/data/commands')).\n"
@@ -172,10 +172,10 @@ export GEO_CLI_USER_COMMAND_DIR="$HOME/.geo-cli/data/commands"
             add_cmd_to_repo=false
             command_file_dir="${local_cmd_dir}${command_dir_name}"
         fi
-        
+
     fi
     echo
-    
+
     local command_file="$command_file_dir/$command_file_name"
 
     # Add command to the geo-cli config dir so that the user doesn't have to commit anything or create an MR.
@@ -214,7 +214,7 @@ export GEO_CLI_USER_COMMAND_DIR="$HOME/.geo-cli/data/commands"
 
     echo "$command_file_text"  > "$command_file" \
         || { log::Error "Failed to write command file to $command_file"; return 1; }
-    
+
     # _geo_jq_props_to_json -t name $cmd_name repo "$add_cmd_to_repo"
 
     sleep .3
@@ -225,13 +225,13 @@ export GEO_CLI_USER_COMMAND_DIR="$HOME/.geo-cli/data/commands"
     log::status "Trying to source command file..."
     . "$command_file" && log::success 'OK' || { log::Error "Failed to source command file"; return 1; }
     sleep .3
-    echo 
+    echo
     log::info "The new command should be available in this terminal if it is a bash shell."
     log::info "Try it here or open a new terminal and run:"
     log::code "  geo $cmd_name test\n"
 
     sleep .2
-    
+
     if $add_cmd_to_repo && prompt_continue "Would you like to create a branch for this command now? (Y|n): "; then
         local branch_name="add-geo-$cmd_name-command"
         if ! prompt_continue "Name new branch '$branch_name'? (Y|n)"; then
@@ -278,7 +278,7 @@ export GEO_CLI_USER_COMMAND_DIR="$HOME/.geo-cli/data/commands"
     local has_own_directory=false
     [[ -z $cmd_name ]] && log::Error "No command named supplied" && return 1
     _geo__is_registered_cmd "$cmd_name" || { log::Error "Command '$cmd_name' doesn't exist" && return 1; }
-    
+
     local cmd_file_path=$(_geo_cmd__get_file_path $cmd_name)
     local cmd_directory_path="$(_geo_cmd__get_file_path -d $cmd_name)"
     # local -n cmd_file_path="${cmd_name}_command_file_path"
@@ -287,7 +287,7 @@ export GEO_CLI_USER_COMMAND_DIR="$HOME/.geo-cli/data/commands"
 
     # log::debug _"$cmd_directory_path"_
     [[ ! -f $cmd_file_path && ! -d $cmd_file_path ]] && log::Error "Command file wasn't found at: '$cmd_file_path'" && return 1
-    
+
     _geo_cmd__has_own_dir $cmd_name && has_own_directory=true
     # local command_file="$GEO_CLI_USER_COMMAND_DIR/geo-${cmd_name}.cmd.sh"
     # [[ ! -f $command_file ]] && log::warn "Command file not found at: $command_file" && return 1
@@ -334,19 +334,19 @@ _geo_cmd__get_cmd_files() {
             a | all ) cmd_dir=("$GEO_CLI_USER_COMMAND_DIR" "$GEO_CLI_COMMAND_DIR") ;;
             u | user ) cmd_dir=("$GEO_CLI_USER_COMMAND_DIR") && get_repo_cmd_files=false ;;
             r | repo ) cmd_dir=("$GEO_CLI_COMMAND_DIR") && get_repo_cmd_files=true ;;
-            v | var ) 
+            v | var )
                 local -n caller_var_ref="$2"
                 write_to_caller_variable=true
                 shift
                 ;;
             p | print ) print_to_stdout=true ;;
             # s | silent ) silent=true ;;
-            : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
-            \? ) log::Error "Invalid option: $1"; return 1 ;;
+            : ) log::Error "Option '${OPTARG}' expects an argument."; return 1 ;;
+            \? ) log::Error "Invalid option: $OPTARG"; return 1 ;;
         esac
         shift
     done
-    
+
     local cmd_files="$(find "${cmd_dir[@]}" -name '*.cmd.sh' 2> /dev/null)"
     # log::debug local cmd_files="\$(find "${cmd_dir[@]}" -name '*.cmd.sh' 2> /dev/null)"
     $write_to_caller_variable && caller_var_ref="$cmd_files"
@@ -397,14 +397,14 @@ _geo_cmd__get_cmd_name_from_file_path() {
     echo
     log::info "These user commands (created via geo cmd create) are available (only to you) through geo-cli via 'geo <command>'. They are stored in: "
     log::file "$GEO_CLI_USER_COMMAND_DIR"
-    
+
     ! $list_repo_cmd_files && return
 
     echo
     log::data_header --pad "Repo Command Files"
     if [[ -d $GEO_CLI_COMMAND_DIR && $(ls -A "$GEO_CLI_COMMAND_DIR" | wc -l) -ge 2 ]]; then
         # ls "$GEO_CLI_COMMAND_DIR" | sed 's/geo-cmd.cmd.sh.example//g'
-          (  
+          (
             cd "$GEO_CLI_SRC_DIR"
             local all_cmd_files="$(find "$GEO_CLI_SRC_DIR/cli/commands" -name '*.cmd.sh')"
             # log::data "$all_cmd_files"
@@ -444,7 +444,7 @@ _geo_cmd__get_cmd_name_from_file_path() {
         && log::Error "No command name supplied" && return 1
     ! _geo__is_registered_cmd "$cmd_name" \
         && log::Error "Command '$cmd_name' doesn't exist" && return 1
-    
+
     local cmd_in_repo=true
     local cmd_file_path="$(_geo_cmd__get_file_path $cmd_name)"
     local cmd_directory_path="${cmd_file_path%/*}"
@@ -456,7 +456,7 @@ _geo_cmd__get_cmd_name_from_file_path() {
         && return 1
     [[ $cmd_directory_path =~ $GEO_CLI_COMMAND_DIR ]] \
         || cmd_in_repo=false
-    
+
     log::status "Opening command file at:"
     log::link -r "$cmd_file_path"
 
@@ -482,7 +482,7 @@ _geo_cmd__has_own_dir() {
 _geo_cmd__get_file_path() {
     local dirname_only=false
     [[ $1 == -d ]] && dirname_only=true && shift
-    
+
     local cmd_name="$1"
     [[ -z $cmd_name ]] && return 1
 
@@ -491,7 +491,7 @@ _geo_cmd__get_file_path() {
 
     local cmd_file_name="geo-$cmd_name.cmd.sh"
     local cmd_path="$(echo "${GEO_COMMAND_FILE_PATHS[@]}" | sed 's_/home/_\n/home/_g' | grep "$cmd_file_name")"
-    
+
     # Remove trailing space.
     cmd_path="${cmd_path% }"
 
@@ -501,7 +501,7 @@ _geo_cmd__get_file_path() {
         fi
         return 1
     fi
-    $dirname_only && echo "${cmd_path%/*}" || echo "$cmd_path" 
+    $dirname_only && echo "${cmd_path%/*}" || echo "$cmd_path"
 }
 
 # _geo_cmd__valid() {
@@ -596,9 +596,9 @@ _geo_make_option_parser() {
             # if $requires_argument; then
             #     local default_value=
             #     # [[ -z $opt_var ]] && [[ $option_def =~ defa=[[:alnum:]]{1,}=(.{1,}) ]]
-            #     # eval "$opt_var=''" 
+            #     # eval "$opt_var=''"
             # else
-            #     eval "$opt_var=false" 
+            #     eval "$opt_var=false"
             # fi
         fi
     }
@@ -618,20 +618,20 @@ _geo_make_option_parser() {
                 [[ $opt == opt-arg ]] \
                     && expects_argument[$opt_id]=true && requires_arg=true \
                     || expects_argument[$opt_id]=false
-                
+
                 local reqs_arg_opt=
                 $requires_arg && reqs_arg_opt=--arg
 
                 parse_option_def $reqs_arg_opt "$opt_def" $opt_id
                 shift
                 ;;
-            o | output-var ) 
+            o | output-var )
                 # log::debug "in output case. 2=$2"
                 [[ -n $2 ]] && local -n output_var="$2" && output_to_caller_variable=true && shift
                 ;;
             # Stanard error handlers.
-            : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
-            \? ) log::Error "Invalid option: $1"; return 1 ;;
+            : ) log::Error "Option '${OPTARG}' expects an argument."; return 1 ;;
+            \? ) log::Error "Invalid option: $OPTARG"; return 1 ;;
         esac
         shift
     done
@@ -665,7 +665,7 @@ _geo_make_option_parser() {
             : ) log::Error \"Option '\${option}' expects an argument.\"; return 1 ;;
             \? ) log::Error \"Invalid option: \$1\"; return 1 ;;
         esac"
-    
+
     read -r -d '' parser_def <<-'EOF'
 while [[ -n $1 && $1 =~ ^-{1,2} ]]; do
     local multi_option=false
@@ -714,12 +714,12 @@ make_case_for_option() {
                 s ) short_opt="$OPTARG" ;;
                 v ) __var_name="$OPTARG" ;;
                 c ) condition="$OPTARG" ;;
-                : ) log::Error "Option '${opt}' expects an argument."; return 1 ;;
-                \? ) log::Error "Invalid option: $1"; return 1 ;;
+                : ) log::Error "Option '${OPTARG}' expects an argument."; return 1 ;;
+                \? ) log::Error "Invalid option: $OPTARG"; return 1 ;;
             esac
         done
         shift $((OPTIND - 1))
-        
+
         if [[ -n $short_opt ]]; then
             [[ -n $long_opt ]] \
                 && condition="$short_opt | $long_opt" \
@@ -739,11 +739,8 @@ make_case_for_option() {
                 requires_arg=$requires_arg
                 "
         $requires_arg && case_txt+="$arg_check
-                "      
+                "
         case_txt+="$var_assignment
                 ;;"
         echo "$case_txt"
-        
-
-
     }
