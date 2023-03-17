@@ -234,6 +234,7 @@ make_logger_function_vte() {
 # TODO: Clean up these functions
 get_func_path() {
     local ignore_count=${1:-1}
+    # TODO: Remove
     e BASH_LINENO
     e BASH_SOURCE
     local line_num=${BASH_LINENO[$ignore_count]}
@@ -426,11 +427,19 @@ log::stacktrace() {
 
 # ✘❌
 make_logger_function Error BIRed
-log::Error() {
+alias log::Error='log::Error_ --stub "[${BASH_SOURCE}(${BASH_LINENO})::${FUNCNAME}(${LINENO})]: " '
+
+# log::Error() {
+#     log::Error_
+# }
+log::Error_() {
+    local stub
     local add_to_stack_depth=0
+    [[ $1 == --stub && -n $2 ]] && stub="$2" && shift 2
     [[ $1 == --ignore-stack-depth && $2 =~ ^[0-9] ]] && add_to_stack_depth=$2 && shift 2
     echo -e "${BIRed}✘  Error: $(log::fmt_text_and_indent_after_first_line -d 10 -a 10 "$@")${Off}" >&2
     log::debug "  ↪ $(get_func_path $((2 + add_to_stack_depth)))"
+    log::debug "  ↪ $stub"
     # echo -e "❌  ${BIRed}Error: $@${Off}" >&2
 
     log::stacktrace
@@ -453,6 +462,7 @@ log::getopts_option_invalid_error() {
     log::Error --ignore-stack-depth 1 "Invalid option: ${OPTARG}"
     return 1
 }
+
 
 log::data_header() {
     local header="$@"
@@ -565,12 +575,16 @@ log::fmt_text() {
     # Determin the total length of the repeated indent string.
     local indent_len=$((${#indent_str} * indent))
 
+    local width=80
+    # Only run tput if we're running in an interactive terminal.
     # Get the width of the console.
-    local width=$(tput cols)
-    # Get max width of text after the indent widht is subtracted.
+    [[ -n $TERM ]] && width=$(tput cols)
+   
+    # Get max width of text after the indent width is subtracted.
     # - 1 in case the the last char is a t the last col position, which means that the new line char will be wrapped
     # to the next line, leaving a blank line.
-    width=$((width - indent_len - decrement_width_by - 1))
+    ((width = width - indent_len - decrement_width_by - 1))
+    ((width = width <= 0 ? 80 : width))
 
     # Start the sed pattern with s/^/, meaning that we are going to substitute the beginning of the string with our
     # indent string.
@@ -622,19 +636,21 @@ log::fmt_text_and_indent_after_first_line() {
     local additional_indent=0
     # local next_line_indent=0
     local OPTIND
+    
+    # log::debug "log::fmt_text_and_indent_after_first_line: args: '$*'"
 
     # The --x option prevents command options from being parsed. This is necessary when formatting help text for commands.
     # This type of text often starts with the option, e.g., "-h, --help".
-    if [[ $1 == --x ]]; then
+    if [[ $1 =~ --x? ]]; then
         shift
     else
-        while getopts "b:i:a:sd:tr" opt; do
+        while getopts ":b:i:a:sd:tr" opt; do
             case "${opt}" in
                 b ) base_indent="$OPTARG"  ;;
                 i ) indent_str="$OPTARG"  ;;
                 a ) additional_indent=$OPTARG  ;;
                 s ) strip_spaces=true  ;;
-                d ) decrement_first_line_width_by=$OPTARG ;;
+                d ) decrement_first_line_width_by="$OPTARG" ;;
                 t ) tight_margins=true ;;
                 r ) remove_color=true ;;
                 : )
@@ -677,7 +693,7 @@ log::fmt_text_and_indent_after_first_line() {
     local line_number=0
     local output=''
 
-    # Get the first line from the formatted stirng. We need to know how log it is so that we can format the remaing
+    # Get the first line from the formatted string. We need to know how log it is so that we can format the remaining
     # text again with the additional indent.
     local first_line=$(head -1 <<<"$lines")
     local first_line_length=${#first_line}
@@ -748,7 +764,7 @@ log::strip_color_codes() {
     local args
     # Allow this command to accept piped in arguments. Example: echo "text" | log::strip_color_codes
     if (( "$#" == 0 )); then
-        IFS= read -r args
+        IFS= read -r -t 0.01 args
         set -- "$args"
     fi
     echo -n "$@" | sed -r "s/(\x1B|\\e)\[([0-9]{1,3}(;[0-9]{1,3})*)?[mGK]//g"
@@ -825,7 +841,8 @@ log::strip_space() {
 }
 
 log::replace_line_breaks_with_space() {
-    local str="$@"
+    eval "$(util::eval_to_enable_piped_args)"
+    local str="$*"
     echo "$str" | tr '\n' ' '
 }
 
@@ -852,14 +869,14 @@ log::keyvalue() {
     local key=
     local key_name=
     local value=
-    local delimeter_default=': '
-    local delimeter="$delimeter_default"
+    local delimiter_default=': '
+    local delimiter="$delimiter_default"
     local OPTIND
     # log::debug "args: $@"
     while getopts "Pv:d:" opt; do
         case "${opt}" in
             P ) add_padding=false ;;
-            d ) delimeter="${OPTARG:-$delimeter_default}" ;;
+            d ) delimiter="${OPTARG:-$delimiter_default}" ;;
             v )
                 key_name="$OPTARG"
                 [[ -z $key_name ]] && log::Error "log::keyvalue: The variable cannot be empty (-v <variable>)." && return 1
@@ -889,8 +906,8 @@ log::keyvalue() {
         # log::debug "is_array $is_array"
         if $is_array; then
             local item_count="${#key_ref[@]}"
-            # delimeter="[$item_count]"
-            # delimeter="[]$delimeter\n"
+            # delimiter="[$item_count]"
+            # delimiter="[]$delimiter\n"
             # key="$(log::info "$key_name[]")"
             log::info "$key_name[$item_count]"
             # value="$(util::print_array  "$key_name")"
@@ -901,7 +918,7 @@ log::keyvalue() {
             # value="$(util::print_array "$key_name")"
         else
             # key="$(log::info -n "$key_name")"
-            log::info -n "$key_name$delimeter"
+            log::info -n "$key_name$delimiter"
             # log::info -n "$key_name"
             value="$key_ref"
             log::data "$value"
@@ -918,8 +935,8 @@ log::keyvalue() {
         [[ $# -lt 2 || -z $key_name ]] \
             && log::Error "log::keyvalue: Both a key and a value are required as arguments, but got '$@' instead." \
             && return 1
-        [[ $key_name =~ ': '$ ]] && delimeter=''
-        key="$(log::info -n "$key_name$delimeter")"
+        [[ $key_name =~ ': '$ ]] && delimiter=''
+        key="$(log::info -n "$key_name$delimiter")"
         # key_length=${#key_name}
         value="$(log::data "$value")"
         # echo "k '$key' kn '$key_name' v '$value'"

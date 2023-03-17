@@ -1,3 +1,8 @@
+# pip install virtualenv
+# virtualenv <your-env>
+# source <your-env>/bin/activate
+# <your-env>/bin/pip install google-cloud-firestore
+
 sudo apt-get install sox ffmpeg libcairo2 libcairo2-dev
 sudo apt install libpython3.9-dev
 sudo apt install libgirepository1.0-dev

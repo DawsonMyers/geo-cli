@@ -91,10 +91,21 @@ exit_color() {
 # '$(echo -e ${log_RETURN_CODE_TO_EMOJI[$?]}-)'
 # ret_emoji='$(exit_color)'
 # ret_emoji='$([[ $? -eq 0 ]] && echo "\033[0;32m✔\033[0m" || echo "\033[0;32m✔\033[0m")'
-trap_string_parts=('$(exit_color) ' "$BCyan" '${BASH_SOURCE[0]##${HOME}*/}' "${Purple}" '[$LINENO]:' "${Yellow}" '${FUNCNAME:-FuncNameNull}:' "$Off ")
+trap_string_parts=('$(exit_color) ' "$BCyan" '${BASH_SOURCE[0]##${HOME}*/}' "${Purple}" '\[$LINENO]:' "${Yellow}" '${FUNCNAME:-FuncNameNull}:' "$Off ")
+#trap_string_parts=('$(exit_color ) ' "\[$BCyan\]" '${BASH_SOURCE[0]##${HOME}*/}' "\[${Purple}\]" '[$LINENO]:' "\[${Yellow}\]" '${FUNCNAME:-FuncNameNull}:'\["$Off\] ")
+#trap_string_parts=("echo -en " '"' '$(exit_color ) ' "\[$BCyan\]" '${BASH_SOURCE[0]##${HOME}*/}' "\[${Purple}\]" '[$LINENO]:' "\[${Yellow}\]" '${FUNCNAME:-FuncNameNull}:'\["$Off\] " '"')
+#GEO_ERR_TRAP1="echo -en \"$(util::array_concat -z trap_string_parts)\""
+#***  GEO_ERR_TRAP="$(echo -en "$(util::array_concat -z trap_string_parts)")"
+#GEO_ERR_TRAP="echo -en \"$(util::array_concat -z trap_string_parts)\""
+#GEO_ERR_TRAP1="$"
+#***  geo_err_trap() {
+#***      GEO_ERR_TRAP="$(util::array_concat -z trap_string_parts)"
+#***       eval $GEO_ERR_TRAP 2>&1 | grep -Ev 'config-file|cfg_.*|geo_get|log::|util::|gitprompt|bashrc-utils'
+#***  }
 #type util::array_concat
-GEO_ERR_TRAP="$(util::array_concat -z trap_string_parts)"
-PS4=".${GEO_ERR_TRAP}"
+#***  PS4='.${geo_err_trap}'
+
+#PS4=".${GEO_ERR_TRAP}"
 
 
 # export GEO_ERR_TRAP="$BCyan"${BASH_SOURCE[0]##${HOME}*/}${Purple}[$LINENO]:${Yellow}${FUNCNAME:-FuncNameNull}:$Off '
@@ -135,12 +146,16 @@ export GEO_NO_UPDATE_CHECK=false
 # }
 
 function geo() {
-    # set -E
-     set -e
+
+#     set -E
+#     set -e
+#     trap "geo_err_trap" ERR
+#     trap "$GEO_ERR_TRAP" ERR
     # Log call.
     [[ $(@geo_get LOG_HISTORY) == true ]] && echo "[$(date +"%Y-%m-%d_%H:%M:%S")] geo $*" >> ~/.geo-cli/history.txt
 
-    # If false,
+    # Suppresses some output and prompts when false, used by the ui to reduce the output/formatting of the text returned
+    # by geo.
     export GEO_INTERACTIVE=true
     # [[ $- =~ i ]] && GEO_INTERACTIVE=false
 
@@ -159,8 +174,15 @@ function geo() {
             raw-output | r ) GEO_RAW_OUTPUT=true ;;
             no-update-check | U) GEO_NO_UPDATE_CHECK=true ;;
             non-interactive | I ) GEO_INTERACTIVE=false ;;
-            -- ) echo 'End of options'; break ;;
-            - ) echo "'-' is not an option."; return ;; # TODO: Rerun prev cmd
+            # Runs the geo-cmd ina new interactive terminal.
+            launch-in-term | ui | T)
+                shift
+                gnome-terminal --title="geo ${@}" -- bash -i -c "echo ${*}; echo -e \"\nPress Enter to exit\"; read"
+                echo "Launching terminal..."
+                return
+                ;;
+            -- )  break ;;
+            - ) log::Error "$FUNCNAME: '-' is not an option."; return 1 ;; # TODO: Rerun prev cmd
             * ) break ;; # End of options.
         esac
         shift
@@ -218,12 +240,12 @@ function geo() {
 
     # This can happen after force updating because we re-source .bashrc after updating. Just ignore it.
     [[ $cmd == -f ]] && return
-        
+
     # Quit if the command isn't valid
     if ! _geo__is_registered_cmd "$cmd"; then
         [[ -z $cmd ]] && echo && log::warn "geo was run without any command"
         [[ -n $cmd ]] && echo && log::warn "Unknown command: '$cmd'"
-        
+
         # geotab_logo
         # geo_logo
 
@@ -256,7 +278,7 @@ function geo() {
 
     local was_successful=true
 
-    # At this point we know that the command is valid and command help isn't being 
+    # At this point we know that the command is valid and command help isn't being
     # requested. So run the command.
     "@geo_${cmd}" "$@" || was_successful=false
 
@@ -264,6 +286,7 @@ function geo() {
     [[ $cmd != update ]] && _geo_show_msg_if_outdated
 
     [[ $was_successful == true ]]
+    trap '' ERR
 }
 
 function check_for_docker_group_membership() {

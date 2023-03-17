@@ -355,9 +355,10 @@ util::eval_to_enable_piped_args() {
     read -r -d '' _enable_piped_args_code <<-'EOF'
     local __args
     # Allow this command to accept piped in arguments. Example: echo "text" | log::strip_color_codes
+    # if [[ -p /dev/stdin ]]; then
     if (( "$#" == 0 )); then
         IFS= read -r -t 0.01 __args
-        set -- "__args"
+        set -- "$__args"
     fi
 EOF
  [[ $1 == -v ]] && local -n var="$2" && var="$_enable_piped_args_code" && return
@@ -558,3 +559,37 @@ util::array_push_front() {
 }
 alias array-push-front=util::array_push_front
 alias array-shift=util::array_push_front
+
+# TODO: Finish dev
+util::remove_region_from_file() {
+    local file="$1"
+    local replacement_text="$2"
+    local start_tag="${3:-#geo-cli-start}"
+    local end_tag="${4:-#geo-cli-end}"
+    local regex_separator='^'
+    local new_region="$start_tag
+$replacement_text
+$end_tag
+"
+
+    local file_text="$(cat "$file")"
+    local replacement_regex="s/\n?${start_tag}.*${end_tag}\n?//g"
+    # local new_region_parts="/\n?${start_tag}.*${end_tag}/d"
+    # local new_region_parts="${regex_separator}\n?${start_tag}.*${end_tag}${regex_separator}d"
+    # local replacement_regex="$(array-join new_region_parts "$regex_separator")"
+    # local new_region_parts=('s' "\n?$start_tag.*$end_tag" "$new_region")
+    # local replacement_regex="$(array-join new_region_parts "$regex_separator")"
+    e new_region_parts
+    e replacement_regex
+    sed -i -E "${replacement_regex}" "$file"
+    # [[ -n $file_text ]] && echo "$file_text" | sed -i -E "${replacement_regex}"
+        # || echo "new file: $new_region"
+    # echo "$new_region" >> "$file"
+    # [[ -n $file_text ]] && echo "$file_text" | sed "$replacement_regex" \
+    #     || echo "new file: $new_region"
+    # sed -i '/#geo-cli-start/,/#geo-cli-end/d' ~/.bashrc
+}
+
+# "#geo-cli-start
+# my:info:here
+# #geo-cli-end"
