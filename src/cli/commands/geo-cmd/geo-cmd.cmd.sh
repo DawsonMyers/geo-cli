@@ -87,11 +87,13 @@ export GEO_CLI_USER_COMMAND_DIR="$HOME/.geo-cli/data/commands"
 
     # shift $((OPTIND - 1))
     local cmd="$1"
+    
+    # log::debug "geo_cmd => $*"
 
     shift
 
     case "$cmd" in
-        create )
+        create|add|new )
             @geo_cmd::create "$@"
             ;;
         rm | remove )
@@ -100,12 +102,12 @@ export GEO_CLI_USER_COMMAND_DIR="$HOME/.geo-cli/data/commands"
         ls | list )
             @geo_cmd::ls "$@"
             ;;
-        edit )
+        edit | e )
             @geo_cmd::edit "$@"
             ;;
         * )
             [[ -z $cmd ]] && log::Error "No arguments provided" && return 1
-            log::Error "The following cmd is unknown: $cmd" && return 1
+            log::Error "The following cmd is unknown: $cmd" && @geo_cmd_doc && return 1
             ;;
     esac
 }
@@ -232,7 +234,7 @@ export GEO_CLI_USER_COMMAND_DIR="$HOME/.geo-cli/data/commands"
 
     sleep .2
 
-    if $add_cmd_to_repo && prompt_continue "Would you like to create a branch for this command now? (Y|n): "; then
+    if $add_cmd_to_repo && prompt_continue -n "Would you like to create a branch for this command now? (y|N): "; then
         local branch_name="add-geo-$cmd_name-command"
         if ! prompt_continue "Name new branch '$branch_name'? (Y|n)"; then
             branch_name=
