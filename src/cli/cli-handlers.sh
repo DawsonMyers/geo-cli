@@ -140,6 +140,54 @@ export CURRENT_SUBCOMMANDS=()
 #######################################################################################################################
 #
 # Also, add a section to the README with instructions on how to use your command.
+#
+
+#
+#*** Short/long option parsing template
+#######################################################################################################################
+#** Parses both short and long options
+# some_function() {
+    # local use_docker=false interactive=false find_unreliable=false
+    # while [[ $1 =~ ^-+ ]]; do
+    #     case "${1}" in
+    #         -d | --docker) use_docker=true ;;
+    #         -i) interactive=true ;;
+    #         -n)
+    #             local option_arg="$2"
+    #             [[ ! $option_arg =~ $is_number_re ]] && log::Error "The $1 option requires a number as an argument." && return 1
+    #             for ((i = 1; i < $option_arg; i++)); do
+    #                 seeds+=(0)
+    #             done
+    #             find_unreliable='true'
+    #             shift
+    #             ;;
+    #         *) log::Error "Invalid option: '$1'" && return 1 ;;
+    #     esac
+    #     shift
+    # done
+# }
+#*
+#######################################################################################################################
+#**  Parses short options only using getopts
+# some_function() {
+    # local OPTIND
+    # local add_padding=true delimiter=' '
+    # while getopts "Pv:d:" opt; do
+    #     case "${opt}" in
+    #         P ) add_padding=false ;;
+    #         d ) delimiter="${OPTARG:-$delimiter_default}" ;;
+    #         v )
+    #             key_name="$OPTARG"
+    #             [[ -z $key_name ]] && log::Error "log::keyvalue: The variable cannot be empty (-v <variable>)." && return 1
+    #             ;;
+    #         # Standard error handling.
+    #         : ) log::Error "Option '${OPTARG}' expects an argument."; return 1 ;;
+    #         \? ) log::Error "Invalid option: ${OPTARG}"; return 1 ;;
+    #     esac
+    # done
+    # shift $((OPTIND - 1))
+#}
+#######################################################################################################################
 
 # The directory path to this file.
 export FILE_DIR="$(dirname "${BASH_SOURCE[0]}")"
