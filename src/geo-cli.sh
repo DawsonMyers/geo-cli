@@ -157,6 +157,7 @@ function geo() {
     # Suppresses some output and prompts when false, used by the ui to reduce the output/formatting of the text returned
     # by geo.
     export GEO_INTERACTIVE=true
+    export GEO_SILENT=false
     # [[ $- =~ i ]] && GEO_INTERACTIVE=false
 
     local OPTIND
@@ -181,8 +182,9 @@ function geo() {
                 echo "Launching terminal..."
                 return
                 ;;
+            silent | s) GEO_SILENT=true ;;
             -- )  break ;;
-            - ) log::Error "$FUNCNAME: '-' is not an option."; return 1 ;; # TODO: Rerun prev cmd
+            # - ) log::Error "${FUNCNAME}: '-' is not an option."; return 1 ;; # TODO: Rerun prev cmd
             * ) break ;; # End of options.
         esac
         shift
@@ -250,10 +252,7 @@ function geo() {
         # geo_logo
 
         echo
-        log::verbose 'For help, run the following:'
-        log::detail '    geo --help'
-        log::verbose 'or'
-        log::detail '    geo -h'
+        _geo_who_help_message
         _geo_show_msg_if_outdated
         # exit
         return
@@ -285,8 +284,15 @@ function geo() {
     # Don't show outdated msg if update was just run.
     [[ $cmd != update ]] && _geo_show_msg_if_outdated
 
-    [[ $was_successful == true ]]
     trap '' ERR
+    [[ $was_successful == true ]]
+}
+
+_geo_who_help_message() {
+    log::verbose 'For help, run the following:'
+    log::detail '    geo --help'
+    log::verbose 'or'
+    log::detail '    geo -h'
 }
 
 function check_for_docker_group_membership() {

@@ -5640,12 +5640,15 @@ _geo_myg__get_myg_csproj_path() {
             _geo_myg__start
             ;;
         is-running)
-            if [[ $GEO_RAW_OUTPUT == true ]]; then
-                _geo_myg__is_running
-                return
+            local service='MyGeotab'
+            if _geo_myg__is_running; then
+                [[ $GEO_RAW_OUTPUT == true ]] && echo true && return
+                log::success "${service} is running"
             fi
-            [[ -z $(_get_myg_pid) ]] && log::Error "MyG is not running" && return 1
-            log::success $(_get_myg_pid)
+            [[ $GEO_RAW_OUTPUT == true ]] \
+                && echo false \
+                || log::error "${service} is not running"
+            return 1
             ;;
         is-running-with-gw)
             if [[ $GEO_RAW_OUTPUT == true ]]; then
@@ -6070,12 +6073,15 @@ _geo_myg__start() {
             _geo_gw__start
             ;;
         is-running)
-            if [[ $GEO_RAW_OUTPUT == true ]]; then
-                _geo_gw__is_running
-                return
+            local service='Gateway'
+            if _geo_myg__is_running; then
+                [[ $GEO_RAW_OUTPUT == true ]] && echo true && return
+                log::success "${service} is running"
             fi
-            [[ -z $(_get_gw_pid) ]] && log::Error "GW is not running" && return 1
-            log::success $(_get_gw_pid)
+            [[ $GEO_RAW_OUTPUT == true ]] \
+                && echo false \
+                || log::error "${service} is not running"
+            return 1
             ;;
         clean)
             (
@@ -6127,7 +6133,7 @@ _geo_myg__start() {
 }
 
 _geo_gw__stop() {
-    ! _geo_gw__is_running && log::Error "Gateway is not running" && return 1
+    ! _geo_gw__is_running && log::error "Gateway is not running" && return 1
     kill $(_get_gw_pid) || {
         log::Error "Failed to stop Gateway"
         return 1
@@ -6718,6 +6724,16 @@ prompt_continue_or_exit() {
     read -e answer
     [[ ! $answer =~ [nN] ]]
 }
+
+################################################################################
+# prompt_continue [-nfaw] <message>
+
+# Arguments:
+#    -n  Default to NO when the user pressed Enter without typing anything.
+#    -f  Force either 'yes' or 'no' to be typed in order to continue.
+#    -a  Add '(Y|n): ' to the supplied message.
+#    -w  Whole word - uses (yes|no) instead of (y|n).
+################################################################################
 prompt_continue() {
     # Yes by default, any input other that n/N/no will continue.
     local regex_no='^[nN][oO]{0,}$'
@@ -6732,21 +6748,16 @@ prompt_continue() {
     local whole_word_answer=false
 
     local OPTIND
-    while getopts "nfaw" opt; do
+    while getopts ":nfaw" opt; do
         case "${opt}" in
             n) default=no ;;
             # Force either yes or no to be entered.
             f) force_answer=true && default= ;;
             a) add_suffix=true ;;
+            # Uses (yes|no) instead of (y|n).
             w) whole_word_answer=true && default= ;;
-            :)
-                log::Error "Option '${OPTARG}' expects an argument."
-                return 1
-                ;;
-            \?)
-                log::Error "Invalid option: ${OPTARG}"
-                return 1
-                ;;
+            :) log::Error "Option '${OPTARG}' expects an argument." && return 1 ;;
+            \?) log::Error "Invalid option: ${OPTARG}" && return 1 ;;
         esac
     done
     shift $((OPTIND - 1))
