@@ -16,11 +16,11 @@ from indicator.menus.components import PersistentCheckMenuItem
 from .auto_switch import to_key
 
 def get_running_db_label_text(db):
-    return 'Running DB [%s]' % db
-
+    return '⛀ Running DB [%s]' % db
+# ⛃⛀⛁
 
 def get_running_db_none_label_text():
-    return 'Running DB [None]'
+    return ' Running DB [None]'
 
 
 class RunningDbMenuItem(Gtk.MenuItem):
@@ -196,41 +196,41 @@ class DbMenu(Gtk.Menu):
 
         self.show_all()
         self.queue_draw()
-        
+
     def check_sort(self):
         sort_by_myg_release = self.app.get_state('sort_myg_version', False)
         sort_descending = self.app.get_state('sort_direction', True)
         if sort_descending == self.prev_sort_descending and sort_by_myg_release == self.prev_sort_by_myg_version:
             return
-        
+
         self.prev_sort_descending = sort_descending
         self.prev_sort_by_myg_version = sort_by_myg_release
-        
+
         sorted_dbs = self.sorted(self.items)
         for db in sorted_dbs:
             self.remove(self.items[db])
         db_order = zip(range(len(sorted_dbs)), sorted_dbs)
         for i, db in db_order:
             self.insert(self.items[db], i)
-        
+
     def sorted(self, items):
         sort_by_myg_release = self.app.get_state('sort_myg_version', False)
         sort_descending = self.app.get_state('sort_direction', True)
         if sort_by_myg_release:
             return sorted(items, reverse=sort_descending, key=db_name_sorter)
         return sorted(items, reverse=sort_descending)
-        
+
     def db_compare(self, a, b):
         sort_by_myg_release = self.app.get_state('sort_myg_version')
         sort_descending = self.app.get_state('sort_direction')
         sort_by_myg_release = True if sort_by_myg_release else False
         sort_descending = True if sort_descending else False
-        
+
         if sort_by_myg_release:
             return db_name_comparer(a, b, sort_descending)
         direction = -1 if sort_descending else 1
         return 1 * direction if a > b else -1 * direction if a < b else 0
-            
+
 
 
 class SortLexicalCheckMenuItem(PersistentCheckMenuItem):
@@ -257,7 +257,7 @@ class SortMygVersionCheckMenuItem(PersistentCheckMenuItem):
 
     def on_state_changed(self, new_state):
         geo.set_config('SORT_LEXICAL', self.bool_to_string(False if new_state else True))
-            
+
 
 class SortDirectionCheckMenuItem(PersistentCheckMenuItem):
     def __init__(self, app: IndicatorApp):
@@ -268,8 +268,8 @@ class SortDirectionCheckMenuItem(PersistentCheckMenuItem):
                          default_state=True,
                          label_unchecked='Sort Direction: Ascending')
         self.app = app
-    
-    
+
+
 # num_pattern = re.compile(r'^[1-9]\d+\.\d+', re.UNICODE)
 num_pattern = re.compile(r'^[1-9]\d+([.-_]\d+)?', re.UNICODE)
 # num_pattern = re.compile(r'^\d+\.\d+', re.UNICODE)
@@ -288,7 +288,7 @@ def db_name_sorter(a):
         if '.' not in group:
             n = int(group)
             if n >= 60 and n < 100 or n < 10 or n >= 1900:
-                prefix = 0    
+                prefix = 0
     # print((prefix, a))
     return (prefix, a)
 
@@ -311,7 +311,7 @@ def db_name_comparer(a, b, reverse=False):
             result = 0
     result = result * -1 if reverse else result
     return result
-        
+
 class DbMenuItem(Gtk.MenuItem):
     def __init__(self, name, app: IndicatorApp):
         self.app = app

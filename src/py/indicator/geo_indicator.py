@@ -186,7 +186,7 @@ class IndicatorApp(object):
 
     @staticmethod
     def get_create_db_item():
-        item = Gtk.MenuItem(label='Create Database')
+        item = Gtk.MenuItem(label='✚ Create Database')
         item.connect('activate', lambda s: geo.run_in_terminal('db start -p'))
         return item
 
@@ -265,7 +265,7 @@ class IndicatorApp(object):
         Gtk.main_quit()
 
     def get_database_item(self):
-        item_databases = Gtk.MenuItem(label='Databases')
+        item_databases = Gtk.MenuItem(label='⛁ Databases')
         db_submenu = menus.DbMenu(self)
         item_databases.set_submenu(db_submenu)
         return item_databases

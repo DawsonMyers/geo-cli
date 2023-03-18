@@ -53,7 +53,7 @@ def geo(arg_str, return_error=False, return_all=False, terminal=False, return_su
         run_in_terminal(arg_str)
         return
     geo_path = config.GEO_SRC_DIR + '/geo-cli.sh '
-    cmd = geo_path + ' --raw-output ' + ' --no-update-check ' + arg_str
+    cmd = geo_path + ' --raw-output --no-update-check ' + arg_str
     result = ['', '']
     try:
         process = subprocess.Popen("bash %s" % (cmd), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable='/bin/bash', text=True)

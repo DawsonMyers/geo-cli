@@ -8,13 +8,13 @@ class AccessRequestMenuItem(Gtk.MenuItem):
         self.set_label('Access Request')
         submenu = Gtk.Menu()
 
-        item_create = Gtk.MenuItem(label='Create Access Request')
+        item_create = Gtk.MenuItem(label='➕ Create Access Request')
         item_create.connect('activate', lambda _: geo.run('ar create'))
 
         item_iap = Gtk.MenuItem(label='Start IAP Tunnel')
         iap_menu = Gtk.Menu()
-        item_iap_start_new = Gtk.MenuItem(label='Start New')
-        item_iap_start_new_bind = Gtk.MenuItem(label='Start New & Bind pgAdmin Port 5433')
+        item_iap_start_new = Gtk.MenuItem(label='▶ Start New')
+        item_iap_start_new_bind = Gtk.MenuItem(label='⛁ Start New & Bind pgAdmin Port 5433')
         item_iap_start_new.connect('activate', lambda _: geo.run_in_terminal('ar tunnel --prompt'))
         item_iap_start_new_bind.connect('activate', lambda _: geo.run_in_terminal('ar tunnel --prompt -L'))
         item_iap_start_prev = Gtk.MenuItem(label='Start Previous')

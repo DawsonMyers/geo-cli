@@ -17,7 +17,7 @@ class AutoSwitchDbMenuItem(Gtk.MenuItem):
     auto_switch_tasks = set()
 
     def __init__(self, app: IndicatorApp):
-        super().__init__(label='Auto-Switch')
+        super().__init__(label='⚡ Auto-Switch')
         self.app = app
         self.build_submenu(app)
         self.show_all()
