@@ -235,8 +235,9 @@ make_logger_function_vte() {
 get_func_path() {
     local ignore_count=${1:-1}
     # TODO: Remove
-    e BASH_LINENO
-    e BASH_SOURCE
+#    e BASH_LINENO
+#    e LINENO
+#    e BASH_SOURCE
     local line_num=${BASH_LINENO[$ignore_count]}
     local file=${BASH_SOURCE[$ignore_count]##*/}
 #    local line_num=${BASH_LINENO[$((${#BASH_LINENO[@]} - $ignore_count))]}
@@ -579,7 +580,7 @@ log::fmt_text() {
     # Only run tput if we're running in an interactive terminal.
     # Get the width of the console.
     [[ -n $TERM ]] && width=$(tput cols)
-   
+
     # Get max width of text after the indent width is subtracted.
     # - 1 in case the the last char is a t the last col position, which means that the new line char will be wrapped
     # to the next line, leaving a blank line.
@@ -636,7 +637,7 @@ log::fmt_text_and_indent_after_first_line() {
     local additional_indent=0
     # local next_line_indent=0
     local OPTIND
-    
+
     # log::debug "log::fmt_text_and_indent_after_first_line: args: '$*'"
 
     # The --x option prevents command options from being parsed. This is necessary when formatting help text for commands.

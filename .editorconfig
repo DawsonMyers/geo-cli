@@ -20,3 +20,4 @@ switch_case_indent = true  # --case-indent
 space_redirects    = true
 keep_padding       = true
 function_next_line = false  # --func-next-line
+ij_any_line_comment_add_space = true

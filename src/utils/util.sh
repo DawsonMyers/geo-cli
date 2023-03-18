@@ -593,3 +593,10 @@ $end_tag
 # "#geo-cli-start
 # my:info:here
 # #geo-cli-end"
+
+util::is_alphanumeric() {
+    local allow_periods=false
+    [[ $1 == -p ]] && allow_periods=true && shift
+    local alphanumeric_re='^[^-_0-9]([-[:alnum:]]+)$'
+    [[ $* =~ $alphanumeric_re ]]
+}
