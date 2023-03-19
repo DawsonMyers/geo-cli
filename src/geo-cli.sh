@@ -59,69 +59,27 @@ if [[ $(ls -A $GEO_CLI_CONFIG_DIR/env) ]]; then
     done
 fi
 
-# Gives the path of the file that was passed in when the script was executed. Could be relative
-# SOURCE="${BASH_SOURCE[0]}"
-# DIR_NAME=`dirname $SOURCE`
-# echo $SOURCE
-# EMOJI_CHECK_MARK_GREEN='\033[0;32m✔\033[0m'
-# EMOJI_RED_X_SMALL_RED='\033[0;31m✘\033[0m'
-# =$'\033[32m'
-# red_color=$'\033[41m'
-# exit_color=$normal_color
-
 # Define error handlers before loading cli-handlers.sh, then set again with color afterwards.
 # This is because we need to have util::array_concat imported.
 export GEO_ERR_TRAP='${BASH_SOURCE[0]##*/}[$LINENO]:${FUNCNAME:-FuncNameNull}: '
 export PS4=".${GEO_ERR_TRAP}"
-#export PS4='.${BASH_SOURCE[0]##*/}[$LINENO]:${FUNCNAME:-FuncNameNull}: '
+# Sets the file descriptor for the debug output when using 'set -x' (which uses PS4). This simplifies filtering of the
+# debug output. This way we can set -x and then filter the output like this:
+#   set -x; some_command | grep -Ev "patterns to ignore"
+#  instead of having to redirect the error to stdin (cmd 2>&1 |...)
+# Note: the v in 'grep -Ev' means to inVert the match logic, selecting everything that doesn't match the patterns and
+#       the 'E' means that we can use Extended regular expressions, which are just normal REs that we don't have to escape
+#       e.g., '\d+\d' can be used instead of '\\d+\\d'.
+export BASH_XTRACEFD=1
 
-# Import cli handlers to get access to all of the geo-cli commands and command names (through the COMMANDS array).
+# Import cli handlers to get access to all the geo-cli commands/command names (through the COMMANDS array).
 # shellcheck source=cli/cli-handlers.sh
 . "$GEO_CLI_SRC_DIR/cli/cli-handlers.sh"
 
-exit_color() {
-    exit_code=$?
-    if [ "$exit_code" != 0 ]; then
-        echo -e "$Red✘"
-    else
-        echo -e "$Green✔"
-    fi
-    return "$exit_code"
-}
-# '$(echo -e ${log_RETURN_CODE_TO_EMOJI[$?]}-)'
-# ret_emoji='$(exit_color)'
-# ret_emoji='$([[ $? -eq 0 ]] && echo "\033[0;32m✔\033[0m" || echo "\033[0;32m✔\033[0m")'
-trap_string_parts=('$(exit_color) ' "$BCyan" '${BASH_SOURCE[0]##${HOME}*/}' "${Purple}" '\[$LINENO]:' "${Yellow}" '${FUNCNAME:-FuncNameNull}:' "$Off ")
-#trap_string_parts=('$(exit_color ) ' "\[$BCyan\]" '${BASH_SOURCE[0]##${HOME}*/}' "\[${Purple}\]" '[$LINENO]:' "\[${Yellow}\]" '${FUNCNAME:-FuncNameNull}:'\["$Off\] ")
-#trap_string_parts=("echo -en " '"' '$(exit_color ) ' "\[$BCyan\]" '${BASH_SOURCE[0]##${HOME}*/}' "\[${Purple}\]" '[$LINENO]:' "\[${Yellow}\]" '${FUNCNAME:-FuncNameNull}:'\["$Off\] " '"')
-#GEO_ERR_TRAP1="echo -en \"$(util::array_concat -z trap_string_parts)\""
-  GEO_ERR_TRAP="$(echo -en "$(util::array_concat -z trap_string_parts)")"
-#GEO_ERR_TRAP="echo -en \"$(util::array_concat -z trap_string_parts)\""
-#GEO_ERR_TRAP1="$"
-  geo_err_trap() {
-#      GEO_ERR_TRAP="$(util::array_concat -z trap_string_parts)"
-#       eval "$GEO_ERR_TRAP"  | grep -Ev 'config-file|cfg_.*|geo_get|log::|util::|gitprompt|bashrc-utils'
-       echo "$("$GEO_ERR_TRAP"  | grep -Ev 'config-file|cfg_.*|geo_get|log::|util::|gitprompt|bashrc-utils')"
-#       eval $GEO_ERR_TRAP 2>&1 | grep -Ev 'config-file|cfg_.*|geo_get|log::|util::|gitprompt|bashrc-utils'
-  }
-#type util::array_concat
-#export PS4='.${geo_err_trap}'
-#export PS4='.$(geo_err_trap)'
-
+trap_string_parts=('$(log::get_symbol_for_exit_code) ' "$BCyan" '${BASH_SOURCE[0]##${HOME}*/}' "${Purple}" '[$LINENO]:' "${Yellow}" '${FUNCNAME:-FuncNameNull}[$BASH_LINENO]:' "$Off $LOG_COLOUR_FOR_CODE ")
+GEO_ERR_TRAP="$(echo -en "$(util::array_concat -z trap_string_parts)")"
 PS4=".${GEO_ERR_TRAP}"
 
-
-# export GEO_ERR_TRAP="$BCyan"${BASH_SOURCE[0]##${HOME}*/}${Purple}[$LINENO]:${Yellow}${FUNCNAME:-FuncNameNull}:$Off '
-# export GEO_ERR_TRAP='${BASH_SOURCE[*]}[$LINENO]: '
-# export GEO_ERR_TRAP='${BASH_SOURCE[*]}[$LINENO]: '
-# export GEO_ERR_TRAP="\$BCyan\${BASH_SOURCE[0]}\${Purple}[\$LINENO]:\${Yellow}\${FUNCNAME:-FuncNameNull0}: \$Off"
-# export GEO_ERR_TRAP='${BASH_SOURCE[0]##*/}[$LINENO]:${FUNCNAME:-FuncNameNull}: '
-#export GEO_ERR_TRAP="$BCyan\${BASH_SOURCE[0]##*/}${Purple}[\$LINENO]:${Yellow}\${FUNCNAME:-FuncNameNull}: $Off"
-# export GEO_ERR_TRAP="$BCyan\${BASH_SOURCE[1]}.\${BASH_SOURCE[0]}${Purple}[\$LINENO]:${Yellow}\${FUNCNAME:-FuncNameNull}: $Off"
-# export PS4='.${BASH_SOURCE[0]##*/}[$LINENO]:${FUNCNAME:-FuncNameNull}: '
-# export PS4='.${BASH_SOURCE[*]}[$LINENO]:  '
-# export PS4='.${BASH_SOURCE[0]##*/}[$LINENO]:  '
-# export GEO_ERR_TRAP='${BASH_SOURCE[0]##*/}[$LINENO]: '
 export GEO_DEV_MODE=false
 
 export GEO_RAW_OUTPUT=false
@@ -152,8 +110,8 @@ function geo() {
 
 #     set -E
 #     set -e
-#     trap "geo_err_trap" ERR
 #     trap "$GEO_ERR_TRAP" ERR
+
     # Log call.
     [[ $(@geo_get LOG_HISTORY) == true ]] && echo "[$(date +"%Y-%m-%d_%H:%M:%S")] geo $*" >> ~/.geo-cli/history.txt
 
@@ -165,8 +123,6 @@ function geo() {
 
     local OPTIND
     while [[ $# -gt 0 && $1 =~ ^-{1,2} ]]; do
-    # echo "arg = $1"
-    # while [[ $# -gt 0 && $1 == --raw-output || $1 == --no-update-check ]]; do
         # Extracts the option prefix (- or --). Removes everything from to end of the string up to and including the first hyphen.
         # A hyphen is then concatenated to the result to account for the one that was removed.
         local opt_prefix="${1%-*}-"
@@ -318,3 +274,23 @@ function check_for_docker_group_membership() {
 if [[ -n $* ]]; then
     geo "$@"
 fi
+
+
+#_geo_validate_server_config
+
+#init_logging() {
+#    # Define error handlers before loading cli-handlers.sh, then set again with color afterwards.
+#    # This is because we need to have util::array_concat imported.
+#    export GEO_ERR_TRAP='${BASH_SOURCE[0]##*/}[$LINENO]:${FUNCNAME:-FuncNameNull}: '
+#    export PS4=".${GEO_ERR_TRAP}"
+#    #export PS4='.${BASH_SOURCE[0]##*/}[$LINENO]:${FUNCNAME:-FuncNameNull}: '
+#
+#    # Import cli handlers to get access to all the geo-cli commands and command names (through the COMMANDS array).
+#    # shellcheck source=cli/cli-handlers.sh
+#    . "$GEO_CLI_SRC_DIR/cli/cli-handlers.sh"
+#
+#    trap_string_parts=('$(log::get_symbol_for_exit_code) ' "$BCyan" '${BASH_SOURCE[0]##${HOME}*/}' "${Purple}" '[$LINENO]:' "${Yellow}" '${FUNCNAME:-FuncNameNull}[$BASH_LINENO]:' "$Off $LOG_COLOUR_FOR_CODE ")
+#    GEO_ERR_TRAP="$(echo -en "$(util::array_concat -z trap_string_parts)")"
+#
+#    PS4=".${GEO_ERR_TRAP}"
+#}

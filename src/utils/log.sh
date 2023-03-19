@@ -16,6 +16,39 @@
 # shellcheck source=./util.sh
 . "$GEO_CLI_SRC_DIR"/utils/util.sh
 
+# Line numbers for traps:
+# https://unix.stackexchange.com/questions/151771/getting-wrong-lineno-for-a-trapped-function
+
+# Gets a green ✔ if the function completed with a zoro ret code, otherwise a red ✘.
+log::get_symbol_for_exit_code() {
+    exit_code=$?
+    if [ "$exit_code" != 0 ]; then
+        echo -e "$Red✘$Off"
+    else
+        echo -e "$Green✔$Off"
+    fi
+    return "$exit_code"
+}
+
+# Debug logs are written to stderr, so redirect it to this function when piping to it.
+# Example:
+#    _geo_validate_server_config  |&  log::filter_ps4_debug_logs
+# Note: '|&' is the new error pipe redirect operator (added in Bash 4) is the same as 2>&1.
+# Alternatively, you can set BASH_XTRACEFD=1 to set the debug output file descriptor when using 'set -x' (which is what
+# PS4 debug prompts are written to). This simplifies filtering debug output. This way, we can set -x and then filter the output like this:
+#   BASH_XTRACEFD=1
+#   set -x
+#   some_command | grep -Ev "patterns to ignore"
+#     * The v in 'grep -Ev' means to inVert the match logic, selecting everything that doesn't match the patterns and
+#       the 'E' means that we can use Extended regular expressions, which are just normal REs that we don't have to escape
+#       (e.g., '\d+\d' can be used instead of '\\d+\\d').
+# The stderr has to be piped in for the de
+log::filter_ps4_debug_logs() {
+    eval "$(util::eval_to_enable_piped_args)"
+#    echo "$*"
+    echo "$*" | grep -Ev 'log.sh|debug|config-file|cfg_|geo_get|log::|util::|gitprompt|bashrc-utils'
+}
+
 # TODO: Use this where needed. Example: log_function() { echo "$@" >&3; }
 # standard output may be used as a return value in the functions
 # we need a way to write text on the screen in the functions so that
@@ -399,6 +432,7 @@ make_logger_function white White
 log::white() {
     _log_white "$@"
 }
+export LOG_COLOUR_FOR_CODE="$VTE_COLOR_115"
 make_logger_function_vte code VTE_COLOR_115 # greenish blue
 log::code() {
     _log_code "$@"
