@@ -1359,16 +1359,68 @@ _geo_db__psql() {
 _geo_validate_server_config() {
     ! _geo_terminal_cmd_exists xmlstarlet && return 1
     local server_config="$HOME/GEOTAB/Checkmate/server.config"
-    local webPort=$(xmlstarlet sel -t -v //WebServerSettings/WebPort "$server_config")
-    local sslPort=$(xmlstarlet sel -t -v //WebServerSettings/WebSSLPort "$server_config")
-
-    if [[ $webPort == 80 || $sslPort == 443 ]]; then
-        xmlstarlet ed --inplace -u "//WebServerSettings/WebPort" -v 10000 -u "//WebServerSettings/WebSSLPort" -v 10001 "$server_config" \
-            && log::status "Setting server.config WebPort & WebSSLPort to correct values. From ($webPort, $sslPort) to (10000, 10001)." \
-            || log::Error "Failed to update server.config with correct WebPort & WebSSLPort. Current values are ($webPort, $sslPort)."
-    fi
+    local server_config="$HOME/test/server.config"
+    local webPort sslPort
+     set -x
+    _geo_xml_upsert //WebServerSettings/WebPort 10000 80 $server_config
+    _geo_xml_upsert //WebServerSettings/WebSSLPort 10001 443 $server_config
+     set +x
+#    ! webPort=$(xmlstarlet sel -t -v //WebServerSettings/WebPort "$server_config") \
+#        &&  xmlstarlet ed --inplace --insert //WebServerSettings/WebPort -t elem -n WebPort -v 10000 || log::Error "Failed to insert WebPort element into server.config: $server_config"
+#
+#    sslPort=$(xmlstarlet sel -t -v //WebServerSettings/WebSSLPort "$server_config")
+#    if [[ -z $webPort || $webPort == 80 || -z $sslPort || $sslPort == 443 ]]; then
+#        xmlstarlet ed --inplace -u "//WebServerSettings/WebPort" -v 10000 -u "//WebServerSettings/WebSSLPort" -v 10001 "$server_config" \
+#            && log::status "Setting server.config WebPort & WebSSLPort to correct values. From ($webPort, $sslPort) to (10000, 10001)." \
+#            || log::Error "Failed to update server.config with correct WebPort & WebSSLPort. Current values are ($webPort, $sslPort)."
+#    fi
     # xmlstarlet ed --inplace -u "//WebSSLPort" -v 10001 "$HOME/GEOTAB/Checkmate/server.config"
+}
 
+_geo_xml_upsert() {
+    log::debug "args: $*"
+    local xpath="$1"
+    local xpath_parent="${xpath##*/}"
+    local name="${xpath##*/}"
+    local default_value="$2"
+    local disallowed_value="$3"
+    local xml_file="$4"
+    log::debug "
+    xpath="$1"
+    name="${xpath##*/}"
+    local xpath_parent="${1%/*}"
+    default_value="$2"
+    disallowed_value="$3"
+    xml_file="$4"
+    "
+    local current_value=""
+#    ! current_value=$(xmlstarlet sel -t -v "$xpath" "$xml_file") \
+#        &&  {
+#            xmlstarlet ed --inplace --insert "$xpath_parent" -t elem -n $name -v $default_value \
+#            || log::Error "Failed to insert $name element into server.config: $xml_file"  \
+#        } && {
+#            current_value=$(xmlstarlet sel -t -v "$xpath" "$xml_file") \
+#            || log::Error "Attempt to insert element $name failed: $xml_file"
+#        }
+
+    log::debug "Checking current value"
+    if ! current_value=$(xmlstarlet sel -t -v "$xpath" "$xml_file"); then
+        ! xmlstarlet ed --inplace --insert "$xpath_parent" -t elem -n "$name" -v "$default_value" "$xml_file"\
+            && log::Error "Failed to insert $name element into server.config: $xml_file" \
+            && return 1
+        ! current_value=$(xmlstarlet sel -t -v "$xpath" "$xml_file") \
+            && log::Error "Attempt to insert element $name failed: $xml_file" \
+            && return 1
+    fi
+
+    if [[ $current_value == $disallowed_value ]]; then
+        log::status "Updating server.config: $xpath: $current_value => $default_value"
+        xmlstarlet ed --inplace -u "$xpath" -v "$default_value" "$xml_file" \
+            && log::success "OK." \
+            || log::Error "Failed to update server.config with correct $name value."
+    elif [[  $current_value != $default_value ]]; then
+        log::caution "Warning: server.config: $xpath == $current_value. The default for local development is $default_value"
+    fi
 }
 
 _geo_db__script() {
