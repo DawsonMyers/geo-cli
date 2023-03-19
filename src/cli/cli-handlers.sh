@@ -1427,12 +1427,14 @@ _geo_xml_upsert_server_config() {
     replace_default_value="$replace_default_value"
     xml_file="$xml_file"
     "
-    local current_value=""
+    local current_value
 #    log::debug "Checking current value"
-    log::debug xmlstarlet ed $inplace --subnode "$xpath_parent" -t elem -n "$name" -v "$upsert_value" "$xml_file"
-    _geo_xml_get "$xpath" "$xml_file"
+#    log::debug xmlstarlet ed $inplace --subnode "$xpath_parent" -t elem -n "$name" -v "$upsert_value" "$xml_file"
+#    _geo_xml_get --var current_value "$xpath" "$xml_file"
+#    if ! _geo_xml_get --var current_value "$xpath" "$xml_file"; then
     if ! current_value=$(xmlstarlet sel -t -v "$xpath" "$xml_file"); then
-#    if ! current_value=$(xmlstarlet sel -t -v "$xpath" "$xml_file"); then
+        log::debug About to run:
+        log::debug xmlstarlet ed $inplace --subnode "$xpath_parent" -t elem -n "$name" -v "$upsert_value" "$xml_file"
         ! xmlstarlet ed $inplace --subnode "$xpath_parent" -t elem -n "$name" -v "$upsert_value" "$xml_file" \
             && log::Error "Failed to insert $name element into server.config: $xml_file" \
             && return 1
@@ -1444,29 +1446,15 @@ _geo_xml_upsert_server_config() {
     # Update the value if it's empty or if it's equal to replace_if_value_is
     if [[ -z $current_value || $current_value == $replace_default_value ]]; then
         log::status "Updating server.config: $xpath: $current_value => $upsert_value"
+
+        log::debug xmlstarlet ed $inplace -u "$xpath" -v "$upsert_value" "$xml_file"
+
         xmlstarlet ed $inplace -u "$xpath" -v "$upsert_value" "$xml_file" \
             && log::success "OK." \
             || log::Error "Failed to update server.config with correct $name value."
     elif [[  $current_value != $upsert_value ]]; then
         log::warn "Warning: server.config: $xpath == $current_value. The default for local development is $upsert_value"
     fi
-#    if ! current_value=$(xmlstarlet sel -t -v "$xpath" "$xml_file"); then
-#        ! xmlstarlet ed --inplace --subnode "$xpath_parent" -t elem -n "$name" -v "$default_value" "$xml_file" \
-#            && log::Error "Failed to insert $name element into server.config: $xml_file" \
-#            && return 1
-#        ! current_value=$(xmlstarlet sel -t -v "$xpath" "$xml_file") \
-#            && log::Error "Attempt to insert element $name failed: $xml_file" \
-#            && return 1
-#    fi
-#
-#    if [[ $current_value == $disallowed_value ]]; then
-#        log::status "Updating server.config: $xpath: $current_value => $default_value"
-#        xmlstarlet ed --inplace -u "$xpath" -v "$default_value" "$xml_file" \
-#            && log::success "OK." \
-#            || log::Error "Failed to update server.config with correct $name value."
-#    elif [[  $current_value != $default_value ]]; then
-#        log::warn "Warning: server.config: $xpath == $current_value. The default for local development is $default_value"
-#    fi
 }
 
 _geo_xml_node_exists() {
@@ -1479,13 +1467,15 @@ _geo_xml_get() {
     local xpath=
     local var=
     while [[ $1 =~ ^-+ ]]; do
-        local arg
         [[ ! $2 =~ ^[[:alnum:]] ]] && break
          case "${1}" in
              -x | --xpath) value="$2" && shift ;;
              -n | --name) name="$2" && shift ;;
              -f | --file) xml_file="$2" && shift ;;
-             -v | --var) local -n var="$2" && shift ;;
+             -v | --var)
+                [[ $(util::get_var_type $2) == none && -n $2 ]] \
+                    && eval "$2=''"
+             local -n var="$2" && shift ;;
              *) log::Error "Invalid option: '$1'" && return 1 ;;
          esac
          shift
@@ -1498,7 +1488,8 @@ _geo_xml_get() {
      log::debug xmlstarlet sel -t -v "$xpath" "$xml_file"
      local value="$(xmlstarlet sel -t -v "$xpath" "$xml_file")"
      log::debug util::is_ref_var var && var="$value" || echo "$value"
-     util::is_ref_var var && var="$value" || echo "$value"
+     util::typeofvar var && var="$value" || echo "$value"
+     util::is_ref_var var && log::debug "var is ref = $var" || echo NOT REF
     }
 
 _geo_xml_upsert() {

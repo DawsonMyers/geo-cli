@@ -249,9 +249,10 @@ util::typeof () {
     local is_type=false
     local silent=false
     local is_ref=false
+    local is_defined=false
 
     local OPTIND
-    while getopts "aAmhst:T:r" opt; do
+    while getopts ":aAmhst:T:rd" opt; do
         case "${opt}" in
             # Type to test for
             t ) is_type="$OPTARG" && silent=true ;;
@@ -262,6 +263,7 @@ util::typeof () {
             s ) is_type=string ;;
             S ) silent=true ;;
             r ) is_ref=true ;;
+            d ) is_defined=true ;;
             # Standard error handling.
             : ) log::Error "Option '${OPTARG}' expects an argument."; return 1 ;;
             \? ) log::Error "Invalid option: ${OPTARG}"; return 1 ;;
@@ -269,10 +271,13 @@ util::typeof () {
     done
     shift $((OPTIND - 1))
 
+    local root_name=$1
+
+#    $is_defined && [[ $(util::get_var_type $root_name) == none ]] && return 1 & return 0
+
     # [[ $1 == --array ]] && is_type=array && shift
     # [[ $1 == --array ]] && is_type=array
     # echo "1 = $1"
-    local root_name=$1
     # local type_signature=$(declare -p "var_ref" 2>/dev/null)
     # echo "type_signature = $type_signature"
 
