@@ -123,8 +123,6 @@ util::print_array() {
     done
 }
 
-
-
 # a=(1 2 3)
 # Plain:
 # util::join_array a
@@ -351,19 +349,19 @@ util::get_var_sig() {
 
 # Add eval "$(util::eval_to_enable_piped_args)" to a function to enable reading from stdin
 util::eval_to_enable_piped_args() {
-    local _enable_piped_args_code=
-    read -r -d '' _enable_piped_args_code <<-'EOF'
+    local _eval_code
+    read -r -d '' _eval_code<<-'EOF'
     local __args
     # Allow this command to accept piped in arguments. Example: echo "text" | log::strip_color_codes
-    # if [[ -p /dev/stdin ]]; then
-    if (( "$#" == 0 )); then
-        IFS= read -r -t 0.01 __args
+     if [[ -p /dev/stdin ]]; then
+        IFS= read -r -d '' -t 0.01 __args
         set -- "$__args"
     fi
 EOF
- [[ $1 == -v ]] && local -n var="$2" && var="$_enable_piped_args_code" && return
- echo "$_enable_piped_args_code"
+ [[ $1 == -v ]] && local -n var="$2" && var="$_eval_code" && return
+ echo "$_eval_code"
 }
+# TODO: Update
 util::eval_trap_error_and_log() {
      local err_trap="$BCyan\${BASH_SOURCE[0]##\${HOME}*/}${Purple}[\$LINENO]:${Yellow}\${FUNCNAME:-FuncNameNull}: $Off"
     err_trap="${GEO_ERR_TRAP:-$err_trap}"

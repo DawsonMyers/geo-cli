@@ -1,0 +1,12 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="util_filter_ps4_debug_logs_test.sh" type="BashProRunConfiguration">
+    <option name="defaultInterpreter" value="bash" />
+    <envs>
+      <env name="projdir" value="$PROJECT_DIR$" />
+    </envs>
+    <option name="scriptPath" value="$PROJECT_DIR$/src/tests/util/util_filter_ps4_debug_logs_test.sh" />
+    <option name="workingDirectory" value="$PROJECT_DIR$" />
+    <RunnerSettings bashdbVersion="Automatic" bashPathMapper="Automatic" RunnerId="pro.bashsupport.shDebugRunner" />
+    <method v="2" />
+  </configuration>
+</component>
