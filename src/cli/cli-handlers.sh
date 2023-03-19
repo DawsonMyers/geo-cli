@@ -34,6 +34,7 @@ export GEO_CLI_UTILS_DIR="${GEO_CLI_SRC_DIR}/utils"
 # Set up config paths (used to store config info about geo-cli)
 export GEO_CLI_CONFIG_DIR="$HOME/.geo-cli"
 export GEO_CLI_CONF_FILE="$GEO_CLI_CONFIG_DIR/.geo.conf"
+export GEO_CLI_CONF_JSON_FILE="$GEO_CLI_CONFIG_DIR/.geo.conf.json"
 export GEO_CLI_AUTOCOMPLETE_FILE="$GEO_CLI_CONFIG_DIR/geo-cli-autocompletions.txt"
 export GEO_CLI_SCRIPT_DIR="${GEO_CLI_CONFIG_DIR}/scripts"
 
@@ -3279,11 +3280,31 @@ _geo_init__is_pat_valid() {
     local conf_backup=$(cat $GEO_CLI_CONF_FILE)
     local show_status=false
     local shifted=false
-    [[ $1 == -s ]] && show_status=true && shift
+    local shifted='config'
+#    [[ $1 == -s ]] && show_status=true && shift
 
+    local OPTIND
+    while getopts ":sp" opt; do
+        case "${opt}" in
+            s ) show_status=false ;;
+            p ) json_path="${OPTARG}" ;;
+            # Standard error handling.
+            : ) log::Error "Option '${OPTARG}' expects an argument."; return 1 ;;
+            \? ) log::Error "Invalid option: ${OPTARG}"; return 1 ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+
+    # To uppercase.
     local key="${1^^}"
     local geo_key="$key"
     shift
+
+    local json_key="${json_path}.${key#GEO_CLI_}"
+    # To lowercase.
+    json_key="${key,,}"
+    json_key="${json_key//_/-}"
+
     [[ ! $key =~ ^GEO_CLI_ ]] && geo_key="GEO_CLI_${key}"
 
     local value="$@"
@@ -3302,6 +3323,7 @@ _geo_init__is_pat_valid() {
             # Write to the file atomically.
             cfg_write $GEO_CLI_CONF_FILE "$geo_key" "$value"
             # Open up the lock file for writing on file descriptor 200. The lock is release as soon as the subshell exits.
+            _geo_jq_set -i -L "$json_key" "$value" "$GEO_CLI_CONF_JSON_FILE"
         ) 200>/tmp/.geo.conf.lock
         [[ $? != 0 ]] && return 1
     fi
@@ -3574,7 +3596,7 @@ _geo_jq_set_value() {
 ########################################################################################################################
 # Options:
 #    -i  inplace_edit=true
-#    -n  use_lock_file=false
+#    -L  use_lock_file=false
 #    -p  print_json=true
 #    -P  print_initial_json=true
 # Params
@@ -3583,15 +3605,16 @@ _geo_jq_set_value() {
 #    3:  file - The json file path to edit. It will be created if it doesn't exist.
 ########################################################################################################################
 _geo_jq_set() {
+    _geo_install_apt_package_if_missing 'jq' || return 1
     local inplace_edit=true
     local print_json=false
     local print_initial_json=false
     local use_lock_file=true
     local OPTIND
-    while getopts ":inpP" opt; do
+    while getopts ":iLpP" opt; do
         case "${opt}" in
             i ) inplace_edit=true ;;
-            n ) use_lock_file=false ;;
+            L ) use_lock_file=false ;;
             p ) print_json=true ;;
             P ) print_initial_json=true ;;
             : ) log::Error "Option '${OPTARG}' expects an argument."; return 1 ;;
@@ -3605,10 +3628,10 @@ _geo_jq_set() {
     local file="$3"
     local json=
 
-    # Create file if a name was provided and it doesn't already exist
+    # Create file if a name was provided, and it doesn't already exist
     if [[ -n $file && ! -f $file ]]; then
         log::status "Creating json file: $file"
-        echo '{}' >"$file"
+        echo '{}' > "$file"
     fi
     [[ -n $file ]] && json="$(cat "$file")"
     [[ ${#json} -lt 2 || $json == '{}' ]] && json='{}'
@@ -4764,12 +4787,39 @@ _geo_service_exists() {
     fi
 }
 _geo_install_apt_package_if_missing() {
+    local prompt force=false
+    local OPTIND
+    while getopts ":fp:" opt; do
+        case "${opt}" in
+            f ) force=true ;;
+            p ) prompt="$1" ;;
+            : ) log::Error "Option '${OPTARG}' expects an argument."; return 1 ;;
+            \? ) log::Error "Invalid option: ${OPTARG}"; return 1 ;;
+        esac
+    done
+    shift $((OPTIND - 1))
     local pkg_name="$1"
     ! type sudo &>/dev/null && sudo='' || sudo=sudo
     [[ -z $pkg_name ]] && log::warn 'No package name supplied' && return 1
-
+    echo before
     if ! dpkg -l $pkg_name &>/dev/null; then
-        log::status "Installing missing package: $pkg_name"
+        echo in
+        local install_msg_key="install-msg-disabled-$pkg_name"
+        ! $force && [[ $(@geo_get $install_msg_key) == true ]] \
+            && log::caution "Install prompt disabled for missing apt dependency: $(log::txt_underline $pkg_name)" \
+            && log::detail "* Re-enable by running: $(log::txt_underline geo set $install_msg_key false)" \
+            && log::detail "* Install manually: $(log::txt_underline sudo apt install -y "$pkg_name")" \
+            && return 1
+        if ! $force && [[ -n $prompt ]]; then
+            log::caution "Missing apt dependency: $(log::txt_underline $pkg_name)"
+            log::detail "geo-cli requires this package in order to function correctly."
+            if ! prompt_continue -a "Install required package"; then
+                prompt_continue -a -n "Disable this warning in the future" \
+                    && @geo_set $install_msg_key true
+                return 1
+            fi
+            log::status -b "Installing..."
+        fi
         $sudo apt install -y "$pkg_name"
     fi
 }
@@ -6816,23 +6866,26 @@ prompt_continue() {
     prompt_msg="$(echo "$prompt_msg" | sed -E 's/^ +//g; s/ +$//g; s/ +/ /g;')"
 
     local prompt_suffix=
-    local has_suffix_regex='\(.\{1,}|.{1,}\):'' ''?$'
+    local has_suffix_regex='[\(\[].{1,}|.{1,}[\)\]]:'' ''?$'
     if $add_suffix && ! [[ $prompt_msg =~ $has_suffix_regex ]]; then
         case $default in
-            'yes') prompt_suffix='(Y|n): ' ;;
-            'no') prompt_suffix='(y|N): ' ;;
-            '') $whole_word_answer && prompt_suffix='(yes|no): ' || prompt_suffix='(y|n): ' ;;
+            'yes') prompt_suffix='Y|n' ;;
+            'no') prompt_suffix='y|N' ;;
+            '') $whole_word_answer && prompt_suffix='yes|no' || prompt_suffix='y|n' ;;
         esac
 
         [[ ! $prompt_msg =~ \?$ ]] && prompt_msg+='?'
-        prompt_msg+=" $prompt_suffix"
+        $force_answer && prompt_suffix="($prompt_suffix)" || prompt_suffix="[$prompt_suffix]"
+        prompt_msg+=" $prompt_suffix: "
     fi
 
     $whole_word_answer && regex_yes=yes && regex_no=no
 
     # Default to no if the -n option is present. This means that the user is required to enter y/Y/yes to continue,
     # anything else will decline to continue.
-
+    prompt_msg="$prompt_msg "
+    # Replace 2+ spaces with 1; remove space between ')' and ':' (e.g. 'Continue? (Y|n) :' => 'Continue? (Y|n):'
+    prompt_msg="$(echo $prompt_msg | sed -E 's/ +/ /g; s/\) :/\):/g')"
     while true; do
         log::prompt_n "$prompt_msg"' '
         answer=
