@@ -188,6 +188,20 @@ export CURRENT_SUBCOMMANDS=()
     # done
     # shift $((OPTIND - 1))
 #}
+
+    # local opt=false
+    # local opt_arg=
+    # local OPTIND
+    # while getopts "Pv:a:" opt; do
+    #     case "${opt}" in
+    #         a ) opt=false ;;
+    #         b ) opt_arg="$OPTARG" ;;
+    #         # Standard error handling.
+    #         : ) log::Error "Option '${OPTARG}' expects an argument."; return 1 ;;
+    #         \? ) log::Error "Invalid option: ${OPTARG}"; return 1 ;;
+    #     esac
+    # done
+    # shift $((OPTIND - 1))
 #######################################################################################################################
 
 # The directory path to this file.
@@ -1361,51 +1375,172 @@ _geo_validate_server_config() {
     local server_config="$HOME/GEOTAB/Checkmate/server.config"
     local server_config="$HOME/test/server.config"
     local webPort sslPort
-     set -x
-    _geo_xml_upsert //WebServerSettings/WebPort 10000 80 $server_config
-    _geo_xml_upsert //WebServerSettings/WebSSLPort 10001 443 $server_config
-     set +x
-#    ! webPort=$(xmlstarlet sel -t -v //WebServerSettings/WebPort "$server_config") \
-#        &&  xmlstarlet ed --inplace --insert //WebServerSettings/WebPort -t elem -n WebPort -v 10000 || log::Error "Failed to insert WebPort element into server.config: $server_config"
-#
-#    sslPort=$(xmlstarlet sel -t -v //WebServerSettings/WebSSLPort "$server_config")
-#    if [[ -z $webPort || $webPort == 80 || -z $sslPort || $sslPort == 443 ]]; then
-#        xmlstarlet ed --inplace -u "//WebServerSettings/WebPort" -v 10000 -u "//WebServerSettings/WebSSLPort" -v 10001 "$server_config" \
-#            && log::status "Setting server.config WebPort & WebSSLPort to correct values. From ($webPort, $sslPort) to (10000, 10001)." \
-#            || log::Error "Failed to update server.config with correct WebPort & WebSSLPort. Current values are ($webPort, $sslPort)."
-#    fi
-    # xmlstarlet ed --inplace -u "//WebSSLPort" -v 10001 "$HOME/GEOTAB/Checkmate/server.config"
+    _geo_xml_upsert_server_config --inplace -x //WebServerSettings/WebPort -v 10000 --replace-default 80 $server_config
+    _geo_xml_upsert_server_config --inplace -x //WebServerSettings/WebSSLPort -v 10001 --replace-default 443 $server_config
+#     set +x
 }
+
+_geo_xml_upsert_server_config() {
+    log::debug "args: $*"
+    local default_server_config="$HOME/GEOTAB/Checkmate/server.config"
+    local xml_file
+    local xpath
+    local xpath_parent=//WebServerSettings
+    local name
+    local upsert_value
+    local replace_default_value
+    local xpath
+    local xml_file
+    local inplace=
+    local OPTIND
+    while [[ $1 =~ ^-+ ]]; do
+        log::debug "while = $1"
+         case "${1}" in
+             -x | --xpath )
+                xpath="$2"
+                xpath_parent="${xpath%/*}"
+                shift
+                ;;
+             -p | --parent) xpath_parent="$2" && shift;;
+             -i | --inplace) inplace=--inplace ;;
+             -n | --name) name="$2" && shift;;
+             -v | --value) upsert_value="$2" && shift;;
+             -r | --replace-default) replace_default_value="$2" && shift;;
+             -f | --file) xml_file="$2" && shift ;;
+             *) log::Error "Invalid option: '$1'" && return 1 ;;
+         esac
+         shift
+     done
+
+    [[ -z $xpath && -n $1 ]] && xpath="$1" && shift
+    [[ -z $xml_file && -n $1 ]] && xml_file="$1" && shift
+    [[ -z $xml_file ]] && xml_file="$default_server_config"
+#    xml_file="$HOME/GEOTAB/Checkmate/server.config"
+    [[ -z $xpath_parent ]] && xpath_parent="${xpath%/*}"
+    [[ -z $name ]] && name="${xpath##*/}"
+
+    log::debug "
+    xpath=$xpath
+    xpath_parent=$xpath_parent
+    name=$name
+    upsert_value=$upsert_value
+    replace_default_value="$replace_default_value"
+    xml_file="$xml_file"
+    "
+    local current_value=""
+#    log::debug "Checking current value"
+    log::debug xmlstarlet ed $inplace --subnode "$xpath_parent" -t elem -n "$name" -v "$upsert_value" "$xml_file"
+    _geo_xml_get "$xpath" "$xml_file"
+    if ! current_value=$(xmlstarlet sel -t -v "$xpath" "$xml_file"); then
+#    if ! current_value=$(xmlstarlet sel -t -v "$xpath" "$xml_file"); then
+        ! xmlstarlet ed $inplace --subnode "$xpath_parent" -t elem -n "$name" -v "$upsert_value" "$xml_file" \
+            && log::Error "Failed to insert $name element into server.config: $xml_file" \
+            && return 1
+        ! current_value=$(xmlstarlet sel -t -v "$xpath" "$xml_file") \
+            && log::Error "Attempt to insert element $name failed: $xml_file" \
+            && return 1
+    fi
+
+    # Update the value if it's empty or if it's equal to replace_if_value_is
+    if [[ -z $current_value || $current_value == $replace_default_value ]]; then
+        log::status "Updating server.config: $xpath: $current_value => $upsert_value"
+        xmlstarlet ed $inplace -u "$xpath" -v "$upsert_value" "$xml_file" \
+            && log::success "OK." \
+            || log::Error "Failed to update server.config with correct $name value."
+    elif [[  $current_value != $upsert_value ]]; then
+        log::warn "Warning: server.config: $xpath == $current_value. The default for local development is $upsert_value"
+    fi
+#    if ! current_value=$(xmlstarlet sel -t -v "$xpath" "$xml_file"); then
+#        ! xmlstarlet ed --inplace --subnode "$xpath_parent" -t elem -n "$name" -v "$default_value" "$xml_file" \
+#            && log::Error "Failed to insert $name element into server.config: $xml_file" \
+#            && return 1
+#        ! current_value=$(xmlstarlet sel -t -v "$xpath" "$xml_file") \
+#            && log::Error "Attempt to insert element $name failed: $xml_file" \
+#            && return 1
+#    fi
+#
+#    if [[ $current_value == $disallowed_value ]]; then
+#        log::status "Updating server.config: $xpath: $current_value => $default_value"
+#        xmlstarlet ed --inplace -u "$xpath" -v "$default_value" "$xml_file" \
+#            && log::success "OK." \
+#            || log::Error "Failed to update server.config with correct $name value."
+#    elif [[  $current_value != $default_value ]]; then
+#        log::warn "Warning: server.config: $xpath == $current_value. The default for local development is $default_value"
+#    fi
+}
+
+_geo_xml_node_exists() {
+     _geo_xml_get "$@" >/dev/null
+    }
+
+_geo_xml_get() {
+    log::debug "args: $*"
+    local xml_file=
+    local xpath=
+    local var=
+    while [[ $1 =~ ^-+ ]]; do
+        local arg
+        [[ ! $2 =~ ^[[:alnum:]] ]] && break
+         case "${1}" in
+             -x | --xpath) value="$2" && shift ;;
+             -n | --name) name="$2" && shift ;;
+             -f | --file) xml_file="$2" && shift ;;
+             -v | --var) local -n var="$2" && shift ;;
+             *) log::Error "Invalid option: '$1'" && return 1 ;;
+         esac
+         shift
+     done
+     [[ -z $xpath && -n $1 ]] && xpath="$1" && shift
+     [[ -z $xml_file && -n $1 ]] && xml_file="$1"
+     [[ -z $xml_file && -n $1 ]] && xml_file="$1"
+     : ${xml_file:="$HOME/GEOTAB/Checkmate/server.config"}
+
+     log::debug xmlstarlet sel -t -v "$xpath" "$xml_file"
+     local value="$(xmlstarlet sel -t -v "$xpath" "$xml_file")"
+     log::debug util::is_ref_var var && var="$value" || echo "$value"
+     util::is_ref_var var && var="$value" || echo "$value"
+    }
 
 _geo_xml_upsert() {
     log::debug "args: $*"
+    local xml_file="$HOME/GEOTAB/Checkmate/server.config"
     local xpath="$1"
-    local xpath_parent="${xpath##*/}"
+    local xpath_parent="${xpath%/*}"
     local name="${xpath##*/}"
-    local default_value="$2"
+    local value="$2"
     local disallowed_value="$3"
     local xml_file="$4"
+    local inplace=false
+    while [[ $1 =~ ^-+ ]]; do
+         case "${1}" in
+             -x | --xpath )
+                xpath="$2"
+                xpath_parent="${xpath%/*}"
+                shift
+                ;;
+             -i | --inplace) inplace=true ;;
+             -n | --name) value="$2" && shift;;
+             -v | --value) name="$2" && shift;;
+             -f | --file) xml_file="$2" && shift ;;
+             -n)
+                 ;;
+             *) log::Error "Invalid option: '$1'" && return 1 ;;
+         esac
+         shift
+     done
+    shift $((OPTIND - 1))
     log::debug "
     xpath="$1"
+    xpath_parent="${xpath%*/}"
     name="${xpath##*/}"
-    local xpath_parent="${1%/*}"
-    default_value="$2"
+    value="$2"
     disallowed_value="$3"
     xml_file="$4"
     "
     local current_value=""
-#    ! current_value=$(xmlstarlet sel -t -v "$xpath" "$xml_file") \
-#        &&  {
-#            xmlstarlet ed --inplace --insert "$xpath_parent" -t elem -n $name -v $default_value \
-#            || log::Error "Failed to insert $name element into server.config: $xml_file"  \
-#        } && {
-#            current_value=$(xmlstarlet sel -t -v "$xpath" "$xml_file") \
-#            || log::Error "Attempt to insert element $name failed: $xml_file"
-#        }
-
-    log::debug "Checking current value"
+#    log::debug "Checking current value"
     if ! current_value=$(xmlstarlet sel -t -v "$xpath" "$xml_file"); then
-        ! xmlstarlet ed --inplace --insert "$xpath_parent" -t elem -n "$name" -v "$default_value" "$xml_file"\
+        ! xmlstarlet ed --inplace --subnode "$xpath_parent" -t elem -n "$name" -v "$default_value" "$xml_file" \
             && log::Error "Failed to insert $name element into server.config: $xml_file" \
             && return 1
         ! current_value=$(xmlstarlet sel -t -v "$xpath" "$xml_file") \
@@ -1419,7 +1554,7 @@ _geo_xml_upsert() {
             && log::success "OK." \
             || log::Error "Failed to update server.config with correct $name value."
     elif [[  $current_value != $default_value ]]; then
-        log::caution "Warning: server.config: $xpath == $current_value. The default for local development is $default_value"
+        log::warn "Warning: server.config: $xpath == $current_value. The default for local development is $default_value"
     fi
 }
 

@@ -381,7 +381,7 @@ log::verbose() {
 }
 make_logger_function debug Purple
 log::debug() {
-    _log_debug "$@"
+    _log_debug "$@" >&2
 }
 # Prints the function path up to the function where this is called.
 # Example: a() { b; }; b() { log::trace "here"}
