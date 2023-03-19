@@ -73,7 +73,7 @@ fi
 # This is because we need to have util::array_concat imported.
 export GEO_ERR_TRAP='${BASH_SOURCE[0]##*/}[$LINENO]:${FUNCNAME:-FuncNameNull}: '
 export PS4=".${GEO_ERR_TRAP}"
-export PS4='.${BASH_SOURCE[0]##*/}[$LINENO]:${FUNCNAME:-FuncNameNull}: '
+#export PS4='.${BASH_SOURCE[0]##*/}[$LINENO]:${FUNCNAME:-FuncNameNull}: '
 
 # Import cli handlers to get access to all of the geo-cli commands and command names (through the COMMANDS array).
 # shellcheck source=cli/cli-handlers.sh
@@ -95,17 +95,20 @@ trap_string_parts=('$(exit_color) ' "$BCyan" '${BASH_SOURCE[0]##${HOME}*/}' "${P
 #trap_string_parts=('$(exit_color ) ' "\[$BCyan\]" '${BASH_SOURCE[0]##${HOME}*/}' "\[${Purple}\]" '[$LINENO]:' "\[${Yellow}\]" '${FUNCNAME:-FuncNameNull}:'\["$Off\] ")
 #trap_string_parts=("echo -en " '"' '$(exit_color ) ' "\[$BCyan\]" '${BASH_SOURCE[0]##${HOME}*/}' "\[${Purple}\]" '[$LINENO]:' "\[${Yellow}\]" '${FUNCNAME:-FuncNameNull}:'\["$Off\] " '"')
 #GEO_ERR_TRAP1="echo -en \"$(util::array_concat -z trap_string_parts)\""
-#***  GEO_ERR_TRAP="$(echo -en "$(util::array_concat -z trap_string_parts)")"
+  GEO_ERR_TRAP="$(echo -en "$(util::array_concat -z trap_string_parts)")"
 #GEO_ERR_TRAP="echo -en \"$(util::array_concat -z trap_string_parts)\""
 #GEO_ERR_TRAP1="$"
-#***  geo_err_trap() {
-#***      GEO_ERR_TRAP="$(util::array_concat -z trap_string_parts)"
-#***       eval $GEO_ERR_TRAP 2>&1 | grep -Ev 'config-file|cfg_.*|geo_get|log::|util::|gitprompt|bashrc-utils'
-#***  }
+  geo_err_trap() {
+#      GEO_ERR_TRAP="$(util::array_concat -z trap_string_parts)"
+#       eval "$GEO_ERR_TRAP"  | grep -Ev 'config-file|cfg_.*|geo_get|log::|util::|gitprompt|bashrc-utils'
+       echo "$("$GEO_ERR_TRAP"  | grep -Ev 'config-file|cfg_.*|geo_get|log::|util::|gitprompt|bashrc-utils')"
+#       eval $GEO_ERR_TRAP 2>&1 | grep -Ev 'config-file|cfg_.*|geo_get|log::|util::|gitprompt|bashrc-utils'
+  }
 #type util::array_concat
-#***  PS4='.${geo_err_trap}'
+#export PS4='.${geo_err_trap}'
+#export PS4='.$(geo_err_trap)'
 
-#PS4=".${GEO_ERR_TRAP}"
+PS4=".${GEO_ERR_TRAP}"
 
 
 # export GEO_ERR_TRAP="$BCyan"${BASH_SOURCE[0]##${HOME}*/}${Purple}[$LINENO]:${Yellow}${FUNCNAME:-FuncNameNull}:$Off '
