@@ -55,14 +55,11 @@ export GEO_CLI_USER_COMMAND_DIR="$HOME/.geo-cli/data/commands"
 
       doc_cmd_sub_cmd 'create <command_name>'
           doc_cmd_sub_cmd_desc "Creates a new command file."
-        #   "These files are automatically loaded into geo-cli by cli-handlers.sh and are available in all terminals via 'geo <command_name>'). They are stored in the geo-cli repo in the /src/cli/commands directory. If you want to make your command available to all geo-cli users, please create a branch with your command and submit an MR for it. Alternatively, you can also create the command outside of the repo if you are just experimenting with the command and don't want to commit anything to the repo."
-        #   doc_cmd_sub_option_title
-        #       doc_cmd_sub_option '-r'
-        #           doc_cmd_sub_option_desc 'Creates the new command file in the geo-cli repo directory instead of in ~/.geo-cli/data/commands. This makes it easy to create an MR with the new command if you would like to share it with others.'
-        #       doc_cmd_sub_option '-d <database name>'
-        #           doc_cmd_sub_option_desc 'Sets the name of the db to...'
+            @geo_cmd::create_doc
         doc_cmd_sub_cmd 'rm <command_name>'
           doc_cmd_sub_cmd_desc 'Removes a command file.'
+#               doc_cmd_sub_option '-d <database name>'
+#                   doc_cmd_sub_option_desc 'Sets the name of the db to...'
         doc_cmd_sub_cmd 'ls'
           doc_cmd_sub_cmd_desc 'Lists all command files.'
         #   doc_cmd_sub_option '-r'
@@ -87,7 +84,7 @@ export GEO_CLI_USER_COMMAND_DIR="$HOME/.geo-cli/data/commands"
 
     # shift $((OPTIND - 1))
     local cmd="$1"
-    
+
     # log::debug "geo_cmd => $*"
 
     shift
@@ -112,17 +109,31 @@ export GEO_CLI_USER_COMMAND_DIR="$HOME/.geo-cli/data/commands"
     esac
 }
 
+@geo_cmd::create_doc() {
+      doc_cmd_sub_cmd 'create <command_name>'
+          doc_cmd_sub_cmd_desc "Creates a new command file."
+           doc_cmd_sub_option_title
+               doc_cmd_sub_option '-r'
+                   doc_cmd_sub_option_desc 'Creates the new command file in the geo-cli repo directory instead of in ~/.geo-cli/data/commands. This makes it easy to create an MR with the new command if you would like to share it with others.'
+#               doc_cmd_sub_option '-r'
+#                   doc_cmd_sub_option_desc 'Creates the new command file in the geo-cli repo directory instead of in ~/.geo-cli/data/commands. This makes it easy to create an MR with the new command if you would like to share it with others.'
+#               doc_cmd_sub_option '-r'
+#                   doc_cmd_sub_option_desc 'Creates the new command file in the geo-cli repo directory instead of in ~/.geo-cli/data/commands. This makes it easy to create an MR with the new command if you would like to share it with others.'
+        #   "These files are automatically loaded geo-cli by cli-handlers.sh and are available in all terminals via 'geo <command_name>'). They are stored in the geo-cli repo in the /src/cli/commands directory. If you want to make your command available to all geo-cli users, please create a branch with your command and submit an MR for it. Alternatively, you can also create the command outside of the repo if you are just experimenting with the command and don't want to commit anything to the repo."
+}
 @geo_cmd::create() {
     local force_create=false
     local add_cmd_to_repo=true
     local create_cmd_directory=true
+    local parent_cmd_name=
 
     local OPTIND
-    while getopts ":frD" opt; do
+    while getopts ":frD:c:" opt; do
         case "${opt}" in
             f ) force_create=true ;;
             r ) add_cmd_to_repo=true ;;
             D ) create_cmd_directory=false ;;
+            c ) parent_cmd_name="$OPTARG" ;;
             : ) log::Error "Option '${OPTARG}' expects an argument."; return 1 ;;
             \? ) log::Error "Invalid option: ${OPTARG}"; return 1 ;;
         esac
@@ -133,8 +144,11 @@ export GEO_CLI_USER_COMMAND_DIR="$HOME/.geo-cli/data/commands"
     # local template_file="$GEO_CLI_SRC_DIR/includes/commands/geo-cmd-template.sh"
 
     local cmd_name="$1"
+    local full_cmd_name="$cmd_name"
+    local parent_cmd_dir_name=
+    [[ -n $parent_cmd_name ]] && full_cmd_name="${parent_cmd_name}-$cmd_name" && parent_cmd_dir_name="geo-${parent_cmd_name}"
 
-    if _geo__is_registered_cmd "$cmd_name"; then
+    if _geo__is_registered_cmd "$full_cmd_name"; then
         log::warn "Command '$cmd_name' already exists"
         prompt_continue "Continue anyways? (Y|n) : " || return 1
     fi
@@ -142,27 +156,32 @@ export GEO_CLI_USER_COMMAND_DIR="$HOME/.geo-cli/data/commands"
     [[ ! -f $template_file ]] && log::Error "Couldn't find template file at $template_file" && return 1
 
     local alphanumeric_re='^[^-_0-9]([-[:alnum:]]+)$'
-    [[ ! $cmd_name =~ $alphanumeric_re ]] && log::Error "Invalid command name. Command names MUST contain only alphanumeric characters (including -_)." && return 1
+    [[ ! $cmd_name =~ $alphanumeric_re ]] \
+        && log::Error "Invalid command name. Command names MUST contain only alphanumeric characters (including -_)." \
+        && return 1
 
-    log::status -b "Initializing new geo-cli command '$cmd_name'"
+    log::status -b "Initializing new geo-cli command '$full_cmd_name'"
     local command_dir_name=
-    # log::detail "You can create your command inside of its own directory, called '@geo_$cmd_name', if its logic requires additional files (i.e. it executes other scripts or parses static data from a text file)."
+    # log::detail "You can create your command inside its own directory, called 'geo_$cmd_name', if its logic requires additional files (i.e. it executes other scripts or parses static data from a text file)."
     # if prompt_continue "Create command in its own directory? (Y|n): "; then
     #     command_dir_name="/geo-$cmd_name"
     # fi
-    $create_cmd_directory && command_dir_name="/geo-$cmd_name"
+    $create_cmd_directory && [[ -n $parent_cmd_name ]] \
+            && command_dir_name="/geo-${parent_cmd_name}/${cmd_name}" \
+            || command_dir_name="/geo-${cmd_name}"
     echo
 
     # The new command file.
-    local command_file_name="geo_${cmd_name}.cmd.sh"
-    local repo_cmd_file_dir="$GEO_CLI_SRC_DIR/cli/commands"
-    local local_cmd_dir="$GEO_CLI_CONFIG_DIR/data/commands"
-    local command_file_dir="$repo_cmd_file_dir$command_dir_name"
-    ! $add_cmd_to_repo && command_file_dir="$local_cmd_dir$command_dir_name"
+    local command_file_name="geo-${full_cmd_name}.cmd.sh"
+    local repo_cmd_file_dir="${GEO_CLI_SRC_DIR}/cli/commands"
+    local local_cmd_dir="${GEO_CLI_CONFIG_DIR}/data/commands"
+    local command_file_dir="${repo_cmd_file_dir}${command_dir_name}"
+    local base_cmd_dir="$repo_cmd_file_dir"
+#    ! $add_cmd_to_repo &&
 
     if $add_cmd_to_repo; then
         log::info "Your command will be added to the $(txt_underline /src/cli/commands) directory in your local geo-cli repo, by default, which makes it easy to add it to a branch and submit an MR for it.\n"
-        log::info "Alternatively, if you are just experimenting and don't plan to commit it to the repo yet, the command file can instead be added outside of the repo, in the $(txt_underline 'user commands') directory ($(txt_underline '~/.geo-cli/data/commands')).\n"
+        log::info "Alternatively, if you are just experimenting and don't plan to commit it to the repo yet, the command file can instead be added outside the repo, in the $(txt_underline 'user commands') directory ($(txt_underline '~/.geo-cli/data/commands')).\n"
         log::info "This way you can still remain on the main geo-cli repo branch, making it easier to keep geo-cli up-to-date (since you wouldn't have to deal with any conflicts from your own local changes).\n"
         log::detail "Answering 'no' to the following prompt will result in your command being added to the $(txt_underline 'user commands') directory"
         if ! prompt_continue "Add command to repo (default)? (Y|n): "; then
@@ -173,9 +192,13 @@ export GEO_CLI_USER_COMMAND_DIR="$HOME/.geo-cli/data/commands"
             sleep 1
             add_cmd_to_repo=false
             command_file_dir="${local_cmd_dir}${command_dir_name}"
+            base_cmd_dir="$local_cmd_dir"
         fi
-
+    else
+        command_file_dir="${local_cmd_dir}${command_dir_name}"
+        base_cmd_dir="$local_cmd_dir"
     fi
+
     echo
 
     local command_file="$command_file_dir/$command_file_name"
@@ -208,7 +231,7 @@ export GEO_CLI_USER_COMMAND_DIR="$HOME/.geo-cli/data/commands"
 
     # Capitalized command name.
     local CMD_NAME="${cmd_name^^}"
-    local command_file_text="$(cat "$template_file" | sed -E "s/\{\{new_command_name\}\}/$cmd_name/g; s/NEW_COMMAND_NAME/$CMD_NAME/g; s/\{\{command_author\}\}/$cmd_author/g; s/\{\{command_date\}\}/$cmd_date/g; ")"
+    local command_file_text="$(cat "$template_file" | sed -E "s/\{\{new_command_name\}\}/${full_cmd_name//-/_}/g; s/NEW_COMMAND_NAME/$CMD_NAME/g; s/\{\{command_author\}\}/$cmd_author/g; s/\{\{command_date\}\}/$cmd_date/g; ")"
     [[ -z $command_file_text ]] && log::Error "Failed to substitute command name into template file: $command_file_text" && return 1
 
     # Create the command's directory (if it doesn't already exist).
@@ -217,6 +240,7 @@ export GEO_CLI_USER_COMMAND_DIR="$HOME/.geo-cli/data/commands"
     echo "$command_file_text"  > "$command_file" \
         || { log::Error "Failed to write command file to $command_file"; return 1; }
 
+    [[ -n $parent_cmd_dir_name ]]
     # _geo_jq_props_to_json -t name $cmd_name repo "$add_cmd_to_repo"
 
     sleep .3
@@ -228,11 +252,16 @@ export GEO_CLI_USER_COMMAND_DIR="$HOME/.geo-cli/data/commands"
     . "$command_file" && log::success 'OK' || { log::Error "Failed to source command file"; return 1; }
     sleep .3
     echo
+    local cmd_demo="geo $cmd_name"
+    # Strips the parent cmd name (if any) from the start of the command and formats it as if it were going to be run at the command line.
+    # Example: parent cmd = myg, new cmd = myg-up, cmd_example = myg up
+    [[ -n $parent_cmd_name ]] &&  cmd_demo="geo ${parent_cmd_name} ${cmd_name}"
+#    [[ -n $parent_cmd_name ]] &&  cmd_example="${parent_cmd_name} ${full_cmd_name/${parent_cmd_name}?/}"
     log::info "The new command should be available in this terminal if it is a bash shell."
     log::info "Try it here or open a new terminal and run:"
-    log::code "  geo $cmd_name test\n"
+    log::code "    $cmd_demo test\n"
 
-    sleep .2
+    sleep .4
 
     if $add_cmd_to_repo && prompt_continue -n "Would you like to create a branch for this command now? (y|N): "; then
         local branch_name="add-geo-$cmd_name-command"
