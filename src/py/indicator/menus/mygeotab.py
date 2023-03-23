@@ -23,7 +23,7 @@ class MyGeotabMenuItem(Gtk.MenuItem):
     running_items = set()
     stopped_items = set()
     def __init__(self, app: IndicatorApp):
-        super().__init__(label='MyGeotab')
+        super().__init__(label='🌎 MyGeotab')
         self.app = app
         self.build_submenu(app)
         self.show_all()

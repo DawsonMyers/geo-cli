@@ -12,32 +12,37 @@ from gi.repository import Gtk, GLib
 from common import geo
 
 
-class HelpMenuItem(Gtk.MenuItem):
+class SettingsMenuItem(Gtk.MenuItem):
     def __init__(self, app):
         super().__init__()
         self.app = app
-        self.set_label('Help')
+        self.set_label('⚙️ Settings')
         submenu = Gtk.Menu()
 
         item_show_notifications = ShowNotificationsMenuItem(app)
 
-        item_disable = Gtk.MenuItem(label='Disable')
+        item_disable = Gtk.MenuItem(label='⭕ Disable')
+        # item_disable = Gtk.MenuItem(label='✖️ Disable')
         item_disable.connect('activate', self.show_disable_dialog)
 
-        item_readme = Gtk.MenuItem(label='View Readme')
+        item_readme = Gtk.MenuItem(label='↗ View Readme')
         item_readme.connect('activate', self.show_readme)
 
-        item_force_update = Gtk.MenuItem(label='Force Update')
+        item_force_update = Gtk.MenuItem(label='⇈ Force Update')
         item_force_update.connect('activate', lambda _: geo.run_in_terminal('update -f', stay_open_after=True))
         item_restart_ui = Gtk.MenuItem(label='⟲ Restart geo-ui')
         item_restart_ui.connect('activate', lambda _: geo.run('indicator restart'))
-         
+        item_quit = Gtk.MenuItem(label='❌ Quit')
+        # item_quit = Gtk.MenuItem(label='✖️ Quit')
+        item_quit.connect('activate', self.app.quit)
+
         submenu.append(item_show_notifications)
         # submenu.append(Gtk.SeparatorMenuItem())
         submenu.append(item_readme)
         submenu.append(item_force_update)
         submenu.append(item_restart_ui)
         submenu.append(item_disable)
+        submenu.append(item_quit)
         self.set_submenu(submenu)
 
     def show_disable_dialog(self, widget):

@@ -24,7 +24,7 @@ class GatewayMenuItem(Gtk.MenuItem):
     stopped_items = set()
     gw_running = False
     def __init__(self, app: IndicatorApp):
-        super().__init__(label='Gateway')
+        super().__init__(label='✉️ Gateway')
         self.app = app
         self.build_submenu(app)
         self.show_all()

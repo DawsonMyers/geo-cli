@@ -30,6 +30,8 @@ class UpdateMenuItem(Gtk.MenuItem):
         geo.update()
         self.set_update_status()
 
+
+# ↻≫♛♕𝄪∅⇛★✦☆
     def set_update_status(self, source=None):
         self.update_available = geo.is_update_available()
         version = geo.get_config('VERSION')
@@ -40,7 +42,10 @@ class UpdateMenuItem(Gtk.MenuItem):
             self.app.menu.append(self)
             self.added_to_menu = True
         if self.update_available:
-            self.set_label('●   Update Now')
+            # self.set_label('✨   Update Now')
+            self.set_label('🔴   Update Now')
+            # self.set_label('🌟   Update Now')
+            # self.set_label('●   Update Now')
             # self.app.menu.append(self.separator)
             # self.app.menu.append(self)
             self.set_sensitive(True)

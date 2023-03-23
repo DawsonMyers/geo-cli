@@ -5,13 +5,13 @@ class AccessRequestMenuItem(Gtk.MenuItem):
     def __init__(self, app):
         super().__init__()
         self.app = app
-        self.set_label('Access Request')
+        self.set_label('🔓 Access Requests')
         submenu = Gtk.Menu()
 
-        item_create = Gtk.MenuItem(label='➕ Create Access Request')
+        item_create = Gtk.MenuItem(label='↗ Create Access Request')
         item_create.connect('activate', lambda _: geo.run('ar create'))
 
-        item_iap = Gtk.MenuItem(label='Start IAP Tunnel')
+        item_iap = Gtk.MenuItem(label='➕ Start IAP Tunnel')
         iap_menu = Gtk.Menu()
         item_iap_start_new = Gtk.MenuItem(label='▶ Start New')
         item_iap_start_new_bind = Gtk.MenuItem(label='⛁ Start New & Bind pgAdmin Port 5433')
@@ -118,7 +118,7 @@ class OpenIapTunnelMenu(Gtk.MenuItem):
     items = set()
     init_rebuild = False
     def __init__(self):
-        super().__init__(label='Open IAP Tunnels')
+        super().__init__(label='★ Open IAP Tunnels')
         self.open_tunnels = {}
         self.prev_tunnel_str = ''
         self.prev_tunnels = set()

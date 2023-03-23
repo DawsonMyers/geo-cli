@@ -152,10 +152,10 @@ class IndicatorApp(object):
         # Configure the id item to be activated when the app indicator is middle clicked on.
         # self.indicator.set_secondary_activate_target(item_id_clipboard)
 
-        item_quit = Gtk.MenuItem(label='Quit')
-        item_quit.connect('activate', self.quit)
+        # item_quit = Gtk.MenuItem(label='✖️ Quit')
+        # item_quit.connect('activate', self.quit)
 
-        item_help = menus.HelpMenuItem(self)
+        item_help = menus.SettingsMenuItem(self)
 
         menu.append(item_running_db)
 
@@ -178,7 +178,7 @@ class IndicatorApp(object):
         menu.append(Gtk.SeparatorMenuItem())
 
         menu.append(item_help)
-        menu.append(item_quit)
+        # menu.append(item_quit)
 
         item_update = self.build_update_item()
         menu.append(item_update)
@@ -186,7 +186,7 @@ class IndicatorApp(object):
 
     @staticmethod
     def get_create_db_item():
-        item = Gtk.MenuItem(label='✚ Create Database')
+        item = Gtk.MenuItem(label='+ Create Database')
         item.connect('activate', lambda s: geo.run_in_terminal('db start -p'))
         return item
 
@@ -215,7 +215,7 @@ class IndicatorApp(object):
            set_as_app_icon_middle_click_action=True)
 
         # The actual menu item that will be shown on the man UI menu.
-        item = Gtk.MenuItem(label='MYG Utils')
+        item = Gtk.MenuItem(label='🔧 MYG Utils')
         item.set_submenu(menu)
         item.show_all()
         return item
@@ -225,7 +225,7 @@ class IndicatorApp(object):
         self.add_menu_item(menu, 'Run Tests', lambda _: geo.run_in_terminal('test -i', stay_open_after=True))
         self.add_menu_item(menu, 'Quarantine Test', lambda _: geo.run_in_terminal('quarantine -i', stay_open_after=True))
 
-        menu_item = self.get_item_with_submenu(menu, label='Tests')
+        menu_item = self.get_item_with_submenu(menu, label='🧪 Tests')
         return menu_item
 
     def get_item_with_submenu(self, menu, label='EMPTY'):
@@ -242,7 +242,9 @@ class IndicatorApp(object):
         if set_as_app_icon_middle_click_action: self.indicator.set_secondary_activate_target(item)
 
     def build_editor_menu(self):
-        item = Gtk.MenuItem(label='Edit Files')
+        item = Gtk.MenuItem(label='✏️ Edit Files')
+        # item = Gtk.MenuItem(label='✏ Edit Files')
+        # item = Gtk.MenuItem(label='✏ Edit Files')
         menu = Gtk.Menu()
         server_config = Gtk.MenuItem(label='server.config')
         gitlab_ci = Gtk.MenuItem(label='.gitlab-ci.yml')
@@ -273,7 +275,7 @@ class IndicatorApp(object):
     @staticmethod
     def get_analyzer_item():
         menu = Gtk.Menu()
-        item = Gtk.MenuItem(label='Run Analyzers')
+        item = Gtk.MenuItem(label='🔎 Analyzers')
         item_run_all = Gtk.MenuItem(label='All')
         item_choose = Gtk.MenuItem(label='Choose')
         item_previous = Gtk.MenuItem(label='Repeat Last Run')

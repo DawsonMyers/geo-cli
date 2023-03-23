@@ -55,16 +55,18 @@ def geo(arg_str, return_error=False, return_all=False, terminal=False, return_su
     geo_path = config.GEO_SRC_DIR + '/geo-cli.sh '
     cmd = geo_path + ' --raw-output --no-update-check ' + arg_str
     result = ['', '']
+    return_code = ''
+    
     try:
         process = subprocess.Popen("bash %s" % (cmd), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable='/bin/bash', text=True)
-        process.wait()
+        return_code = process.wait()
         result = process.communicate()
         # if result[1]:
         #     print(f'geo: Error running command {arg_str}: {result}')
     except Exception as err:
         print(f'Error running geo("{arg_str}", {return_error}, {return_all}). result = {result}: err = {err}')
     if return_error: return result[1]
-    if return_success_status: return False if result[1] or process.returncode != 0 else True
+    if return_success_status: return False if result[1] or process.returncode != 0 or 'false' in result[0] else True
     if return_all: return result
     return result[0]
 

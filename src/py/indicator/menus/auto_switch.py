@@ -25,7 +25,7 @@ class AutoSwitchDbMenuItem(Gtk.MenuItem):
 
     def build_submenu(self, app):
         submenu = Gtk.Menu()
-        item_auto_switch_help = Gtk.MenuItem(label='Help')
+        item_auto_switch_help = Gtk.MenuItem(label='↗ Help')
         item_auto_switch_help.connect('activate', lambda _: webbrowser.open('https://git.geotab.com/dawsonmyers/geo-cli#auto-switch-db', new=2))
         item_npm_task_toggle = AutoNpmInstallTaskCheckMenuItem(app, self)
         item_server_config_task_toggle = AutoServerConfigTaskCheckMenuItem(app, self)
