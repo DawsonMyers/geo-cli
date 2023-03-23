@@ -468,6 +468,7 @@ alias log::Error='log::Error_ --stub "[${BASH_SOURCE}(${BASH_LINENO})::${FUNCNAM
 #     log::Error_
 # }
 log::Error_() {
+    local calling_func_name="${FUNCNAME[1]}"
     local stub
     local add_to_stack_depth=0
     [[ $1 == --stub && -n $2 ]] && stub="$2" && shift 2
@@ -509,7 +510,6 @@ log::data_header() {
         local padding_length=$(( terminal_width - header_length ))
         header="$header$(log::repeat_str ' ' $padding_length)"
     fi
-
     echo -e "${VTE_COLOR_87}${UNDERLINE_ON}${BOLD_ON}$header${Off}"
     # echo -e "${BIGreen}$@${Off}"
 }

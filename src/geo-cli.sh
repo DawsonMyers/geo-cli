@@ -107,7 +107,6 @@ export GEO_NO_UPDATE_CHECK=false
 # }
 
 function geo() {
-
 #     set -E
 #     set -e
 #     trap "$GEO_ERR_TRAP" ERR
@@ -119,7 +118,7 @@ function geo() {
     # by geo.
     export GEO_INTERACTIVE=true
     export GEO_SILENT=false
-    # [[ $- =~ i ]] && GEO_INTERACTIVE=false
+    [[ ! $- =~ i ]] && GEO_INTERACTIVE=false && GEO_RAW_OUTPUT=true
 
     local OPTIND
     while [[ $# -gt 0 && $1 =~ ^-{1,2} ]]; do
@@ -137,7 +136,7 @@ function geo() {
             # Runs the geo-cmd ina new interactive terminal.
             launch-in-term | ui | T)
                 shift
-                gnome-terminal --title="geo ${@}" -- bash -i -c "echo ${*}; echo -e \"\nPress Enter to exit\"; read"
+                gnome-terminal --title="geo ${*}" -- bash -i -c "echo ${*}; echo -e \"\nPress Enter to exit\"; read"
                 echo "Launching terminal..."
                 return
                 ;;
@@ -294,3 +293,65 @@ fi
 #
 #    PS4=".${GEO_ERR_TRAP}"
 #}
+
+geo-cli::relative_import() {
+    local relative_path="$@"
+    [[ -z $relative_path ]] && log::Error "path cannot be empty."
+    local get_filename='"$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"'
+    cat <<-'EOF'
+    [[ -z $# ]] && log::Error 'Relative path cannot be empty.' && return 1
+    eval '$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)'
+    if [[ -z \$GEO_CLI_DIR ]]; then
+        \$(geo-cli::init_env)
+    fi
+EOF
+}
+
+geo-cli::init_env() {
+    # $(geo-cli::get-script-dir-path -v geo_cli_src_dir)
+    echo $(geo-cli::get-script-dir-path)
+
+    # echo "dir: $geo_cli_src_dir"
+    
+
+    true
+}
+geo-cli::get-script-dir-path() {
+    # echo 'eval '$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd))"'
+    # local =
+    local var_name=__RETVAL
+    local echo_result=true
+    local sed_pattern="s/%var_name/$var_name/g"
+    [[ $1 == -v && -n $2 ]] \
+        && var_name=$2 \
+        || sed_pattern+="; a     echo \$$var_name;"
+    #     && echo_result=false \
+    #     && shift 2 \
+    
+    # cat <<-'EOF' | sed -E "$sed_pattern"
+    cat <<-'EOF' | sed -E "$sed_pattern"
+    eval  %var_name="$(echo "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")"
+EOF
+    # eval  echo "\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+}
+
+tts() { 
+    $(geo-cli::init_env)
+}
+
+add_eval() {
+    read -r -t 0.1 code
+    echo "eval '$code'"
+}
+
+# Wraps the input string in a tmp file and returns the name of the file.
+wrap_in_file() {
+    local tmp_file=
+    [[ $1 == -v && -n $2 ]] && local -n tmp_file=$2 && local ref=true && shift 2
+    local input="$*"
+    [[ -z $input ]] && read -r -t 0.1 input || log::Error "$FUNCNAME: No input provided"
+    tmp_file=$(mktemp geo-cli_wrap-file.XXXXX)
+    echo -e "$input" > $tmp_file
+    [[ -v $ref ]] && return
+    echo "$tmp_file"
+}
