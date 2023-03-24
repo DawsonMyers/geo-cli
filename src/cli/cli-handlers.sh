@@ -2159,11 +2159,11 @@ function _geo_db__init() {
         log::info "  Connection tab"
         log::info "    Host: localhost"
         log::info "    Port: 5432"
-        log::info "    Maintenance database: geotabdemo"
+        log::info "    Maintenance database: $db_name"
         log::info "    Username: $sql_user"
         log::info "    Password: $sql_password"
         echo
-        log::info -b "Use geotabdemo"
+        log::info -b "Use $db_name"
         log::info "1. Run MyGeotab.Core in your IDE"
         log::info "2. Navigate to https://localhost:10001"
         log::info "3. Log in using:"
@@ -6078,12 +6078,19 @@ _geo_run_myg_gw() {
 
     [[ ! -f $server_config ]] && log::Error "Cannot find server.config at $server_config, please run MyG locally to generate it first." && return 1
     xmlstarlet ed --inplace -u "//WebServerSettings/WebPort" -v 10000 -u "//WebServerSettings/WebSSLPort" -v 10001 "$server_config"
-    xmlstarlet ed --inplace -u "//WebServerSettings/ServiceSettings/ServerSettings[DatabaseSettingsInternal[ConnectedSqlServerDatabase='$db_name']]/LiveSettings/ServerAddress" -v 127.0.0.1 -u "//WebServerSettings/ServiceSettings/ServerSettings[DatabaseSettingsInternal[ConnectedSqlServerDatabase='$db_name']]/LiveSettings/ServerPort" -v 3982 "$server_config"
+
+    # Delete LiveSettings for this db if any & add new settings
+    xmlstarlet ed --inplace -d "//WebServerSettings/ServiceSettings/ServerSettings[DatabaseSettingsInternal[ConnectedSqlServerDatabase='$db_name']]/LiveSettings" "$server_config"
+    xmlstarlet ed --inplace -s "//WebServerSettings/ServiceSettings/ServerSettings[DatabaseSettingsInternal[ConnectedSqlServerDatabase='$db_name']]" -t elem -n LiveSettings -v "" "$server_config"
+    xmlstarlet ed --inplace -s "//WebServerSettings/ServiceSettings/ServerSettings[DatabaseSettingsInternal[ConnectedSqlServerDatabase='$db_name']]/LiveSettings" -t elem -n ServerAddress -v 127.0.0.1 "$server_config"
+    xmlstarlet ed --inplace -s "//WebServerSettings/ServiceSettings/ServerSettings[DatabaseSettingsInternal[ConnectedSqlServerDatabase='$db_name']]/LiveSettings" -t elem -n ServerPort -v 3982 "$server_config"
+    xmlstarlet ed --inplace -s "//WebServerSettings/ServiceSettings/ServerSettings[DatabaseSettingsInternal[ConnectedSqlServerDatabase='$db_name']]/LiveSettings" -t elem -n PingTimeout -v 1200 "$server_config"
 
     [[ ! -f $store_config ]] && log::Error "Cannot find storeforward.config at $store_config, please run Gateway locally to generate it first." && return 1
-    xmlstarlet ed --inplace -u "//StoreForwardSettings/Type" -v Developer -u "//WebServerSettings/WebSSLPort" -v 10001 "$store_config"
+    xmlstarlet ed --inplace -u "//StoreForwardSettings/Type" -v Developer "$store_config"
     xmlstarlet ed --inplace -u "//StoreForwardSettings/GatewayWebServerSettings/WebPort" -v 10002 -u "//StoreForwardSettings/GatewayWebServerSettings/WebSSLPort" -v 10003 "$store_config"
     xmlstarlet ed --inplace -u "//StoreForwardSettings/CertifiedConnectionsOnly" -v false "$store_config"
+
     xmlstarlet ed --inplace -d "//StoreForwardSettings/ClientListenerEndPoints/IPEndPoint" "$store_config"
     xmlstarlet ed --inplace -s "//StoreForwardSettings/ClientListenerEndPoints" -t elem -n IPEndPoint -v "" "$store_config"
     xmlstarlet ed --inplace -s "//StoreForwardSettings/ClientListenerEndPoints/IPEndPoint" -t elem -n Address -v 0.0.0.0 "$store_config"
