@@ -1,4 +1,4 @@
-
+#!/bin/python3
 import os
 import signal
 import time
@@ -33,8 +33,8 @@ class IndicatorApp(object):
     db = None
     state = {}
     last_notification_time = 0
-
-    def __init__(self):
+    items = {}
+    def __init__(self, show_startup_notification=True):
         Notify.init(APPINDICATOR_ID)
         self.indicator = appindicator.Indicator.new(APPINDICATOR_ID, icons.GREEN_PATH, appindicator.IndicatorCategory.SYSTEM_SERVICES)
         self.indicator.set_status(appindicator.IndicatorStatus.ACTIVE)
@@ -45,11 +45,13 @@ class IndicatorApp(object):
         self.item_running_db = None
         self.item_auto_switch_db_toggle = None
         self.icon_manager = icons.IconManager(self.indicator)
-        self.show_quick_notification('Starting up...')
+        if show_startup_notification:
+            self.show_quick_notification('Starting up...')
         self.menu = MainMenu(self)
         self.build_menu(self.menu)
         self.indicator.set_menu(self.menu)
         print("=============== IndicatorApp: Starting up...")
+        GLib.timeout_add(5000, lambda: self.monitor)
 
     def log(self, msg): print(f'[{type(self).__name__}]: {msg}')
 
@@ -75,7 +77,7 @@ class IndicatorApp(object):
             print("show_quick_notification: exception occurred.")
             print(e)
             traceback.print_exc()
-            
+
         # Notification ref has to be held for the action to work.
         return n
 
@@ -204,7 +206,7 @@ class IndicatorApp(object):
 
     def convert_id_handler(self, caller):
         geo.run_in_terminal('id -i', stay_open_after=True)
-        
+
     def build_myg_utils_menu(self):
         menu = Gtk.Menu()
         self.add_menu_item(menu, 'npm install', lambda _: geo.run_in_terminal('init npm -c', stay_open_after=True))
@@ -233,13 +235,14 @@ class IndicatorApp(object):
         item.set_submenu(menu)
         item.show_all()
         return item
-    
+
     def add_menu_item(self, menu, label='EMPTY', on_activate=lambda _: print('add_menu_item: on_activate empty'), set_as_app_icon_middle_click_action=False):
         item = Gtk.MenuItem(label=label)
         item.connect('activate', on_activate)
         menu.append(item)
         # Set this item to be activated when the UI's G ican is middle clicked.
         if set_as_app_icon_middle_click_action: self.indicator.set_secondary_activate_target(item)
+        return item
 
     def build_editor_menu(self):
         item = Gtk.MenuItem(label='✏️ Edit Files')
@@ -258,9 +261,26 @@ class IndicatorApp(object):
         menu.append(gitlab_ci)
         menu.append(bashrc)
 
+
+        geo_config = self.add_menu_item(menu, 'conf', lambda _: geo.run('edit config'))
+        geo_config_json = self.add_menu_item(menu, 'conf.json', lambda _: geo.run('edit config.json'))
+        self.items["edit-config"] = geo_config
+        self.items["edit-config-json"] = geo_config_json
         item.set_submenu(menu)
         item.show_all()
-        return item
+        if not self.get_state('dev_mode'):
+            geo_config.hide()
+            geo_config_json.hide()
+
+    def monitor(self, caller):
+        # TODO: FIx this.
+        if self.get_state('dev_mode'):
+            self.items["edit-config"].show()
+            self.items["edit-config-json"].show()
+        else:
+            self.items["edit-config"].hide()
+            self.items["edit-config-json"].hide()
+        return True
 
     @staticmethod
     def quit(source=None):
@@ -338,9 +358,10 @@ def main():
     retry = True
     delay = 5
     # Gtk.init()
+    show_startup_notification=True
     while retry and retry_count < 20:
         try:
-            indicator = IndicatorApp()
+            indicator = IndicatorApp(show_startup_notification)
             geo.try_start_last_db()
             Gtk.main()
             retry = False
@@ -350,8 +371,9 @@ def main():
                 retry_count += 1
                 retry = True
                 time.sleep(delay)
-                delay += 1
-    
+                delay += 2
+                show_startup_notification=False
+
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal.SIG_DFL)

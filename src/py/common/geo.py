@@ -203,6 +203,7 @@ def load_geo_config_if_required():
     global geo_config_file_modified_time
     global geo_config_cache
     global prev_config_file_str
+    print('load_geo_config_if_required')
     try:
         if not os.path.exists(GEO_CONFIG_FILE_PATH):
             return

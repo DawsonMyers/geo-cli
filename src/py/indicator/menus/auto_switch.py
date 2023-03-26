@@ -31,6 +31,7 @@ class AutoSwitchDbMenuItem(Gtk.MenuItem):
         item_server_config_task_toggle = AutoServerConfigTaskCheckMenuItem(app, self)
         item_geotab_demo_data_task_toggle = AutoGeotabDemoCleanUpTaskCheckMenuItem(app, self)
         item_db_task_toggle = AutoSwitchDbTaskCheckMenuItem(app, self)
+        item_db_password_toggle = AutoSwitchDbPasswordTaskCheckMenuItem(app, self)
         item_cur_myg_release_display = CheckedOutMygReleaseMenuItem(app, self)
         item_db_for_myg_release_display = DbForMygReleaseMenuItem(app, self)
         item_start_db_for_myg_release = StartDbForMygReleaseMenuItem(app, self)
@@ -38,6 +39,7 @@ class AutoSwitchDbMenuItem(Gtk.MenuItem):
         submenu.append(item_npm_task_toggle)
         submenu.append(item_server_config_task_toggle)
         submenu.append(item_geotab_demo_data_task_toggle)
+        submenu.append(item_db_password_toggle)
         submenu.append(Gtk.SeparatorMenuItem())
         submenu.append(item_db_task_toggle)
         submenu.append(item_cur_myg_release_display)
@@ -80,6 +82,7 @@ class AutoSwitchDbMenuItem(Gtk.MenuItem):
         #16.8, 14, 15.9, 14, 11
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             future_to_task = {executor.submit(task, self.cur_myg_release, self.prev_myg_release): task for task in self.auto_switch_tasks if task.is_enabled}
+            # TODO Make sure that the npm job is positioned last since it takes the longest. That was we can report progress about the completion of the first 2 jobs.
             for future in concurrent.futures.as_completed(future_to_task):
                 task = future_to_task[future]
                 try:
@@ -92,6 +95,7 @@ class AutoSwitchDbMenuItem(Gtk.MenuItem):
                 else:
                     print(f'AutoSwitchDbMenuItem: Done running auto-switch task: {task.name}')
 
+        # TODO Show some kind of progress every time a job finishes instead of waiting until now. There is too long of a delay (mainly caused by running npm twice for CheckmateServer)
         self.app.show_notification(output, 'Auto-Switch Tasks Complete', 4000)
         end = time.time()
         print(f'Auto-Switch Tasks Completed in {end - start} seconds')
@@ -121,7 +125,6 @@ class AutoSwitchTask:
         if self.is_enabled_func and callable(self.is_enabled_func):
             return self.is_enabled_func()
         return True
-    
 
 class SetDbForMygReleaseMenuItem(Gtk.MenuItem):
     def __init__(self, app: IndicatorApp, parent: AutoSwitchDbMenuItem):
@@ -209,6 +212,7 @@ class DbForMygReleaseMenuItem(Gtk.MenuItem):
             self.db_for_release = db_for_release
             self.app.db_for_myg_release = db_for_release
             self.update_label()
+            self.app.set_state('configured_db_for_myg_release', db_for_release)
         return True
 
     def has_db_for_release(self):
@@ -219,14 +223,12 @@ class DbForMygReleaseMenuItem(Gtk.MenuItem):
             return ''
         release_key = 'DB_FOR_RELEASE_' + to_key(self.app.myg_release)
         configured_db_for_myg_release = geo.get_config(release_key)
-        
-        dbs = self.app.get_state('dbs')
-        if dbs and configured_db_for_myg_release and configured_db_for_myg_release not in dbs:
-            print('DbForMygReleaseMenuItem: removing auto-switch db config "%s" because the db no longer exists' % release_key)
+
+        dbs = self.app.get_state('dbs') or []
+        if configured_db_for_myg_release and configured_db_for_myg_release not in dbs:
+            print('DbForMygReleaseMenuItem: removing db "%s" from auto-switch db config "%s" because the it no longer exists' % (configured_db_for_myg_release, release_key))
             geo.rm_config(release_key)
             configured_db_for_myg_release = ''
-        if configured_db_for_myg_release is not None:
-            self.app.set_state('configured_db_for_myg_release', configured_db_for_myg_release)
         return configured_db_for_myg_release
 
 
@@ -353,3 +355,30 @@ class AutoGeotabDemoCleanUpTaskCheckMenuItem(PersistentCheckMenuItem):
             return 'Fail'
 
         return 'Done'
+
+
+class AutoSwitchDbPasswordTaskCheckMenuItem(PersistentCheckMenuItem):
+    def __init__(self, app: IndicatorApp, parent: AutoSwitchDbMenuItem):
+        super().__init__(app,
+                         label='Auto-Switch DB Password',
+                         config_id='AUTO_DB_PASSWORD',
+                         app_state_id='auto-db-password',
+                         default_state=True)
+        self.parent = parent
+        self.app = app
+        # parent.register_auto_switch_task('GeotabDemo Data', self.auto_clean_geotab_demo_data, self.is_enabled)
+
+    # def auto_switch_db_password(self):
+    #     if not self.enabled:
+    #         return
+    #     try:
+    #         geotabdemo_data_dir = os.environ['HOME'] + '/GEOTAB/Checkmate/geotabdemo_data'
+    #         # Delete the geotabdemo_data directory if it exists.
+    #         if os.path.exists(geotabdemo_data_dir):
+    #             shutil.rmtree(geotabdemo_data_dir)
+    #     except Exception as err:
+    #         print(f'Error running auto_clean_geotab_demo_data(): {err}')
+    #         return 'Fail'
+    #
+    #     return 'Done'
+
