@@ -6650,7 +6650,7 @@ _geo_gw__start() {
 }
 
 #######################################################################################################################
-@register_geo_cmd 'edit'
+@register_geo_cmd 'edit' --alias 'editor'
 @geo_edit_doc() {
     doc_cmd 'edit <file>'
         doc_cmd_desc 'Opens up files for editing.'
@@ -6677,17 +6677,18 @@ _geo_gw__start() {
     local dev_repo=$(@geo_get DEV_REPO_DIR)
     if [[ -z $editor ]]; then
         log::hint "You can set the default editor using: ""$(log::code -u 'geo set EDITOR <editor_command>')"
-        if _geo_terminal_cmd_exists code; then
-            editor=code
-        elif _geo_terminal_cmd_exists nano; then
-            editor=nano
-        fi
+        editor=xdg-open
+        # if _geo_terminal_cmd_exists code; then
+        #     editor=code
+        # elif _geo_terminal_cmd_exists nano; then
+        #     editor=nano
+        # fi
     fi
     case "$file" in
         server.config | server | sconf | scf) file_path="${HOME}/GEOTAB/Checkmate/server.config" ;;
         *bashrc | brc | rc) file_path="${HOME}/.bashrc" ;;
         ci | cicd | *gitlab-ci* | git-ci) file_path="${dev_repo}/.gitlab-ci.yml" ;;
-        cfg | ?geo.conf?? | ?conf) file_path="${HOME}/.geo-cli/.geo.conf" ;;
+        cfg | ?geo.conf?? | ?conf??) file_path="${HOME}/.geo-cli/.geo.conf" ;;
          cj | ?conf*json | ?geo*json | json) file_path="${HOME}/.geo-cli/.geo.conf.json" ;;
         *)
             log::Error "Arugument '$file' is invalid."
@@ -6780,8 +6781,8 @@ _geo_parse_long_options() {
 # Checks if a geo-cli command exists.
 # 1: the command to check
 _geo__is_registered_cmd() {
-    local cmd=$(echo "${COMMANDS[@]}" | tr ' ' '\n' | grep -E "$(echo ^$1$)")
-    [[ -n $cmd ]]
+    local cmd_name=$1
+    [[ -n ${COMMAND_INFO[$cmd_name,function]} ]]
 }
 
 # Checks if a command exists (i.e. docker, code).
