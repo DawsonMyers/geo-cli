@@ -1,6 +1,6 @@
 #!/bin/bash
 [[ -z $BASH_VERSION ]] \
-    && echo "ERROR: geo:cli-handers.sh: Not sourced into a BASH shell! This file MUST be sourced, not executed (i.e. 'source cli-handlers.sh' vs. '[bash|sh|zsh|fish] cli-handlers.sh)' into a BASH shell environtment by the main geo-cli file (geo-cli.sh) ONLY. geo-cli won't work properly in other shell environments." && exit 1
+    && echo "ERROR: geo:cli-handlers.sh: Not sourced into a BASH shell! This file MUST be sourced, not executed (i.e. 'source cli-handlers.sh' vs. '[bash|sh|zsh|fish] cli-handlers.sh)' into a BASH shell environtment by the main geo-cli file (geo-cli.sh) ONLY. geo-cli won't work properly in other shell environments." && exit 1
 
 # This file contains all geo-cli command logic.
 # All geo-cli commands will have at least 2 functions defined that follow the following format: @geo_<command_name> and
@@ -47,14 +47,45 @@ export IMAGE=geo_cli_db_postgres
 export GEO_DB_PREFIX=$IMAGE
 export OLD_GEO_DB_PREFIX=geo_cli_db_postgres11
 
-# A list of all of the top-level geo commands.
+# A list of all the top-level geo commands.
 # This is used in geo-cli.sh to confirm that the first param passed to geo (i.e. in 'geo db ls', db is the top-level command) is a valid command.
 export COMMANDS=()
+export ALIASES=()
+
+#TODO: Update this comment.
+# Maps geo-cli command names to their corresponding function names. This makes command alias possible.
+# Example: 'ui' is aliased to 'indicator', so calling 'geo ui' is equivalent to 'geo indicator'
+# Some aliases:
+#     * geo db/database => geo db === geo database
+#       - COMMAND_FUNCTION_NAMES[db] = @geo_db
+#       - COMMAND_FUNCTION_NAMES[database] = @geo_db
+#     * geo ui/indicator
+declare -A COMMAND_INFO
 declare -A SUBCOMMANDS
 declare -A SUBCOMMAND_COMPLETIONS
 export CURRENT_COMMAND=''
 export CURRENT_SUBCOMMAND=''
 export CURRENT_SUBCOMMANDS=()
+
+_geo_get_cmd_func_name() {
+    local get_doc_func=false
+    [[ $1 == --doc  ]] && get_doc_func=true && shift
+    local root_cmd_name=$(_get_root_cmd_name $1)
+    $get_doc_func \
+        && echo "${COMMAND_INFO[$root_cmd_name,doc]}" \
+        || echo "${COMMAND_INFO[$root_cmd_name,function]}"
+}
+
+_geo_ls_cmd_info() {
+    local count=${#COMMAND_INFO}
+    echo "COMMAND_INFO[$count]"
+    local i=0
+    for key in "${!COMMAND_INFO[@]}"; do
+        echo "  COMMAND_INFO[$key] = ${COMMAND_INFO[$key]}" || echo "${COMMAND_INFO[$key]}"
+    done
+}
+
+current_command=
 
 # Adds the provided command name to the COMMANDS array so that it can be called via 'geo <cmd_name>'. This each geo-cli
 # command must call this function once when it is defined. Example:
@@ -62,9 +93,55 @@ export CURRENT_SUBCOMMANDS=()
 #  @geo_db_doc() {...}
 #  @geo_db() {...}
 @register_geo_cmd() {
-    local top_level_geo_cmd="$1"
-    [[ -z $top_level_geo_cmd || ! $top_level_geo_cmd =~ ^([-a-z_])+$ ]] && log::Error "'$top_level_geo_cmd' is not a valid geo-cli command name." && return 1
-    COMMANDS+=("$top_level_geo_cmd")
+    current_command=$1
+    local cmd_name=$1
+    shift
+#    evar cmd_name
+    [[ -z $cmd_name || ! $cmd_name =~ ^([a-z][-a-z_]*)$ ]] \
+        && log::Error "'$cmd_name' is not a valid geo-cli command name." \
+        && return 1
+    COMMAND_INFO[$cmd_name,function]="@geo_${cmd_name}"
+    COMMAND_INFO[$cmd_name,doc]="@geo_${cmd_name}_doc"
+    COMMAND_INFO[$cmd_name,source]="${BASH_SOURCE[1]}, line: ${BASH_LINENO[0]}"
+
+    while [[ $1 == --alias && -n $2 ]]; do
+        local alias_name="$2"
+#        echo args: "$@"
+#        echo Aliases name
+#        evar alias_name
+        [[ -z $alias_name || ! $alias_name =~ ^([a-z][-a-z_]+)$ ]] \
+            && log::Error "'$alias_name' is not a valid geo-cli command alias for '$cmd_name'." \
+            && return 1
+         @register_geo_cmd_alias "$alias_name"
+         shift 2
+     done
+}
+
+_get_root_cmd_name() {
+    local cmd_name=$1
+    local cmd_alias_to="${COMMAND_INFO[$cmd_name,alias_to]}"
+    # Basically Union Find
+    while [[ -n $cmd_alias_to ]]; do
+        cmd_name=$cmd_alias_to
+        cmd_alias_to="${COMMAND_INFO[$cmd_name,alias_to]}"
+    done
+    echo "$cmd_name"
+    return
+}
+
+@register_geo_cmd_alias() {
+    local cmd_name=$1
+    local alias_name=$2
+    [[ $# -eq 1 ]] && cmd_name=$current_command && alias_name=$1
+    [[ -z $cmd_name || -z $alias_name ]] \
+        && log::Error "Command name or alias cannot be empty. (name: $cmd_name, alias: $alias_name)" \
+        && return 1
+    ALIASES+=("$alias_name")
+    COMMAND_INFO[$alias_name,function]="${COMMAND_INFO[$cmd_name,function]}"
+    COMMAND_INFO[$alias_name,doc]="${COMMAND_INFO[$cmd_name,doc]}"
+    COMMAND_INFO[$alias_name,alias_to]=$cmd_name
+    local cmd_aliases="${COMMAND_INFO[$cmd_name,aliases]}"
+    [[ ! $cmd_aliases =~ $alias_name ]] && COMMAND_INFO[$cmd_name,aliases]+=",$alias_name"
 }
 
 #* export GEO_ERR_TRAP='$BCyan\${BASH_SOURCE[0]##\${HOME}*/}${Purple}[\$LINENO]:${Yellow}\${FUNCNAME:-FuncNameNull}: $Off'
@@ -170,7 +247,18 @@ export CURRENT_SUBCOMMANDS=()
     #     esac
     #     shift
     # done
-# }
+
+
+
+    #*** Less boilerplate
+    # while [[ $1 =~ ^-+ ]]; do
+    #     case "${1}" in
+    #         -d | --docker) use_docker=true ;;
+    #         -n) name="$OPTARG" ;;
+    #         *) log::Error "Invalid option: '$1'" && return 1 ;;
+    #     esac
+    #     shift
+    # done
 #*
 #######################################################################################################################
 #**  Parses short options only using getopts
