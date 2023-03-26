@@ -359,11 +359,16 @@ _geo_check_db_image_pg_version() {
 @geo_image_doc() {
     doc_cmd 'image'
     doc_cmd_desc 'Commands for working with db images.'
-    doc_cmd_sub_cmd_title
-        doc_cmd_sub_cmd 'create'
+    doc_cmd_sub_cmds_title
+        doc_cmd_sub_cmd 'create [-f | -v <pg version>]'
             doc_cmd_sub_cmd_desc 'Creates the base Postgres image configured to be used with geotabdemo.'
-        doc_cmd_sub_cmd 'remove'
-            doc_cmd_sub_cmd_desc 'Removes the base Postgres image.'
+            doc_cmd_sub_option_title
+                doc_cmd_sub_option '-v <pg version>'
+                    doc_cmd_sub_option_desc "The Postgres version for the image."
+                doc_cmd_sub_option -f
+                    doc_cmd_sub_option_desc "Force the build to build without using cached layers."
+        doc_cmd_sub_cmd 'remove [image name]'
+            doc_cmd_sub_cmd_desc 'Removes the provided image if an image name was passed in. Otherwise, the base geo-cli Postgres image is removed.'
         doc_cmd_sub_cmd 'ls'
             doc_cmd_sub_cmd_desc 'List existing geo-cli Postgres images.'
         doc_cmd_examples_title
@@ -372,28 +377,30 @@ _geo_check_db_image_pg_version() {
 @geo_image() {
     local cmd=$1
     local pg_version=
-
+    [[ $cmd =~ ^-|^$ ]] \
+        && log::Error "$FUNCNAME: '$cmd' is not a valid command name" && return 1
     shift
-    local OPTIND
-    while getopts "v:" opt; do
-        case "${opt}" in
-            v) [[ $OPTARG =~ ^[[:digit:]]+$ ]] && pg_version=$OPTARG ;;
-            :)
-                log::Error "Option '${OPTARG}'  expects an argument."
-                return 1
-                ;;
-            \?)
-                log::Error "Invalid option: ${OPTARG}"
-                return 1
-                ;;
-        esac
-    done
-    shift $((OPTIND - 1))
+
+    # local OPTIND
+    # while getopts ":v:" opt; do
+    #     case "${opt}" in
+    #         v) [[ $OPTARG =~ ^[[:digit:]]+$ ]] && pg_version=$OPTARG ;;
+    #         :)
+    #             log::Error "Option '${OPTARG}' expects an argument."
+    #             return 1
+    #             ;;
+    #         \?)
+    #             log::Error "Invalid option: ${OPTARG}"
+    #             return 1
+    #             ;;
+    #     esac
+    # done
+    # shift $((OPTIND - 1))
 
     case "$cmd" in
         # TODO: This needs to take the image name as an arg or prompt the user for one to remove.
         rm | remove)
-            docker image rm "$IMAGE"
+            docker image rm "${1:$IMAGE}"
             # if [[ -z $2 ]]; then
             #     log::Error "No database version provided for removal"
             #     return
@@ -403,8 +410,9 @@ _geo_check_db_image_pg_version() {
             ;;
         create)
             local image_name=
+            local options=
             local OPTIND
-            while getopts ":v:n:" opt; do
+            while getopts ":v:n:f" opt; do
                 case "${opt}" in
                     v)
                         pg_version="$OPTARG"
@@ -419,6 +427,7 @@ _geo_check_db_image_pg_version() {
                         #     && log::Error "geo image create: The -v option must be a number and valid Postgres version. '$pg_version' is invalid." \
                         #     && return 1
                         ;;
+                    f) force_no_cache_rebuild=true options=--no-cache ;;
                     :)
                         log::Error "Option '${OPTARG}'  expects an argument."
                         return 1
@@ -439,10 +448,10 @@ _geo_check_db_image_pg_version() {
             (
                 cd "$docker_pg_dir"
                 local repo_pg_version=$(_geo_db__get_pg_version_from_dockerfile)
-
+                log::debug "Building with --no-cache"
                 local image_name="$(_geo_image__get_name)"
                 if [[ -z $pg_version ]]; then
-                    docker build --file "$dockerfile" -t "$image_name" . \
+                    docker build $options --file "$dockerfile" -t "$image_name" . \
                         && log::success 'geo-cli Postgres image created' \
                         || { log::Error 'Failed to create geo-cli Postgres image' && return 1; }
                 else
@@ -450,7 +459,7 @@ _geo_check_db_image_pg_version() {
                     log::status "Creating geo-cli Postgres $pg_version image"
                     if [[ $dockerfile_contents =~ 'ENV POSTGRES_VERSION=$POSTGRES_VERSION_ARG' ]]; then
                         log::debug "Using build arg: POSTGRES_VERSION_ARG=$pg_version"
-                        docker build --file "$dockerfile" \
+                        docker build $options --file "$dockerfile" \
                             --build-arg "POSTGRES_VERSION_ARG=$pg_version" \
                             -t "$image_name" . \
                             && log::success 'geo-cli Postgres image created' \
@@ -461,8 +470,8 @@ _geo_check_db_image_pg_version() {
                         log::debug "Using temp dockerfile: $tmp_dockerfile"
                         echo "$dockerfile_contents" >$tmp_dockerfile
                         echo
-                        log::debug "docker build -t ${IMAGE}_${pg_version} -f $tmp_dockerfile ."
-                        docker build -t "$image_name" -f $tmp_dockerfile . \
+                        log::debug "docker build $options -t ${IMAGE}_${pg_version} -f $tmp_dockerfile ."
+                        docker build $options -t "$image_name" -f $tmp_dockerfile . \
                             && log::success 'geo-cli Postgres image created' \
                             || { log::Error 'Failed to create geo-cli Postgres image' && return 1; }
                         rm $tmp_dockerfile
@@ -496,6 +505,8 @@ _geo_check_db_image_pg_version() {
                 doc_cmd_sub_option_desc 'Sets the name of the db to be created (only used if initializing it as well).'
             doc_cmd_sub_option '-v <pg version>'
                 doc_cmd_sub_option_desc 'Sets the Postgres version (e.g. 14) to use when creating the container.'
+            doc_cmd_sub_option -f
+                doc_cmd_sub_option_desc "Force the image and container to be built without using cached layers."
 
     doc_cmd_sub_cmd 'start [option] [name]'
         doc_cmd_sub_cmd_desc 'Starts (creating if necessary) a versioned db container and volume. If no name is provided,
@@ -509,6 +520,8 @@ _geo_check_db_image_pg_version() {
                     doc_cmd_sub_option_desc 'Sets the name of the db to be created (only used if initializing it as well).'
                 doc_cmd_sub_option '-v <pg version>'
                     doc_cmd_sub_option_desc 'Sets the Postgres version (e.g. 14) to use when creating the container.'
+            doc_cmd_sub_option -f
+                doc_cmd_sub_option_desc "Force the image and container to be built without using cached layers."
 
     doc_cmd_sub_cmd 'cp <source_db> <destination_db>'
         doc_cmd_sub_cmd_desc 'Makes a copy of an existing database container.'
@@ -563,6 +576,8 @@ _geo_check_db_image_pg_version() {
     doc_cmd_sub_option '-c <bash command>'
     doc_cmd_sub_option_desc 'Run a bash command in the container and return the result'
 
+    doc_cmd_sub_cmd 'logs'
+        doc_cmd_sub_cmd_desc 'Displays the logs for the running geo-cli container.'
     # doc_cmd_sub_cmd 'script <add|edit|ls|rm> <script_name>'
     #     doc_cmd_sub_cmd_desc "Add, edit, list, or remove scripts that can be run with $(log::txt_italic geo db psql -q script_name)."
     #     doc_cmd_sub_option_title
@@ -665,6 +680,7 @@ function @geo_db() {
 
             docker exec -it $running_container_id /bin/bash
             ;;
+        log | logs) docker logs $(_geo_get_running_container_id) ;;
         *)
             if [[ -z $db_subcommand ]]; then
                 log::Error "geo-db: No command provided."
@@ -740,12 +756,14 @@ _geo_db__create() {
     local db_name=
     local pg_version=
     local suppress_info=false
+    local no_cache=false
+    local img_options=false
     local dont_prompt_for_db_name_confirmation=false
 
     # local build=false
     local OPTIND
 
-    while getopts "sSyend:xv:" opt; do
+    while getopts ":sSyend:xv:f" opt; do
         case "${opt}" in
             s) silent=true ;;
             S) suppress_info=true ;;
@@ -754,6 +772,7 @@ _geo_db__create() {
             e) empty_db=true && log::status -b 'Creating empty Postgres container' ;;
             d) db_name="$OPTARG" ;;
             x) dont_prompt_for_db_name_confirmation=true ;;
+            f) no_cache=true img_options=-f ;;
             v)
                 pg_version="$OPTARG"
                 ! [[ $pg_version =~ ^[[:digit:]]+$ ]] \
@@ -821,8 +840,9 @@ _geo_db__create() {
     if [[ -n $pg_version ]]; then
         image_name="${IMAGE}_${pg_version}"
         # Create custom image if it doesn't exist.
-        ! _geo_image__exists $image_name \
-            && { @geo_image create -v $pg_version || return 1; }
+
+        ! _geo_image__exists $image_name || $no_cache \
+            && { @geo_image create $img_options -v $pg_version || return 1; }
     fi
 
     if ! _geo_check_db_image; then
@@ -967,9 +987,11 @@ _geo_db__start() {
     local db_version=
     local db_name=
     local pg_version=
+    local force_no_cache=false
+    local image_options=
     local OPTIND
 
-    while getopts "ynbphd:v:" opt; do
+    while getopts ":ynbphd:v:f" opt; do
         case "${opt}" in
             y) accept_defaults=true ;;
             n) no_prompt=true ;;
@@ -983,6 +1005,7 @@ _geo_db__start() {
                     && log::Error "geo-db-start: The -v option must be a number and valid Postgres version. '$pg_version' is invalid." \
                     && return 1
                 ;;
+            f ) force_no_cache=true ;;
             :)
                 log::Error "Option '${OPTARG}'  expects an argument."
                 return 1
@@ -1052,14 +1075,14 @@ _geo_db__start() {
         # Create custom image if it doesn't exist.
         _geo_image__exists "$image_name" \
             && prompt_continue "Postgres $pg_version image '$image_name' already exists. Would you like to rebuild it? (Y|n): " \
-            && @geo_image create -v $pg_version
+            && @geo_image create $image_options -v $pg_version
     else
         if ! _geo_check_db_image; then
             if ! prompt_continue "No database images exist. Would you like to create on? (Y|n): "; then
                 log::Error "Cannot start db without image. Run 'geo image create' to create a db image"
                 return 1
             fi
-            @geo_image create
+            @geo_image create $image_options
         fi
         _geo_check_db_image_pg_version
     fi
@@ -1172,6 +1195,7 @@ _geo_db__start() {
         local opts=-sx
         [[ $accept_defaults == true ]] && opts+=y
         [[ $no_prompt == true ]] && opts+=n
+        $force_no_cache && opts+="f"
         [[ -n $pg_version ]] && opts+=" -v $pg_version"
 
         # log::debug "db_version: $db_version"
