@@ -275,7 +275,8 @@ get_func_path() {
     local file=${BASH_SOURCE[$ignore_count]##*/}
 #    local line_num=${BASH_LINENO[$((${#BASH_LINENO[@]} - $ignore_count))]}
     local func_path=
-    local func_names="${FUNCNAME[@]:ignore_count}"
+    local func_names="${FUNCNAME[@]:$ignore_count}"
+    func_names="${func_names//source}"
 #    set -x
     for func in $func_names; do
         [[ $func =~ ^__geo$ || $func =~ ^log:: ]] && continue
@@ -294,7 +295,7 @@ get_func_path() {
     if [[ $(@geo_get LOG_DEBUG_TRACE) == true ]]; then
         echo
         for ((i=0; i < ${#BASH_LINENO[@]}; i++)); do
-            log::debug "${BASH_SOURCE[i]}[${BASH_LINENO[i]}]::${FUNCNAME[i]}"
+            log::debug "at ${BASH_SOURCE[i]}[${BASH_LINENO[i]}]::${FUNCNAME[i]}"
         done
     fi
 }
@@ -444,6 +445,8 @@ log::hint() {
 
 log::stacktrace() {
 # _stacktrace() {
+    local make_path_relative_option=-r
+    [[ $1 == --full ]] && make_path_relative_option=
     local start=1
     [[ $1 =~ ^- ]] && start=${1:1}
     # debug "start $start"
@@ -456,7 +459,8 @@ log::stacktrace() {
             [[ -z $stacktrace_reversed ]] && stacktrace_reversed=$f && continue
             stacktrace_reversed="$f -> $stacktrace_reversed"
         done
-        log::debug "Stacktrace: $stacktrace_reversed"
+
+        log::debug $make_path_relative_option "Stacktrace: $stacktrace_reversed"
     fi
 }
 
@@ -474,7 +478,7 @@ log::Error_() {
     [[ $1 == --stub && -n $2 ]] && stub="$2" && shift 2
     [[ $1 == --ignore-stack-depth && $2 =~ ^[0-9] ]] && add_to_stack_depth=$2 && shift 2
     echo -e "${BIRed}✘  Error: $(log::fmt_text_and_indent_after_first_line -d 10 -a 10 "$@")${Off}" >&2
-    log::debug "  ↪ $(get_func_path $((2 + add_to_stack_depth)))"
+    # log::debug "  ↪ $(get_func_path $((2 + add_to_stack_depth)))"
     log::debug "  ↪ $stub"
     # echo -e "❌  ${BIRed}Error: $@${Off}" >&2
 

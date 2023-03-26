@@ -18,6 +18,10 @@ if [[ -z $GEO_CLI_DIR || ! -f $GEO_CLI_DIR/install.sh ]]; then
 
 fi
 
+kilobyte=1024
+megabyte=$(( kilobyte * 1000))
+export MAX_CONFIG_FILE_SIZE=$(( megabyte * 1000))
+
 export GEO_CLI_SRC_DIR="${GEO_CLI_DIR}/src"
 export GEO_CLI_UTILS_DIR="${GEO_CLI_SRC_DIR}/utils"
 

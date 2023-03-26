@@ -83,15 +83,15 @@ install-utils::init-gitlab-pat() {
     # Ensure GitLab environment variable file has correct permissions.
     PAT_ENV_VAR_FILE_PATH="$GEO_CLI_CONFIG_DIR/env/gitlab-pat.sh"
     [[ -f $PAT_ENV_VAR_FILE_PATH && $(stat -L -c '%a' $PAT_ENV_VAR_FILE_PATH) != 600 ]] && chmod 600 "$PAT_ENV_VAR_FILE_PATH"
+}
 
-    _geo_check_for_dev_repo_dir
-
-    installed_msg=''
-    if [[ $previously_installed_version ]]; then
-        . ~/.bashrc
-        installed_msg="The new version of geo-cli is now available in this terminal, as well as all new ones."
-    else
-        installed_msg="Open a new terminal or source .bashrc by running '. ~/.bashrc' in this one to start using geo-cli."
-    fi
-    log::success "$installed_msg"
+install-utils::install-desktop() {
+    sudo ln -fs "$GEO_CLI_DIR"/src/geo-cli.sh /usr/local/bin/geo # or anywhere else in $PATH
+    sudo ln -fs "$GEO_CLI_DIR"/src/py/indicator/geo_indicator.py /usr/local/bin/geo-ui # or anywhere else in $PATH
+    sudo cp res/geo-cli-logo.png /usr/share/pixmaps/geo.png
+    sudo desktop-file-install src/py/indicator/geo.indicator.desktop
+    sudo update-desktop-database
+    # sudo cp extra/logo/alacritty-term.svg /usr/share/pixmaps/Alacritty.svg
+    # sudo desktop-file-install extra/linux/Alacritty.desktop
+    # sudo update-desktop-database
 }

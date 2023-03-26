@@ -604,6 +604,11 @@ util::is_alphanumeric() {
     [[ $* =~ $alphanumeric_re ]]
 }
 
+util::is_number() {
+    local re='^[[:digit:]]+)$'
+    [[ $* =~ $re ]]
+}
+
 # Checks if a command exists. Returns 0 if the command is found.
 util::has() {
   command -v "$1" 1>/dev/null 2>&1
