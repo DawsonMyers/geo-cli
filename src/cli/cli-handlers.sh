@@ -2957,6 +2957,7 @@ run_command_with_lock_file() {
         }
 
         trap cleanup SIGINT SIGTERM ERR EXIT
+        local FD
         # Create file descriptor for the lock file.
         exec {FD}<>$lock_file
         echo "$lock_file_content" >"$lock_file"
@@ -2980,6 +2981,16 @@ run_command_with_lock_file() {
     )
 
 }
+
+# get_lock() {
+#     local file="$1";
+#     local cmd="
+#     local fd
+#     exec {fd}<>$file;
+#     flock -w 1 $fd && echo got lock || echo 'failed to get lock'
+#     ";
+#     echo "eval '$cmd'"
+# }
 
 # Save the previous 5 gcloud commands as a single value in the config file, delimited by the '@' character.
 _geo_ar__push_cmd() {
@@ -3927,6 +3938,14 @@ _geo_jq_set() {
         log::status "Creating json file: $file"
         echo '{}' > "$file"
     fi
+
+    local max_file_size="$(@geo_get MAX_CONFIG_FILE_SIZE)"
+    util::is_alphanumeric
+    : ${max_file_size:=$MAX_CONFIG_FILE_SIZE}
+    local file_size="$(stat -c %s $file)"
+    (( file_size > MAX_CONFIG_FILE_SIZE )) \
+        && log::Error "File exceeds the maximum size of $MAX_CONFIG_FILE_SIZE. Inspect the file to make sure that it hasn't been currupted: $(log::file $file)"
+
     [[ -n $file ]] && json="$(cat "$file")"
     [[ ${#json} -lt 2 || $json == '{}' ]] && json='{}'
 
@@ -4210,7 +4229,7 @@ _geo_timestamp_to_seconds() {
         case "${opt}" in
             i) # install only
                 (
-                    bash $GEO_CLI_DIR/install.sh
+                    bash "$GEO_CLI_DIR/install.sh"
                     return
                 )
                 ;;
@@ -4232,7 +4251,8 @@ _geo_timestamp_to_seconds() {
     [[ $1 == '-f' || $1 == '--force' ]] && force=true
     # Don't install if already at latest version unless the force flag is present (-f or --force)
     if ! _geo_check_for_updates && ! $force; then
-        log::Error 'The latest version of geo-cli is already installed'
+        log::success 'The latest version of geo-cli is already installed'
+        # log::Error 'The latest version of geo-cli is already installed'
         return 1
     fi
 
@@ -4919,7 +4939,7 @@ _geo_check_if_feature_branch_merged() {
 }
 
 #######################################################################################################################
-@register_geo_cmd 'indicator'
+@register_geo_cmd 'indicator' --alias 'ui'
 @geo_indicator_doc() {
     doc_cmd 'indicator <command>'
     doc_cmd_desc 'Enables or disables the app indicator.'
@@ -4983,6 +5003,7 @@ _geo_check_if_feature_branch_merged() {
             export geo_indicator_app_dir="$src_dir/py/indicator"
             local init_script_path="$geo_indicator_app_dir/geo-indicator.sh"
             local service_file_path="$geo_indicator_app_dir/$geo_indicator_service_name"
+
             # local desktop_file_path="$geo_indicator_app_dir/$geo_indicator_desktop_file_name"
 
             if [[ ! -f $init_script_path ]]; then
@@ -5095,7 +5116,6 @@ _geo_install_apt_package_if_missing() {
     local pkg_name="$1"
     ! type sudo &>/dev/null && sudo='' || sudo=sudo
     [[ -z $pkg_name ]] && log::warn 'No package name supplied' && return 1
-    echo before
     if ! dpkg -l $pkg_name &>/dev/null; then
         echo in
         local install_msg_key="install-msg-disabled-$pkg_name"
@@ -5316,7 +5336,7 @@ _geo_indicator__check_dependencies() {
 }
 @geo_help() {
     for cmd in $(util::array_sort COMMANDS); do
-        "@geo_${cmd}_doc"
+        $(_geo_get_cmd_func_name --doc $cmd)
     done
 }
 
@@ -5334,11 +5354,13 @@ _geo_indicator__check_dependencies() {
         doc_cmd_sub_cmd 'release'
             doc_cmd_sub_cmd_desc 'Returns the name of the MyGeotab release version of the currently checked out branch'
         doc_cmd_sub_cmd 'databases'
-            doc_cmd_sub_cmd_desc 'Returns a list of all of the geo-cli database container names'
+            doc_cmd_sub_cmd_desc 'Returns a list of all the geo-cli database container names'
         doc_cmd_sub_cmd 'open-iap-tunnels'
             doc_cmd_sub_cmd_desc 'Gets a list of open-iap tunnels.'
         doc_cmd_sub_cmd 'api'
             doc_cmd_sub_cmd_desc 'Opens the api runner and logs into geotabdemo.'
+        doc_cmd_sub_cmd 'open'
+            doc_cmd_sub_cmd_desc 'Opens the geo-cli repo folder in a new VS Code window.'
 }
 @geo_dev() {
     local geo_cli_dir="$(@geo_get GEO_CLI_DIR)"
@@ -5394,7 +5416,7 @@ _geo_indicator__check_dependencies() {
                 echo -n $cur_myg_release_tag
             )
             ;;
-        # Gets a list of all of the geo-cli databases.
+        # Gets a list of all the geo-cli databases.
         db | dbs | databases)
             echo $(docker container ls --filter name="geo_cli_db_" -a --format="{{ .Names }}") | sed -e "s/geo_cli_db_postgres_//g"
             ;;
@@ -5454,6 +5476,7 @@ _geo_indicator__check_dependencies() {
             esac
             echo "$major.$minor.$patch"
             ;;
+        open) code -n -a "$GEO_CLI_DIR" ;;
         *)
             log::Error "Unknown argument: '$1'"
             return 1
@@ -6036,6 +6059,7 @@ _geo_myg__get_myg_csproj_path() {
             if _geo_myg__is_running; then
                 [[ $GEO_RAW_OUTPUT == true ]] && echo true && return
                 log::success "${service} is running"
+                return
             fi
             [[ $GEO_RAW_OUTPUT == true ]] \
                 && echo false \
@@ -6044,10 +6068,10 @@ _geo_myg__get_myg_csproj_path() {
             ;;
         is-running-with-gw)
             if [[ $GEO_RAW_OUTPUT == true ]]; then
-                _geo_myg__is_running_with_gw
+                _geo_myg__is_running_with_gw && echo true || echo false
                 return
             fi
-            ! _geo_myg__is_running_with_gw && log::Error "MyG is not running with GW" && return 1
+            ! _geo_myg__is_running_with_gw && log::error "MyG is not running with GW" && return 1
             log::success "Running MyG: $(_get_myg_pid)"
             log::success "Running GW: $(_get_gw_pid)"
             ;;
@@ -6327,11 +6351,16 @@ _geo__set_terminal_title() {
 
 check_is_running() {
     local running_lock_file=$1
+    # is_file_locked
     _geo_remove_file_if_older_than_last_reboot "$running_lock_file"
     [[ ! -f $running_lock_file ]] && return 1
     # Open a file descriptor on the lock file.
     exec {lock_fd}<>"$running_lock_file"
 
+    # if flock -w 0 $lock_fd; then
+    #      # Unlock the file.
+    #     flock -u $lock_fd
+    #     return 1
     ! flock -w 0 $lock_fd || {
         eval "exec $lock_fd>&-"
         return 1
@@ -6343,12 +6372,40 @@ check_is_running() {
     return
 }
 
+is_file_locked() {
+    local lock_file=$1
+    _geo_remove_file_if_older_than_last_reboot "$lock_file"
+
+    # The file isn't locked if it doesn't exist.
+    [[ -f $lock_file ]] || return 1
+
+    local lock_fd
+    # Open a file descriptor on the lock file.
+    exec {lock_fd}<>"$lock_file"
+
+    local file_is_locked=true
+
+    if flock -w 0 $lock_fd; then
+        # We got the lock on the file, so it wasn't locked.
+        # Unlock the file.
+        flock -u $lock_fd
+        file_is_locked=false
+    fi
+
+    # Close the file descriptor.
+    eval "exec $lock_fd>&-"
+
+    $file_is_locked
+}
+
 _geo_myg__is_running() {
-    check_is_running "$HOME/.geo-cli/tmp/myg/myg-running.lock"
+    is_file_locked "$HOME/.geo-cli/tmp/myg/myg-running.lock" || pgrep Checkmate &> /dev/null
+    # check_is_running "$HOME/.geo-cli/tmp/myg/myg-running.lock" || pgrep Checkmate &> /dev/null
 }
 
 _geo_myg__is_running_with_gw() {
-    check_is_running "$HOME/.geo-cli/tmp/myg/myg-gw-running.lock"
+    is_file_locked "$HOME/.geo-cli/tmp/myg/myg-gw-running.lock"
+    # check_is_running "$HOME/.geo-cli/tmp/myg/myg-gw-running.lock"
 }
 
 _geo_myg__start() {
@@ -6361,6 +6418,7 @@ _geo_myg__start() {
     [[ ! -f $myg_running_lock_file ]] && touch "$myg_running_lock_file"
     local proc_id=
 
+    local lock_fd
     # Open a file descriptor on the lock file.
     exec {lock_fd}<>"$myg_running_lock_file"
     local wait_time=2
@@ -6473,9 +6531,10 @@ _geo_myg__start() {
             ;;
         is-running)
             local service='Gateway'
-            if _geo_myg__is_running; then
+            if _geo_gw__is_running; then
                 [[ $GEO_RAW_OUTPUT == true ]] && echo true && return
                 log::success "${service} is running"
+                return
             fi
             [[ $GEO_RAW_OUTPUT == true ]] \
                 && echo false \
@@ -6546,7 +6605,8 @@ _get_gw_pid() {
 }
 
 _geo_gw__is_running() {
-    check_is_running "$HOME/.geo-cli/tmp/gw/gw-running.lock"
+    is_file_locked "$HOME/.geo-cli/tmp/gw/gw-running.lock"
+    # check_is_running "$HOME/.geo-cli/tmp/gw/gw-running.lock"
 }
 
 _geo_gw__start() {
@@ -6558,6 +6618,7 @@ _geo_gw__start() {
     [[ ! -f $gw_running_lock_file ]] && touch $gw_running_lock_file
     local proc_id=
 
+    local lock_fd
     # Open a file descriptor on the lock file.
     exec {gw_lock_fd}<>$gw_running_lock_file
     local wait_time=2
@@ -6623,18 +6684,11 @@ _geo_gw__start() {
         fi
     fi
     case "$file" in
-        server.config | server | sconf | scf)
-            file_path="${HOME}/GEOTAB/Checkmate/server.config"
-            ;;
-        *bashrc | brc | rc)
-            file_path="${HOME}/.bashrc"
-            ;;
-        ci | cicd | *gitlab-ci* | git-ci)
-            file_path="${dev_repo}/.gitlab-ci.yml"
-            ;;
-        cfg | geo.config | gconf)
-            file_path="${HOME}/.geo-cli/.geo.conf"
-            ;;
+        server.config | server | sconf | scf) file_path="${HOME}/GEOTAB/Checkmate/server.config" ;;
+        *bashrc | brc | rc) file_path="${HOME}/.bashrc" ;;
+        ci | cicd | *gitlab-ci* | git-ci) file_path="${dev_repo}/.gitlab-ci.yml" ;;
+        cfg | ?geo.conf?? | ?conf) file_path="${HOME}/.geo-cli/.geo.conf" ;;
+         cj | ?conf*json | ?geo*json | json) file_path="${HOME}/.geo-cli/.geo.conf.json" ;;
         *)
             log::Error "Arugument '$file' is invalid."
             return 1
