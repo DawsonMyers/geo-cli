@@ -38,18 +38,20 @@ alias d-c='docker-compose'
 alias brc=". ~/.bashrc"
 alias zrc=". ~/.zshrc"
 
+export GEO_CLI_DIR
+
 # Gets the absolute path of the root geo-cli directory.
 [[ -z $GEO_CLI_DIR ]] \
-    && export GEO_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
+    && GEO_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
 if [[ -z $GEO_CLI_DIR || ! -f $GEO_CLI_DIR/install.sh ]]; then
     msg="cli-handlers.sh: ERROR: Can't find geo-cli repo path."
-    [[ ! -f $HOME/data/geo/repo-dir ]] && echo "$msg" && exit 1;
+    [[ ! -f $HOME/.geo-cli/data/geo/repo-dir ]] && echo "$msg" && exit 1;
     # Running from a symbolic link from geo-cli.sh. Try to get geo-cli from config dir.
     GEO_CLI_DIR="$(cat "$GEO_CLI_CONFIG_DIR/data/geo/repo-dir")"
     [[ ! -f $GEO_CLI_DIR/install.sh ]] && echo "$msg" && exit 1;
 
 fi
-export GEO_CLI_SRC_DIR="${GEO_CLI_DIR}/src"
+[[ -z $GEO_CLI_SRC_DIR ]] && export GEO_CLI_SRC_DIR="${GEO_CLI_DIR}/src"
 
 # Load environment variable files.
 [[ ! -d $GEO_CLI_CONFIG_DIR/env ]] && mkdir -p "$GEO_CLI_CONFIG_DIR/env"
@@ -72,7 +74,10 @@ export PS4=".${GEO_ERR_TRAP}"
 #       e.g., '\d+\d' can be used instead of '\\d+\\d'.
 export BASH_XTRACEFD=1
 
+# shellcheck source=./utils/install-utils.sh
+. "$GEO_CLI_SRC_DIR/utils/install-utils.sh"
 # Import cli handlers to get access to all the geo-cli commands/command names (through the COMMANDS array).
+# shellcheck source=cli/cli-handlers.sh
 # shellcheck source=cli/cli-handlers.sh
 . "$GEO_CLI_SRC_DIR/cli/cli-handlers.sh"
 
@@ -133,6 +138,7 @@ function geo() {
             raw-output | r ) GEO_RAW_OUTPUT=true ;;
             no-update-check | U) GEO_NO_UPDATE_CHECK=true ;;
             non-interactive | I ) GEO_INTERACTIVE=false ;;
+            api) GEO_RAW_OUTPUT=true GEO_NO_UPDATE_CHECK=true GEO_INTERACTIVE=false ;;
             # Runs the geo-cmd ina new interactive terminal.
             launch-in-term | ui | T)
                 shift
@@ -294,17 +300,34 @@ fi
 #    PS4=".${GEO_ERR_TRAP}"
 #}
 
+# Sources the supplied file relative to the base geo-cli repo dir.
+# Example: $(geo-cli::import src/geo-cli.sh)
+#   sources src/geo-cli.sh, regardless of where this command is run.
+geo-cli::import() {
+    geo_dir=$(cat ~/.geo-cli/data/geo/repo-dir)
+    echo "eval source $geo_dir/$1"
+#    cat <<-EOL
+#        eval source $geo_dir/$1
+#EOL
+}
 geo-cli::relative_import() {
-    local relative_path="$@"
+    local relative_path="$1"
     [[ -z $relative_path ]] && log::Error "path cannot be empty."
-    local get_filename='"$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"'
-    cat <<-'EOF'
-    [[ -z $# ]] && log::Error 'Relative path cannot be empty.' && return 1
-    eval '$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)'
-    if [[ -z \$GEO_CLI_DIR ]]; then
-        \$(geo-cli::init_env)
-    fi
+
+    echo  eval "$(cat <<-'EOF' | sed -E "s/@relative_path/$relative_path/g"
+    file_path=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+    echo $file_path/@relative_path
 EOF
+)"
+#    source $file_path/'"$relative_path\n"
+#    local get_filename='"$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"'
+#    cat <<-'EOF'
+#    [[ -z $# ]] && log::Error 'Relative path cannot be empty.' && return 1
+#    eval '$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)'
+#    if [[ -z \$GEO_CLI_DIR ]]; then
+#        \$(geo-cli::init_env)
+#    fi
+#EOF
 }
 
 geo-cli::init_env() {
@@ -327,15 +350,16 @@ geo-cli::get-script-dir-path() {
         || sed_pattern+="; a     echo \$$var_name;"
     #     && echo_result=false \
     #     && shift 2 \
-    
+
     # cat <<-'EOF' | sed -E "$sed_pattern"
     cat <<-'EOF' | sed -E "$sed_pattern"
     eval  %var_name="$(echo "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")"
 EOF
+# echo "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     # eval  echo "\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
 }
 
-tts() { 
+tts() {
     $(geo-cli::init_env)
 }
 
