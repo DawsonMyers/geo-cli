@@ -230,20 +230,20 @@ function geo() {
     #  geo up help
     # if [[ $1 =~ ^-h$ ]] || [[ $1 =~ ^--help$ ]]; then
     if [[ $1 =~ ^-*h(elp)? ]]; then
-        "@geo_${cmd}_doc"
+        local cmd_docs=$(_geo_get_cmd_func_name --doc $cmd)
+        $cmd_docs
         echo
         _geo_show_msg_if_outdated
-        # exit
         return
     fi
 
     check_for_docker_group_membership
 
     local was_successful=true
-
+    local geo_cmd=$(_geo_get_cmd_func_name $cmd)
     # At this point we know that the command is valid and command help isn't being
     # requested. So run the command.
-    "@geo_${cmd}" "$@" || was_successful=false
+    $geo_cmd "$@" || was_successful=false
 
     # Don't show outdated msg if update was just run.
     [[ $cmd != update ]] && _geo_show_msg_if_outdated
@@ -335,7 +335,6 @@ geo-cli::init_env() {
     echo $(geo-cli::get-script-dir-path)
 
     # echo "dir: $geo_cli_src_dir"
-    
 
     true
 }
