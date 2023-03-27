@@ -70,10 +70,11 @@ export CURRENT_SUBCOMMANDS=()
 _geo_get_cmd_func_name() {
     local get_doc_func=false
     [[ $1 == --doc  ]] && get_doc_func=true && shift
+
     local root_cmd_name=$(_get_root_cmd_name $1)
     $get_doc_func \
         && echo "${COMMAND_INFO[$root_cmd_name,doc]}" \
-        || echo "${COMMAND_INFO[$root_cmd_name,function]}"
+        || echo "${COMMAND_INFO[$root_cmd_name]}"
 }
 
 _geo_ls_cmd_info() {
@@ -100,15 +101,13 @@ current_command=
     [[ -z $cmd_name || ! $cmd_name =~ ^([a-z][-a-z_]*)$ ]] \
         && log::Error "'$cmd_name' is not a valid geo-cli command name." \
         && return 1
-    COMMAND_INFO[$cmd_name,function]="@geo_${cmd_name}"
+    COMMAND_INFO[$cmd_name]="@geo_${cmd_name}"
     COMMAND_INFO[$cmd_name,doc]="@geo_${cmd_name}_doc"
     COMMAND_INFO[$cmd_name,source]="${BASH_SOURCE[1]}, line: ${BASH_LINENO[0]}"
 
     while [[ $1 == --alias && -n $2 ]]; do
         local alias_name="$2"
-#        echo args: "$@"
-#        echo Aliases name
-#        evar alias_name
+
         [[ -z $alias_name || ! $alias_name =~ ^([a-z][-a-z_]+)$ ]] \
             && log::Error "'$alias_name' is not a valid geo-cli command alias for '$cmd_name'." \
             && return 1
@@ -137,7 +136,7 @@ _get_root_cmd_name() {
         && log::Error "Command name or alias cannot be empty. (name: $cmd_name, alias: $alias_name)" \
         && return 1
     ALIASES+=("$alias_name")
-    COMMAND_INFO[$alias_name,function]="${COMMAND_INFO[$cmd_name,function]}"
+    COMMAND_INFO[$alias_name]="${COMMAND_INFO[$cmd_name]}"
     COMMAND_INFO[$alias_name,doc]="${COMMAND_INFO[$cmd_name,doc]}"
     COMMAND_INFO[$alias_name,alias_to]=$cmd_name
     local cmd_aliases="${COMMAND_INFO[$cmd_name,aliases]}"
@@ -6782,7 +6781,8 @@ _geo_parse_long_options() {
 # 1: the command to check
 _geo__is_registered_cmd() {
     local cmd_name=$1
-    [[ -n ${COMMAND_INFO[$cmd_name,function]} ]]
+#    echo "${COMMAND_INFO[$cmd_name]}"
+    [[ -n ${COMMAND_INFO[$cmd_name]} ]]
 }
 
 # Checks if a command exists (i.e. docker, code).
