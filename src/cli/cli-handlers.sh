@@ -1174,11 +1174,21 @@ _geo_db__start() {
             fi
         fi
 
+        # TODO: FIX issue #8 https://git.geotab.com/dawsonmyers/geo-cli/-/issues/8
+        #   Auto-switch switches the server.config after it detects that the branch has changes. Make sure that this password
+        #   change isn't happening before the switch happens (leaving the current db's password in the config file that was
+        #   just replaced.
+        #  * Also, add separate cmd and json file for metadata related to dbs
+        #     - dates - created, modified, last used/started/accessed
+        #     - password, username
+        #     - myg release, branch name
+
         #  Restore db user password in server.config
-        local db_user_password=$(@geo_get "${container_name}_db_user_password")
-        if _geo_terminal_cmd_exists xmlstarlet && [[ -n $db_user_password && -f "$HOME/GEOTAB/Checkmate/server.config" ]]; then
-            xmlstarlet ed --inplace -u "//LoginSettings/Password" -v "$db_user_password" "$HOME/GEOTAB/Checkmate/server.config"
-        fi
+        _geo_update_server_config_with_db_user_password
+#        local db_user_password=$(@geo_get "${container_name}_db_user_password")
+#        if _geo_terminal_cmd_exists xmlstarlet && [[ -n $db_user_password && -f "$HOME/GEOTAB/Checkmate/server.config" ]]; then
+#            xmlstarlet ed --inplace -u "//LoginSettings/Password" -v "$db_user_password" "$HOME/GEOTAB/Checkmate/server.config"
+#        fi
 
     else
         # db_version was getting overwritten somehow, so get its value from the config file.
@@ -1252,6 +1262,16 @@ _geo_db__start() {
     fi
     _geo_validate_server_config
     log::success Done
+}
+
+_geo_update_server_config_with_db_user_password() {
+    local container_name=$(_geo_db__get_running_container_name)
+    local db_user_password=$(@geo_get "${container_name}_db_user_password")
+    [[ $(@geo_get auto_db_user_password) == false || -z $container_name || -z $db_user_password ]] && return
+
+    if _geo_terminal_cmd_exists xmlstarlet && [[ -n $db_user_password && -f "$HOME/GEOTAB/Checkmate/server.config" ]]; then
+        xmlstarlet ed --inplace -u "//LoginSettings/Password" -v "$db_user_password" "$HOME/GEOTAB/Checkmate/server.config"
+    fi
 }
 
 _geo_db__copy() {
@@ -5910,6 +5930,7 @@ _geo_mydecoder__generate_unit_test() {
 }
 
 _geo_auto_switch_server_config() {
+    [[ $(@geo_get auto_server_config)  == false ]] && return
     local cur_myg_release=$1
     local prev_myg_release=$2
     local server_config_path="${HOME}/GEOTAB/Checkmate/server.config"
@@ -5948,6 +5969,8 @@ _geo_auto_switch_server_config() {
         cp $next_server_config_path $server_config_path
         log::status "server.config replaced with '$next_server_config_path'"
     fi
+
+    _geo_update_server_config_with_db_user_password
 }
 
 #######################################################################################################################
@@ -7435,7 +7458,7 @@ init_completions() {
 }
 
 geo_generate_autocompletions() {
-    ! tty -s && log::warn "Skipping geo-cli completion generation since nession is
+    ! tty -s && log::warn "Skipping geo-cli completion generation since not in an interactive shell"
     [[ -z $GEO_CLI_AUTOCOMPLETE_FILE ]] \
         && log::warn "GEO_CLI_AUTOCOMPLETE_FILE environment variable wasn't set. Skipping autocompletion file generation for geo."
     # populate the command info by running all of geo's help commands
@@ -7479,6 +7502,7 @@ _geo_complete() {
     prevprev=${COMP_WORDS[COMP_CWORD - 2]}
     local full_cmd="${COMP_WORDS[@]}"
     # echo "prev: $prev"  >> bcompletions.txt
+
     case ${COMP_CWORD} in
         0) COMPREPLY=($(compgen -W "geo geo-cli" -- ${cur})) ;;
         # e.g., geo
