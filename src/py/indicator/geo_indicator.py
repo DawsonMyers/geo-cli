@@ -33,7 +33,7 @@ class IndicatorApp(object):
     db = None
     state = {}
     last_notification_time = 0
-    items = {}
+    edit_items = {}
     def __init__(self, show_startup_notification=True):
         Notify.init(APPINDICATOR_ID)
         self.indicator = appindicator.Indicator.new(APPINDICATOR_ID, icons.GREEN_PATH, appindicator.IndicatorCategory.SYSTEM_SERVICES)
@@ -184,7 +184,53 @@ class IndicatorApp(object):
 
         item_update = self.build_update_item()
         menu.append(item_update)
+        # menu.append(self.get_img_item())
         menu.show_all()
+
+
+    # def get_img_item(self):
+    #     button1 = Gtk.Button(label="Hello")
+    #     pImage = Gtk.Image.new_from_icon_name(
+    #         "document-new", Gtk.IconSize.MENU)
+    #     pLabel = Gtk.Label("New")
+
+    #     pGrid = Gtk.Grid()
+    #     pGrid.add(pImage)
+    #     pGrid.add(pLabel)
+    #     pGrid.add(button1)
+    #     # pGrid.add(button1)
+    #     box = Gtk.Box(spacing=6)
+    #     # add(self.box)
+    #     box.add(button1)
+    #     box.add(pImage)
+    #     box.add(pLabel)
+
+    #     imgitem = Gtk.MenuItem()
+    #     imgitem.add(pGrid)
+    #     def activate(caller):
+    #         pGridLocal = imgitem.get_children().nth_data(0)
+    #         img = pGridLocal.get_children().nth_data(1)
+    #         img.set_from_icon_name("document-open", IconSize.MENU)
+    #     imgitem.connect('activate',activate)
+    #     # menu.append(imgitem)
+    #     imgitem.show()
+    #     return imgitem
+    #     # return box
+
+    #     # var pImage = new Gtk.Image.from_icon_name("document-new", IconSize.MENU);
+    #     # var pLabel = new Gtk.Label("New");
+    #     # var pGrid = new Gtk.Grid();
+    #     # pGrid.add(pImage);
+    #     # pGrid.add(pLabel);
+    #     # var imgitem = new Gtk.MenuItem();
+    #     # imgitem.add(pGrid);
+    #     # imgitem.activate.connect(() => {
+    #     #     Grid pGridLocal = (Grid)imgitem.get_children().nth_data(0);
+    #     #     Image img = (Image) pGridLocal.get_children().nth_data(1);
+    #     #     img.set_from_icon_name("document-open", IconSize.MENU);
+    #     # });
+    #     # menu.append(imgitem);
+    #     # imgitem.show();
 
     @staticmethod
     def get_create_db_item():
@@ -264,8 +310,8 @@ class IndicatorApp(object):
 
         geo_config = self.add_menu_item(menu, 'conf', lambda _: geo.run('edit config'))
         geo_config_json = self.add_menu_item(menu, 'conf.json', lambda _: geo.run('edit config.json'))
-        self.items["edit-config"] = geo_config
-        self.items["edit-config-json"] = geo_config_json
+        self.edit_items["edit-config"] = geo_config
+        self.edit_items["edit-config-json"] = geo_config_json
         item.set_submenu(menu)
         item.show_all()
         if not self.get_state('dev_mode'):
@@ -275,11 +321,11 @@ class IndicatorApp(object):
     def monitor(self, caller):
         # TODO: FIx this.
         if self.get_state('dev_mode'):
-            self.items["edit-config"].show()
-            self.items["edit-config-json"].show()
+            self.edit_items["edit-config"].show()
+            self.edit_items["edit-config-json"].show()
         else:
-            self.items["edit-config"].hide()
-            self.items["edit-config-json"].hide()
+            self.edit_items["edit-config"].hide()
+            self.edit_items["edit-config-json"].hide()
         return True
 
     @staticmethod
