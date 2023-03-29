@@ -1,19 +1,39 @@
 #!/bin/bash
 [[ -z $BASH_VERSION ]] \
-    && echo "ERROR: geo-cli.sh: Not sourced into a BASH shell! This file can be sourced (to load the geo command) or executed directly, but it must do so in a BASH shell environtment ONLY. Example: 'source geo-cli.sh; geo <args>' OR 'geo-cli.sh <args>)' 4 geo-cli won't work properly in other shell environments." && exit 1
+    && echo "ERROR: geo-cli.sh: MUST be run in a BASH shell environment ONLY." && exit 1
 
 # This file is sourced from ~/.bashrc to make geo cli available from any bash terminal.
 if [[ `whoami` = 'root' && -z $GEO_ALLOW_ROOT ]]; then echo 'ERROR: Do not run geo as root (sudo)'; exit; fi
 
+declare -A LOADED_MODULES
+# Sources the supplied file relative to the base geo-cli repo dir.
+# Example: $(geo-cli::import src/geo-cli.sh)
+#   sources src/geo-cli.sh, regardless of where this command is run.
+geo-cli::import() {
+    [[ -z $1 ]] && log::Error "geo-cli::import expects a file to import." && return 1
+    local file_name=$(basename $1)
+    [[ -n ${LOADED_MODULES[$file_name]} ]] && return
+    geo_dir=$(cat ~/.geo-cli/data/geo/repo-dir)
+    set -e
+    echo "eval source $geo_dir/$1"
+    LOADED_MODULES[$file_name]=true
+    set +e
+#    cat <<-EOL
+#        eval source $geo_dir/$1
+#EOL
+}
+
 # echo "install.sh: \${BASH_SOURCE[0]} =  ${BASH_SOURCE[0]}"
 # cat ~/.config/fish/config.fish
-# set -E
-# err_trap() {
-#     echo "err_trap: args: $*"
-#     echo "err_trap: ${FUNCNAME[*]}"
-#     # echo "err_trap: ${BASH_SOURCE[*]}"
-# }
-# trap 'err_trap source "${BASH_SOURCE[0]}[$LINENO]" trace "${FUNCNAME[*]}"' ERR
+#  set -E
+#  err_trap() {
+#      echo "err_trap: args: $*"
+#     #  echo "err_trap: ${FUNCNAME[*]}"
+#      # echo "err_trap: ${BASH_SOURCE[*]}"
+#  }
+#  trap 'echo "${BASH_SOURCE[1]##*/}[${BASH_LINENO[1]}].${FUNCNAME[1]}() => ${BASH_SOURCE[0]##*/}[${BASH_LINENO[0]}].${FUNCNAME[0]}($LINENO)"' ERR
+#  trap 'err_trap source "${BASH_SOURCE[0]}[$LINENO]" trace "${FUNCNAME[*]}"' ERR
+#  trap 'err_trap source "${BASH_SOURCE[0]}[$LINENO]" trace "${FUNCNAME[*]}"' ERR
 
 # Init geo config directory if it doesn't exist.
 export GEO_CLI_CONFIG_DIR="$HOME/.geo-cli"
@@ -43,6 +63,7 @@ export GEO_CLI_DIR
 # Gets the absolute path of the root geo-cli directory.
 [[ -z $GEO_CLI_DIR ]] \
     && GEO_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
+
 if [[ -z $GEO_CLI_DIR || ! -f $GEO_CLI_DIR/install.sh ]]; then
     msg="cli-handlers.sh: ERROR: Can't find geo-cli repo path."
     [[ ! -f $HOME/.geo-cli/data/geo/repo-dir ]] && echo "$msg" && exit 1;
@@ -63,7 +84,7 @@ fi
 
 # Define error handlers before loading cli-handlers.sh, then set again with color afterwards.
 # This is because we need to have util::array_concat imported.
-export GEO_ERR_TRAP='${BASH_SOURCE[0]##*/}[$LINENO]:${FUNCNAME:-FuncNameNull}: '
+export GEO_ERR_TRAP='${BASH_SOURCE[0]##*/}[$LINENO]:${FUNCNAME:-"command-line"}: '
 export PS4=".${GEO_ERR_TRAP}"
 # Sets the file descriptor for the debug output when using 'set -x' (which uses PS4). This simplifies filtering of the
 # debug output. This way we can set -x and then filter the output like this:
@@ -72,23 +93,39 @@ export PS4=".${GEO_ERR_TRAP}"
 # Note: the v in 'grep -Ev' means to inVert the match logic, selecting everything that doesn't match the patterns and
 #       the 'E' means that we can use Extended regular expressions, which are just normal REs that we don't have to escape
 #       e.g., '\d+\d' can be used instead of '\\d+\\d'.
-export BASH_XTRACEFD=1
+# WARNING Setting to fd 1 means that it will get written to file (when writing to file) as well as any other place where
+# stdout is being read.
+export BASH_XTRACEFD=2
 
 # shellcheck source=./utils/install-utils.sh
 . "$GEO_CLI_SRC_DIR/utils/install-utils.sh"
+# shellcheck source=./utils/colors.sh
+. "$GEO_CLI_SRC_DIR/utils/colors.sh"
 # Import cli handlers to get access to all the geo-cli commands/command names (through the COMMANDS array).
-# shellcheck source=cli/cli-handlers.sh
 # shellcheck source=cli/cli-handlers.sh
 . "$GEO_CLI_SRC_DIR/cli/cli-handlers.sh"
 
-trap_string_parts=('$(log::get_symbol_for_exit_code) ' "$BCyan" '${BASH_SOURCE[0]##${HOME}*/}' "${Purple}" '[$LINENO]:' "${Yellow}" '${FUNCNAME:-FuncNameNull}[$BASH_LINENO]:' "$Off $LOG_COLOUR_FOR_CODE ")
+get_symbol_for_exit_code() {
+    exit_code=$?
+    if [ "$exit_code" != 0 ]; then
+        echo -e "$Red✘$Off"
+    else
+        echo -e "$Green✔$Off"
+    fi
+    return "$exit_code"
+}
+export LOG_COLOUR_FOR_CODE="$VTE_COLOR_115"
+trap_string_parts=('<$?>' "$BCyan" '${BASH_SOURCE[0]##${HOME}*/}' "${Purple}" '[$LINENO]:' "${Yellow}" '${FUNCNAME:-file}[$BASH_LINENO]:' "$Off $LOG_COLOUR_FOR_CODE ")
+# trap_string_parts=('$(get_symbol_for_exit_code) ' "$BCyan" '${BASH_SOURCE[0]##${HOME}*/}' "${Purple}" '[$LINENO]:' "${Yellow}" '${FUNCNAME:-FuncNameNull}[$BASH_LINENO]:' "$Off $LOG_COLOUR_FOR_CODE ")
 GEO_ERR_TRAP="$(echo -en "$(util::array_concat -z trap_string_parts)")"
+# GEO_ERR_TRAP="$(echo -en "$(util::array_concat -z trap_string_parts)")"
 PS4=".${GEO_ERR_TRAP}"
 
 export GEO_DEV_MODE=false
 
 export GEO_RAW_OUTPUT=false
 export GEO_NO_UPDATE_CHECK=false
+export GEO_API=false
 
 # set -E
 # trap "$GEO_ERR_TRAP" ERR
@@ -115,7 +152,9 @@ function geo() {
 #     set -E
 #     set -e
 #     trap "$GEO_ERR_TRAP" ERR
-
+    set -E
+    trap 'echo "${BASH_SOURCE[1]##*/}[${BASH_LINENO[1]}].${FUNCNAME[1]}() => ${BASH_SOURCE[0]##*/}[${BASH_LINENO[0]}].${FUNCNAME[0]}($LINENO)"' ERR
+    trap 'trap - ERR RETURN' RETURN
     # Log call.
     [[ $(@geo_get LOG_HISTORY) == true ]] && echo "[$(date +"%Y-%m-%d_%H:%M:%S")] geo $*" >> ~/.geo-cli/history.txt
 
@@ -123,7 +162,7 @@ function geo() {
     # by geo.
     export GEO_INTERACTIVE=true
     export GEO_SILENT=false
-    [[ ! $- =~ i ]] && GEO_INTERACTIVE=false && GEO_RAW_OUTPUT=true
+    # [[ ! $- =~ i ]] && GEO_INTERACTIVE=false && GEO_RAW_OUTPUT=true
 
     local OPTIND
     while [[ $# -gt 0 && $1 =~ ^-{1,2} ]]; do
@@ -138,7 +177,7 @@ function geo() {
             raw-output | r ) GEO_RAW_OUTPUT=true ;;
             no-update-check | U) GEO_NO_UPDATE_CHECK=true ;;
             non-interactive | I ) GEO_INTERACTIVE=false ;;
-            api) GEO_RAW_OUTPUT=true GEO_NO_UPDATE_CHECK=true GEO_INTERACTIVE=false ;;
+            api) GEO_API=true GEO_RAW_OUTPUT=true GEO_NO_UPDATE_CHECK=true GEO_INTERACTIVE=false ;;
             # Runs the geo-cmd ina new interactive terminal.
             launch-in-term | ui | T)
                 shift
@@ -209,14 +248,14 @@ function geo() {
 
     # Quit if the command isn't valid
     if ! _geo__is_registered_cmd "$cmd"; then
-        [[ -z $cmd ]] && echo && log::warn "geo was run without any command"
+        [[ -z $cmd ]] && echo && log::warn "geo was run without any arguments"
         [[ -n $cmd ]] && echo && log::warn "Unknown command: '$cmd'"
 
         # geotab_logo
         # geo_logo
 
         echo
-        _geo_who_help_message
+        _geo_show_help_message
         _geo_show_msg_if_outdated
         # exit
         return
@@ -248,11 +287,11 @@ function geo() {
     # Don't show outdated msg if update was just run.
     [[ $cmd != update ]] && _geo_show_msg_if_outdated
 
-    trap '' ERR
+    trap - ERR
     [[ $was_successful == true ]]
 }
 
-_geo_who_help_message() {
+_geo_show_help_message() {
     log::verbose 'For help, run the following:'
     log::detail '    geo --help'
     log::verbose 'or'
@@ -280,7 +319,6 @@ if [[ -n $* ]]; then
     geo "$@"
 fi
 
-
 #_geo_validate_server_config
 
 #init_logging() {
@@ -300,16 +338,6 @@ fi
 #    PS4=".${GEO_ERR_TRAP}"
 #}
 
-# Sources the supplied file relative to the base geo-cli repo dir.
-# Example: $(geo-cli::import src/geo-cli.sh)
-#   sources src/geo-cli.sh, regardless of where this command is run.
-geo-cli::import() {
-    geo_dir=$(cat ~/.geo-cli/data/geo/repo-dir)
-    echo "eval source $geo_dir/$1"
-#    cat <<-EOL
-#        eval source $geo_dir/$1
-#EOL
-}
 geo-cli::relative_import() {
     local relative_path="$1"
     [[ -z $relative_path ]] && log::Error "path cannot be empty."
