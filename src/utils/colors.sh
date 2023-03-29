@@ -1,4 +1,4 @@
-#Regex to find color control codes: (\\\[)?(\\e|\\033)\[(\d+;)*\d+m
+# Regex to find color control codes: (\\\[)?(\\e|\\033)\[(\d+;)*\d+m
 
 CHECK_MARK="\033[0;32m\xE2\x9C\x94\033[0m"
 EMOJI_CHECK_MARK=✔️

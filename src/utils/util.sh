@@ -508,8 +508,11 @@ util::array_concat() {
     # local join_str=' '
     local default_join_str=' '
     local join_str="$default_join_str"
+    # util::array_concat -z array
     [[ $1 == -z ]] && join_str='' && shift
+    # util::array_concat array -z
     [[ $2 == -z ]] && join_str='' && set -- "$1"
+    [[ -z $1 || ! -v $1 ]] && log::Error "'$1' is not a valid array variable name"
     local -n _array_ref="$1"
     [[ -n $2 ]] && local join_str="${*:2}"
     [[ $join_str == "$default_join_str" ]] && echo "${_array_ref[*]}" && return

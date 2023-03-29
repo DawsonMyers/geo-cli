@@ -3,10 +3,12 @@
 Type=Application
 Version=1.0
 Name=geo-indicator
-# Path=$geo_indicator_app_dir
+Path=$geo_indicator_app_dir
 TryExec=geo-ui
-Exec=geo-ui
-# Exec=bash geo-indicator.sh
+# TryExec=geo-ui
+#Exec=geo-ui
+#Exec=geo-indicator.sh
+Exec=geo_indicator.py
 
 Icon=/usr/share/pixmaps/geo.png
 # Icon=geo.png
