@@ -45,8 +45,17 @@ log::get_symbol_for_exit_code() {
 # The stderr has to be piped in for the de
 log::filter_ps4_debug_logs() {
     eval "$(util::eval_to_enable_piped_args)"
-#    echo "$*"
-    echo "$*" | grep -Ev 'log.sh|debug|config-file|cfg_|geo_get|log::|util::|gitprompt|bashrc-utils'
+    #    echo "$*"
+    local ignore_matches='log.sh|debug|config-file|cfg_|geo_get|log::|util::|gitprompt|bashrc-utils'
+    if [[ $# -eq 0 ]]; then
+        local input
+        while read -r -t 20 input; do
+            echo "$input" | grep -Ev "$ignore_matches"
+        done
+    else
+        echo "$*" | grep -Ev "$ignore_matches"
+    fi
+#    echo "$*" | grep -Ev 'log.sh|debug|config-file|cfg_|geo_get|log::|util::|gitprompt|bashrc-utils'
 }
 
 # TODO: Use this where needed. Example: log_function() { echo "$@" >&3; }
@@ -54,7 +63,24 @@ log::filter_ps4_debug_logs() {
 # we need a way to write text on the screen in the functions so that
 # it won't interfere with the return value.
 # Exposing stream 3 as a pipe to standard output of the script itself
+# Example:
+#    f () { echo to3 >&3; echo to1; }
+#    f >/dev/null
+#  Output to terminal = to3
+# => Allows writing to terminal even when stdout is consumed elsewhere (set to a var or redirected somewhere else).
 exec 3>&1
+
+# Redirect input to the debug file descriptor 3 (defined above).
+log::debug_out() {
+    if [[ $# -eq 0 ]]; then
+        local input
+        while read -r -t 20 input; do
+            echo "$input" >&3
+        done
+    else
+        echo "$@" >&3
+    fi
+}
 
 export -a log_RETURN_CODE_TO_EMOJI
 log_RETURN_CODE_TO_EMOJI[0]="$Green✔$Off"
@@ -102,6 +128,8 @@ make_logger_function() {
     eval "
         _log_$name() {
             set +f
+            local redirect=''
+            [[ \$1 == -D ]] && redirect=' | log::debug_out' && shift
             local msg=\"\$@\"
             local options=
             local format_tokens=
@@ -132,17 +160,22 @@ make_logger_function() {
                     local func_path=\$(get_func_path 3)
                     [[ -n \$func_path ]] && msg=\"\$func_path: \$msg\"
                     ;;&
+                # Prepend the message with the name of the function (for debugging).
+                *D* )
+                    local func_name=\${FUNCNAME[2]}
+                    [[ -n \$func_name ]] && msg=\"\$func_name: \$msg\"
+                    ;;&
                 # Format text to the width of the terminal.
                 *f* )
                     msg=\"\$(log::fmt_text \"\$msg\")\"
                     ;;&
                 # Intense
                 *t* )
-                    color_name="I${color}"
+                    color_name=\"I${color}\"
                     ;;&
                 # Bold
                 *b* )
-                    color_name="BI${color}"
+                    color_name=\"BI${color}\"
                     ;;&
                 # Italic
                 *i* )
@@ -169,22 +202,71 @@ make_logger_function() {
             esac
 
             # echo interprets '-e' as a command line switch, so a space is added to it so that it will actually be printed.
-            re='^ *-e$'
+            local re='^ *-e$'
             [[ \$msg =~ \$re ]] && msg+=' '
             [[ \$GEO_RAW_OUTPUT == true ]] && echo -n \"\$msg\" && set +f && return
-
-            echo \"-\${opts}\" \"\${format_tokens}\${!color_name}\${msg}\${Off}\"
+            local line=( \"\${format_tokens}\${!color_name}\${msg}\${Off}\")
+#            local line=(echo \"-\${opts}\" \"\${format_tokens}\${!color_name}\${msg}\${Off}\")
+            local log_line=\"\$(expand_full '\${line[*]}')\"
+            [[ -n \$redirect ]] \
+                && eval echo \"\$log_line\" | log::debug_out && set +f && return
+#                && eval echo \"\$(expand_full '\${line[*]}')\" | log::debug_out \
+#                || eval echo \"\$log_line\"
+#                || eval echo \"\$(expand_full '\${line[*]}')\"
+           echo \"-\${opts}\" \"\${format_tokens}\${!color_name}\${msg}\${Off}\"
+#           local line=echo \"-\${opts}\" \"\${format_tokens}\${!color_name}\${msg}\${Off}\"
+#            echo \"\${line[@]}\"
+#            eval echo \"\$(expand_full '\${line[*]}')\"
+#            echo \"\${line[*]}\"
             set +f
         }
     "
+}
+
+wrap_quotes() {
+    echo "\"$*\""
+}
+
+# Fully expands escaped items in a string until there isn't anything left to expand.
+# Example:
+#    expand_full -s '${line[*]}'
+#      ${line[*]} => "echo "-${opts}" "${format_tokens}${!color_name}${msg}${Off}""
+#      "echo "-${opts}" "${format_tokens}${!color_name}${msg}${Off}"" => "echo -OPTS ftThe msg"
+#      "echo -OPTS ftThe msg" => "echo -OPTS ftThe msg"
+#      "echo -OPTS ftThe msg"
+# Example:
+#   a='$b' b='$c' c='done'
+#   expand_full -s '$a'
+#       $a => "$b"
+#       "$b" => "$c"
+#       "$c" => "done"
+#       "done" => "done"
+#       "done"
+expand_full() {
+    local show_steps=false
+    local wrap_result=true
+    [[ $1 == -s ]] && show_steps=true && shift
+    [[ $1 == -Q ]] && wrap_result=false && shift
+    local value="$*"
+    local value_expanded=''
+    for i in {1..10}; do
+        value_expanded="\"$(eval echo -e "$value")\""
+        $wrap_result \
+            && value_expanded="\"$(eval echo -e "$value")\"" \
+            || value_expanded="$(eval echo -e "$value")"
+        $show_steps && echo "$value => $value_expanded"
+        [[ $value == $value_expanded || -z $value || -z $value_expanded ]] && break
+        value="$value_expanded"
+    done
+    echo "$value"
 }
 
 # Make logger function using VTE colours.
 # Use display_vte_colors command (defined in colors.sh, should always be loaded in your shell if geo-cli is installed) to
 # display VTE colours.
 make_logger_function_vte() {
-    name=$1
-    color=$2
+    local name=$1
+    local color=$2
 
     # eval "${name}() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"\${${color}}\${args[@]}\${Off}\"; }"
     eval "${name}_b() { args=(\"\$@\"); opt=e; if [[ \${args[0]} =~ ^-p ]]; then opt=en; unset \"args[0]\"; fi; echo \"-\${opt}\" \"${BOLD_ON}\${${color}}\${args[@]}\${Off}\"; }"
@@ -248,6 +330,11 @@ make_logger_function_vte() {
                     msg=\"\$(log::keyvalue -v \"\$var_name\")\"
                     # msg=\"\$(log::keyvalue \"\$var_name\" \"\${!var_name}\")\"
                     ;;&
+                # Prepend the message with the name of the function (for debugging).
+                *D* )
+                    local func_name=\${FUNCNAME[2]}
+                    [[ -n \$func_name ]] && msg=\"\$func_name: \$msg\"
+                    ;;&
                 *p* | *n* )
                     opts+=n
                     ;;&
@@ -267,17 +354,13 @@ make_logger_function_vte() {
 # TODO: Clean up these functions
 get_func_path() {
     local ignore_count=${1:-1}
-    # TODO: Remove
-#    e BASH_LINENO
-#    e LINENO
-#    e BASH_SOURCE
     local line_num=${BASH_LINENO[$ignore_count]}
     local file=${BASH_SOURCE[$ignore_count]##*/}
-#    local line_num=${BASH_LINENO[$((${#BASH_LINENO[@]} - $ignore_count))]}
+    #    local line_num=${BASH_LINENO[$((${#BASH_LINENO[@]} - $ignore_count))]}
     local func_path=
-    local func_names="${FUNCNAME[@]:$ignore_count}"
-    func_names="${func_names//source}"
-#    set -x
+    local func_names="${FUNCNAME[@]:ignore_count}"
+    func_names="${func_names//source/}"
+    #    set -x
     for func in $func_names; do
         [[ $func =~ ^__geo$ || $func =~ ^log:: ]] && continue
         # Skip first so that there isn't '.' at the end of the path (e.g., geo.geo_db.).
@@ -287,14 +370,14 @@ get_func_path() {
     [[ $func_path =~ \.$ ]] && func_path="${func_path: -1}"
 
     # Remove @ from path.
-    func_path="${func_path//@}"
+    func_path="${func_path//@/}"
 
     [[ -n $func_path ]] && echo -n "${func_path} in $file[$line_num]"
-#    [[ -n $func_path ]] && echo -n "at: ${func_path} in $file[$line_num]"
-#    set +x
+    #    [[ -n $func_path ]] && echo -n "at: ${func_path} in $file[$line_num]"
+    #    set +x
     if [[ $(@geo_get LOG_DEBUG_TRACE) == true ]]; then
         echo
-        for ((i=0; i < ${#BASH_LINENO[@]}; i++)); do
+        for ((i = 0; i < ${#BASH_LINENO[@]}; i++)); do
             log::debug "at ${BASH_SOURCE[i]}[${BASH_LINENO[i]}]::${FUNCNAME[i]}"
         done
     fi
@@ -336,6 +419,7 @@ make_logger_function error Red
 log::red() {
     _log_red "$@"
 }
+# 214 is also a nice orange
 make_logger_function_vte warn VTE_COLOR_202 # Orange
 log::warn() {
     _log_warn "$@"
@@ -420,10 +504,10 @@ log::link() {
     _log_yellow -u "$msg"
 }
 log::file() {
-    echo "$(_log_purple -n 'file://')$(_log_yellow -u  "$@")"
+    echo "$(_log_purple -n 'file://')$(_log_yellow -u "$@")"
 }
 log::filepath() {
-    log::file  "$@"
+    log::file "$@"
 }
 make_logger_function green Green
 log::green() {
@@ -444,65 +528,100 @@ log::hint() {
 }
 
 log::stacktrace() {
-# _stacktrace() {
+    # _stacktrace() {
     local make_path_relative_option=-r
-    [[ $1 == --full ]] && make_path_relative_option=
-    local start=1
-    [[ $1 =~ ^- ]] && start=${1:1}
-    # debug "start $start"
-    local debug_log=$(@geo_get DEBUG_LOG)
-    if [[ $debug_log == true ]]; then
-        # debug "_stacktrace: ${FUNCNAME[@]}"
-        local stacktrace="${FUNCNAME[@]:start}"
-        local stacktrace_reversed=
-        for f in $stacktrace; do
-            [[ -z $stacktrace_reversed ]] && stacktrace_reversed=$f && continue
-            stacktrace_reversed="$f -> $stacktrace_reversed"
-        done
+    local full_stack=false
+    local OPTIND
 
-        log::debug $make_path_relative_option "Stacktrace: $stacktrace_reversed"
+    while getopts ":Rf" opt; do
+        case "${opt}" in
+            R) make_path_relative_option= ;;
+            f) full_stack=true ;;
+            :) log::Error "Option '${OPTARG}'  expects an argument." && return 1 ;;
+            \?) log::Error "Invalid option: ${OPTARG}" && return 1 ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+
+    local start=0
+
+    [[ $1 =~ ^-[0-9]{1,2} ]] && start=${1:1} && shift
+    ((start++))
+
+    local stack_size=${#BASH_SOURCE[@]}
+    debug "start $start"
+    local debug_log=$(@geo_get DEBUG_LOG)
+    [[ ! $debug_log == true ]] && return
+    if $full_stack; then
+        for ((i=start; i < stack_size; i++)) ; do
+            local source_file="${BASH_SOURCE[i]:-terminal}"
+            local func="${FUNCNAME[i]:-command_line}"
+            local lineno=${BASH_LINENO[i]}
+            local stack_line='empty trace line'
+            [[ -z $lineno ]] && stack_line="↪ at $func in $source_file" \
+                || stack_line="↪ at $func in $source_file:$lineno"
+            # line=
+            [[ -n $make_path_relative_option ]] && stack_line="$(log::make_path_relative_to_user_dir "$stack_line")"
+            log::debug "$stack_line"
+        done
+        return
     fi
+    # debug "_stacktrace: ${FUNCNAME[@]}"
+    local stacktrace="${FUNCNAME[@]:start}"
+    local stacktrace_reversed=
+    for f in $stacktrace; do
+        [[ -z $stacktrace_reversed ]] && stacktrace_reversed=$f && continue
+        stacktrace_reversed="$f.$stacktrace_reversed"
+        # stacktrace_reversed="$f -> $stacktrace_reversed"
+    done
+
+    log::debug $make_path_relative_option "    at $stacktrace_reversed line: ${BASH_LINENO[$start]}"
+
 }
 
 # ✘❌
 make_logger_function Error BIRed
-alias log::Error='log::Error_ --stub "[${BASH_SOURCE}(${BASH_LINENO})::${FUNCNAME}(${LINENO})]: " '
+# alias log::Error='log::Error_ --stub "at ${FUNCNAME}() in ${BASH_SOURCE##*/}, line:  ${BASH_LINENO}" '
+# alias log::Error='log::Error_ --stub "${BASH_SOURCE}(${BASH_LINENO})::${FUNCNAME}(${LINENO}): " '
 
 # log::Error() {
 #     log::Error_
 # }
-log::Error_() {
+
+log::Error() {
     local calling_func_name="${FUNCNAME[1]}"
-    local stub
+    local source_file="${BASH_SOURCE[1]##*/}"
+    local func="${FUNCNAME[1]}"
+    local stub="at ${func:-command_line}() in ${source_file:-terminal}:${BASH_LINENO[1]}"
     local add_to_stack_depth=0
-    [[ $1 == --stub && -n $2 ]] && stub="$2" && shift 2
+    # [[ $1 == --stub && -n $2 ]] && stub="$2" && shift 2
     [[ $1 == --ignore-stack-depth && $2 =~ ^[0-9] ]] && add_to_stack_depth=$2 && shift 2
-    echo -e "${BIRed}✘  Error: $(log::fmt_text_and_indent_after_first_line -d 10 -a 10 "$@")${Off}" >&2
+    log::error -r "✘  Error: $(log::fmt_text_and_indent_after_first_line -d 10 -a 10 "$@")" >&2
+    # echo -e "${BIRed}✘  Error: $(log::fmt_text_and_indent_after_first_line -d 10 -a 10 "$@")${Off}" >&2
     # log::debug "  ↪ $(get_func_path $((2 + add_to_stack_depth)))"
-    log::debug "  ↪ $stub"
+    log::debug -r "  ↪ $stub"
     # echo -e "❌  ${BIRed}Error: $@${Off}" >&2
 
-    log::stacktrace
+    # log::stacktrace -1
 }
 log::Error_trace() {
     log::Error "$@"
     log::debug "  In function $(get_func_path 2)"
 }
-log::error() {
-    echo -e "${BIRed}✘  $(log::fmt_text_and_indent_after_first_line -d 4 -a 3 "$@")${Off}" >&2
-    # echo -e "❌  ${BIRed}$@${Off}" >&2
-}
+# log::error() {
+#     echo -e "${BIRed}✘  $(log::fmt_text_and_indent_after_first_line -d 4 -a 3 "$@")${Off}" >&2
+#     # echo -e "❌  ${BIRed}$@${Off}" >&2
+# }
 #
 log::getopts_option_expects_argument_error() {
     log::Error --ignore-stack-depth 1 "Option '${OPTARG}' expects an argument."
-     return 1
+    return 1
 }
 #
 log::getopts_option_invalid_error() {
     log::Error --ignore-stack-depth 1 "Invalid option: ${OPTARG}"
     return 1
 }
-
 
 log::data_header() {
     local header="$@"
@@ -511,7 +630,7 @@ log::data_header() {
         header="$@"
         local header_length=${#header}
         local terminal_width=$(tput cols $header_length)
-        local padding_length=$(( terminal_width - header_length ))
+        local padding_length=$((terminal_width - header_length))
         header="$header$(log::repeat_str ' ' $padding_length)"
     fi
     echo -e "${VTE_COLOR_87}${UNDERLINE_ON}${BOLD_ON}$header${Off}"
@@ -566,23 +685,18 @@ log::fmt_text() {
     if [[ $1 =~ --x? ]]; then
         shift
     else
-        while getopts "kd:tri:s:" opt; do
+        while getopts ":kd:tri:s:" opt; do
             case "${opt}" in
-                k ) keep_spaces=true  ;;
-                d ) decrement_width_by=$OPTARG ;;
-                t ) tight_margins=true ;;
-                r ) remove_color=true ;;
-                i ) indent=$OPTARG  ;;
-                s ) indent_str=$OPTARG  ;;
-                : )
-                    log::Error "Option '${OPTARG}' expects an argument."
-                    return 1
-                    ;;
-                \? )
-                log::debug '----------------------------'
-                    log::Error "Invalid option: $OPTARG"
-                    return 1
-                    ;;
+            k) keep_spaces=true ;;
+            d) decrement_width_by=$OPTARG ;;
+            t) tight_margins=true ;;
+            r) remove_color=true ;;
+            i) indent=$OPTARG ;;
+            s) indent_str=$OPTARG ;;
+            :) log::Error "Option '${OPTARG}' expects an argument." && return 1
+                ;;
+            \?) log::Error "Invalid option: $OPTARG" && return 1
+                ;;
             esac
         done
         shift $((OPTIND - 1))
@@ -609,7 +723,7 @@ log::fmt_text() {
     [[ $txt =~ $re ]] && txt+=' '
 
     # Replace 2 or more spaces with a single space and \n with a single space.
-    [[ $keep_spaces = false ]] && txt=$(echo "$txt" | tr '\n' ' ' | sed -E 's/ {2,}/ /g')
+    [[ $keep_spaces == false ]] && txt=$(echo "$txt" | tr '\n' ' ' | sed -E 's/ {2,}/ /g')
 
     # Determin the total length of the repeated indent string.
     local indent_len=$((${#indent_str} * indent))
@@ -685,22 +799,15 @@ log::fmt_text_and_indent_after_first_line() {
     else
         while getopts ":b:i:a:sd:tr" opt; do
             case "${opt}" in
-                b ) base_indent="$OPTARG"  ;;
-                i ) indent_str="$OPTARG"  ;;
-                a ) additional_indent=$OPTARG  ;;
-                s ) strip_spaces=true  ;;
-                d ) decrement_first_line_width_by="$OPTARG" ;;
-                t ) tight_margins=true ;;
-                r ) remove_color=true ;;
-                : )
-                    log::Error "Option '${OPTARG}' expects an argument."
-                    return 1
-                    ;;
-                \? )
-                    log::debug '----------------------------'
-                    log::Error "Invalid option: ${OPTARG}"
-                    return 1
-                    ;;
+            b) base_indent="$OPTARG" ;;
+            i) indent_str="$OPTARG" ;;
+            a) additional_indent=$OPTARG ;;
+            s) strip_spaces=true ;;
+            d) decrement_first_line_width_by="$OPTARG" ;;
+            t) tight_margins=true ;;
+            r) remove_color=true ;;
+            :) log::Error "Option '${OPTARG}' expects an argument." && return 1 ;;
+            \?) log::Error "Invalid option: ${OPTARG}" && return 1 ;;
             esac
         done
         shift $((OPTIND - 1))
@@ -717,7 +824,7 @@ log::fmt_text_and_indent_after_first_line() {
     base_indent=${2:-$base_indent}
     additional_indent=${3:-$additional_indent}
 
-    local total_indent=$(( base_indent + additional_indent ))
+    local total_indent=$((base_indent + additional_indent))
     local wrapped_line_indent_str=$(printf "$indent_char%.0s" $(seq 1 $additional_indent))
     # log::debug "'${wrapped_line_indent_str}'"
     # local lines=$(log::fmt_text "$long_text" $base_indent)
@@ -726,8 +833,8 @@ log::fmt_text_and_indent_after_first_line() {
     $strip_spaces && fmt_option=
     $tight_margins && fmt_option+=" -t "
     local decrement_option=
-    (( decrement_first_line_width_by > 0 )) && decrement_option=" -d $decrement_first_line_width_by "
-    local lines=$(log::fmt_text $decrement_option $fmt_option "$long_text" $base_indent )
+    ((decrement_first_line_width_by > 0)) && decrement_option=" -d $decrement_first_line_width_by "
+    local lines=$(log::fmt_text $decrement_option $fmt_option "$long_text" $base_indent)
 
     local line_number=0
     local output=''
@@ -744,7 +851,7 @@ log::fmt_text_and_indent_after_first_line() {
     # log::debug "total_text_length = $total_text_length"
     # log::debug "$total_text_length != ($first_line_length - $base_indent)"
 
-    if (( total_text_length != first_line_length )); then
+    if ((total_text_length != first_line_length)); then
         # Add line break for first line.
         output+="\n"
 
@@ -769,21 +876,14 @@ log::indent() {
     local write_to_caller_variable=false
 
     local OPTIND
-    while getopts "I:i:s:v:" opt; do
+    while getopts ":I:i:s:v:" opt; do
         case "${opt}" in
-            i ) indent_amount="$OPTARG"  ;;
-            I ) indent="$OPTARG"  ;;
-            s ) indent_str="$OPTARG"  ;;
-            v ) local -n caller_var_ref="$OPTARG" && write_to_caller_variable=true  ;;
-            : )
-                log::Error "Option '${OPTARG}' expects an argument."
-                return 1
-                ;;
-            \? )
-                log::debug '----------------------------'
-                log::Error "Invalid option: ${OPTARG}"
-                return 1
-                ;;
+            i ) indent_amount="$OPTARG" ;;
+            I ) indent="$OPTARG" ;;
+            s ) indent_str="$OPTARG" ;;
+            v ) local -n caller_var_ref="$OPTARG" && write_to_caller_variable=true ;;
+            : ) log::Error "Option '${OPTARG}' expects an argument." && return 1 ;;
+            \? ) log::Error "Invalid option: ${OPTARG}" && return 1 ;;
         esac
     done
     shift $((OPTIND - 1))
@@ -802,7 +902,7 @@ log::indent() {
 log::strip_color_codes() {
     local args
     # Allow this command to accept piped in arguments. Example: echo "text" | log::strip_color_codes
-    if (( "$#" == 0 )); then
+    if (("$#" == 0)); then
         IFS= read -r -t 0.01 args
         set -- "$args"
     fi
@@ -912,7 +1012,7 @@ log::keyvalue() {
     local delimiter="$delimiter_default"
     local OPTIND
     # log::debug "args: $@"
-    while getopts "Pv:d:" opt; do
+    while getopts ":Pv:d:" opt; do
         case "${opt}" in
             P ) add_padding=false ;;
             d ) delimiter="${OPTARG:-$delimiter_default}" ;;
@@ -981,7 +1081,6 @@ log::keyvalue() {
         # echo "k '$key' kn '$key_name' v '$value'"
         # echo "k '$key' v '$value'"
     fi
-
 
     # is_variable &&
     # ! $is_variable &&
