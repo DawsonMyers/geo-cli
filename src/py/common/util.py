@@ -6,9 +6,11 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 
 def run_in_terminal_then_close(cmd_to_run, title=''):
+    # print(f"geo.run_in_terminal_then_close: cmd = {cmd}")
     if title:
         title = "--title='%s'" % title
-    cmd = f"gnome-terminal {title} --geometry=80x30 -- bash -c \"bash {cmd_to_run}; cd $HOME\""
+    cmd = f"gnome-terminal {title} --geometry=100x30 -- bash -i -c \"{cmd_to_run};\""
+    # cmd = f"gnome-terminal {title} --geometry=80x30 -- bash -i -c \"bash -i -c '{cmd_to_run}'; cd $HOME\""
     try:
         os.system(cmd)
     except Exception as err:
@@ -18,7 +20,9 @@ def run_in_terminal_then_close(cmd_to_run, title=''):
 def run_in_terminal(cmd_to_run, title=''):
     if title:
         title = "--title='%s'" % title
-    cmd = f"gnome-terminal {title} --geometry=80x30 -- bash -c \"echo '{cmd_to_run}' >> $HOME/.bash_history; bash {cmd_to_run}; cd $HOME; exec bash\""
+    cmd = f"gnome-terminal {title} --geometry=100x30 -- bash -i -c \"echo '{cmd_to_run}' >> $HOME/.bash_history; {cmd_to_run}; cd $HOME; exec bash\";"
+    # print(f"geo.run_in_terminal: cmd = {cmd}")
+    # cmd = f"gnome-terminal {title} --geometry=80x30 -- bash -i -c \"echo '{cmd_to_run}' >> $HOME/.bash_history; bash {cmd_to_run}; cd $HOME; exec bash\"; exec bash"
     try:
         os.system(cmd)
     except Exception as err:
@@ -54,8 +58,21 @@ def get_item_with_submenu(self, menu, label='EMPTY'):
         item.set_submenu(menu)
         item.show_all()
         return item
-    
+
 def add_menu_item(self, menu, label='EMPTY', on_activate=lambda _: print('add_menu_item: on_activate empty')):
     item = Gtk.MenuItem(label=label)
     item.connect('activate', on_activate)
     menu.append(item)
+
+def str2bool(str):
+    if not str or str.lower() in ['false', 'no', 'n', '0']:
+        return False
+    return True
+
+# Returns the original string if it doesn't appear to be a bool.
+def try_convert_str2bool(str: str):
+    if str.lower() in [None, '', 'false', 'no', 'n', '0']:
+        return False
+    elif str.lower() in ['true', 'yes', 'y', '1']:
+        return True
+    return str

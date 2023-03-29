@@ -106,8 +106,15 @@ class MyGeotabMenuItem(Gtk.MenuItem):
 
     def monitor(self):
         is_myg_running = geo.run('myg is-running', return_success_status=True)
+        
+        if is_myg_running != self.app.get_state('myg_running'): 
+            self.app.set_state('myg_running', is_myg_running)
         # print(f"MyGeotabMenuItem: is_myg_running is running: {is_myg_running}")
-        is_running_with_gw = geo.run('gw is-running', return_success_status=True)
+        
+        # Updated from GatewayMenuItem.monitor.
+        is_running_with_gw = self.app.get_state('gw_running')
+        
+        # is_running_with_gw = geo.run('gw is-running', return_success_status=True)
         # print(f"MyGeotabMenuItem: is_running_with_gw is running: {is_running_with_gw}")
         if is_myg_running:
             self.app.icon_manager.set_myg_running(True)

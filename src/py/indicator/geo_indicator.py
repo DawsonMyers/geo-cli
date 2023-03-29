@@ -50,8 +50,8 @@ class IndicatorApp(object):
         self.menu = MainMenu(self)
         self.build_menu(self.menu)
         self.indicator.set_menu(self.menu)
-        print("=============== IndicatorApp: Starting up...")
-        GLib.timeout_add(5000, lambda: self.monitor)
+        print("=============== IndicatorApp: Starting up... ===============")
+        GLib.timeout_add(5000, self.monitor)
 
     def log(self, msg): print(f'[{type(self).__name__}]: {msg}')
 
@@ -61,6 +61,13 @@ class IndicatorApp(object):
     def set_state(self, key, value):
         if not key: return
         self.state[key] = value
+
+    # Get values from ~/.geo.conf (internal config file for geo-cli)
+    def get_config(self, key, default=None):
+        return geo.get_config(key)
+
+    def set_config(self, key, value):
+        geo.set_config(key, value)
 
     def show_notification_with_action(self, body, title='geo-cli', timeout=1500, urgency=None):
         if not geo.notifications_are_allowed():
@@ -308,19 +315,20 @@ class IndicatorApp(object):
         menu.append(bashrc)
 
 
-        geo_config = self.add_menu_item(menu, 'conf', lambda _: geo.run('edit config'))
-        geo_config_json = self.add_menu_item(menu, 'conf.json', lambda _: geo.run('edit config.json'))
+        geo_config = self.add_menu_item(menu, 'geo config', lambda _: geo.run('edit config'))
+        geo_config_json = self.add_menu_item(menu, 'geo config json', lambda _: geo.run('edit config.json'))
         self.edit_items["edit-config"] = geo_config
         self.edit_items["edit-config-json"] = geo_config_json
         item.set_submenu(menu)
         item.show_all()
-        if not self.get_state('dev_mode'):
+        if not geo.get_config('dev_mode'):
             geo_config.hide()
             geo_config_json.hide()
+        return item
 
-    def monitor(self, caller):
+    def monitor(self):
         # TODO: FIx this.
-        if self.get_state('dev_mode'):
+        if geo.get_bool_config('dev_mode'):
             self.edit_items["edit-config"].show()
             self.edit_items["edit-config-json"].show()
         else:
@@ -363,6 +371,7 @@ class MainMenu(Gtk.Menu):
 
     def append(self, item):
         try:
+            if item is None: raise Exception("MainMenu.append attempted on a null object.")
             if item in self.items:
                 return
             self.items.add(item)
@@ -404,11 +413,13 @@ def main():
     retry = True
     delay = 5
     # Gtk.init()
+
     show_startup_notification=True
     while retry and retry_count < 20:
         try:
             indicator = IndicatorApp(show_startup_notification)
-            geo.try_start_last_db()
+            if retry_count == 0:
+                geo.try_start_last_db()
             Gtk.main()
             retry = False
         except Exception as e:

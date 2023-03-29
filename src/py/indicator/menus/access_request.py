@@ -20,7 +20,7 @@ class AccessRequestMenuItem(Gtk.MenuItem):
         item_iap_start_prev = Gtk.MenuItem(label='Start Previous')
         self.item_iap_start_prev = item_iap_start_prev
         item_iap_start_prev.set_submenu(Gtk.Menu())
-        
+
         iap_menu.append(item_iap_start_new)
         iap_menu.append(item_iap_start_new_bind)
         iap_menu.append(item_iap_start_prev)
@@ -112,8 +112,8 @@ class OpenIapTunnelMenuItem(Gtk.MenuItem):
         self.menu.append(bindItem)
         self.menu.show_all()
         self.set_submenu(self.menu)
-        
-        
+
+
 class OpenIapTunnelMenu(Gtk.MenuItem):
     items = set()
     init_rebuild = False
@@ -130,16 +130,16 @@ class OpenIapTunnelMenu(Gtk.MenuItem):
         # self.items.add(self.empty_item)
         self.set_submenu(self.menu)
         self.show_all()
-    
+
         GLib.timeout_add(2000, self.monitor)
-        
+
     def log(self, msg):
         print(f'OpenIapTunnelMenu: {msg}')
 
     def monitor(self):
         try:
             open_tunnels_str=geo.run('dev open-iap-tunnels')
-            
+
             # This is needed so that multiple instances of this class render correctly; the menu needs to be built twice (for some reason).
             if self.prev_tunnel_str and not self.init_rebuild or (self.empty_item in self.items and not self.init_rebuild):
                 self.prev_tunnel_str = ''
@@ -156,7 +156,6 @@ class OpenIapTunnelMenu(Gtk.MenuItem):
             for tunnel_str in cur_tunnels:
                 if not tunnel_str or '=' not in tunnel_str:
                     continue
-                self.log(tunnel_str)
                 ar_name, iap_port = tunnel_str.split('=')
                 # print(ar_name, iap_port)
                 if len(ar_name) < 3:
@@ -188,11 +187,11 @@ class OpenIapTunnelMenu(Gtk.MenuItem):
             #         self.menu.remove(child)
             # self.menu.show_all()
             # self.show_all()
-                
+
         except Exception as err:
             print('SshOverOpenTunnelMenuItem: ERROR: ' + err)
         return True
-    
+
     def remove_all(self):
         if not self.items:
             self.empty_item.show()

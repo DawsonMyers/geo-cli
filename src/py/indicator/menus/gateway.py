@@ -28,7 +28,7 @@ class GatewayMenuItem(Gtk.MenuItem):
         self.app = app
         self.build_submenu(app)
         self.show_all()
-        GLib.timeout_add(2000, self.monitor)
+        GLib.timeout_add(4000, self.monitor)
 
     def make_titles(self, title, include_version=False):
         window_title = f'{title} [ geo-cli ]'
@@ -86,9 +86,11 @@ class GatewayMenuItem(Gtk.MenuItem):
         geo.run_in_terminal(f'gw {cmd}', title=title)
 
     def monitor(self):
-        is_running = geo.run('gw is-running', return_success_status=True)
-        self.gw_running = is_running
-        if is_running:
+        gw_running = geo.run('gw is-running', return_success_status=True)
+        if gw_running != self.app.get_state('gw_running'):
+            self.app.set_state('gw_running', gw_running)
+        self.gw_running = gw_running
+        if gw_running:
             self.app.icon_manager.set_gateway_running(True)
             self.show_running_items()
         else:

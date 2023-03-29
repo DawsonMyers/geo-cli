@@ -5,6 +5,10 @@ import time
 from . import util
 from . import config
 
+def log(msg):
+    print(f'geo.py: {msg}')
+
+
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 GEO_SRC_DIR = os.path.dirname(BASE_DIR)
 GEO_CMD_BASE = GEO_SRC_DIR + '/geo-cli.sh '
@@ -29,6 +33,10 @@ def make_cached_property(get_value_func, delay=1, default=None):
 
 
 def start_db(name):
+    running_db = get_running_db_name()
+    if name == running_db:
+        print(f"geo.start_db: geo db '{running_db}' is already running")
+        return
     dbs = get_geo_db_names()
     # Make sure there is a db name and that it exists (otherwise we will recreate a deleted db get running 'geo db start -n <db name>')
     if name and name in dbs:
@@ -48,23 +56,28 @@ def run(arg_str, terminal=False, return_error=False, return_all=False, return_su
         return geo(arg_str, return_error, return_all, terminal, return_success_status)
 
 
-def geo(arg_str, return_error=False, return_all=False, terminal=False, return_success_status=False):
+def geo(arg_str, return_error=False, return_all=False, terminal=False, return_success_status=False, return_value_retcode_tuple=False):
     if terminal:
         run_in_terminal(arg_str)
         return
+    log(f'geo: arg_str: {arg_str}')
     geo_path = config.GEO_SRC_DIR + '/geo-cli.sh '
-    cmd = geo_path + ' --raw-output --no-update-check ' + arg_str
+    cmd = geo_path + ' --api ' + arg_str
+    # cmd = geo_path + ' --raw-output --no-update-check ' + arg_str
     result = ['', '']
     return_code = ''
-    
+
     try:
-        process = subprocess.Popen("bash %s" % (cmd), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable='/bin/bash', text=True)
+        process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable='/bin/bash', text=True)
+        # process = subprocess.Popen("bash %s" % (cmd), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable='/bin/bash', text=True)
         return_code = process.wait()
         result = process.communicate()
         # if result[1]:
         #     print(f'geo: Error running command {arg_str}: {result}')
     except Exception as err:
-        print(f'Error running geo("{arg_str}", {return_error}, {return_all}). result = {result}: err = {err}')
+        log(f'Error running geo("{arg_str}", {return_error}, {return_all}). result = {result}: err = {err}')
+
+    if return_value_retcode_tuple: return (result[0], return_code)
     if return_error: return result[1]
     if return_success_status: return False if result[1] or process.returncode != 0 or 'false' in result[0] else True
     if return_all: return result
@@ -73,14 +86,25 @@ def geo(arg_str, return_error=False, return_all=False, terminal=False, return_su
 
 def get_myg_release():
     release = geo('dev release')
-    if len(release) > 32 or ' ' in release or '\n\n' in release or 'MyGeotab' in release or 'repo' in release or 'geo-cli' in release or 'cli-handlers' in release:
+    if len(release) > 0: release = release.replace('\n', '')
+    if len(release) > 32 or ' ' in release or '\n' in release or 'MyGeotab' in release or 'repo' in release or 'geo-cli' in release or 'cli-handlers' in release:
+    # if len(release) > 32 or ' ' in release or '\n\n' in release or 'MyGeotab' in release or 'repo' in release or 'geo-cli' in release or 'cli-handlers' in release:
+        print(f"geo.get_myg_release: Invalid release: '{release}'")
         return ''
     return release
 
 
 def try_start_last_db():
+    running_db = get_running_db_name()
+    if running_db:
+        print(f"geo.try_start_last_db: geo db already running: {running_db}")
+        return
     last_db = get_config('LAST_DB_VERSION')
     start_db(last_db)
+
+def get_running_geo_container():
+    cmd = 'docker ps - -filter name = "geo_cli_db" - -filter status = running - a - -format = "{{ .Names }}"'
+    # .replace('geo_cli_db_postgres_', '')
 
 
 def get_geo_cmd(geo_cmd):
@@ -110,16 +134,31 @@ def get_config(key):
     key = key.upper()
     if key in geo_config_cache:
         return geo_config_cache[key]
-    value = geo(f"get '{key}'")
+    (value, retcode) = geo(f"get '{key}'", return_value_retcode_tuple=True)
+    if retcode == 0:
+        geo_config_cache[key] = value
+    return value
+
+def get_bool_config(key: str) -> bool: return util.str2bool(get_config(key))
+
+def set_config(key: str, value):
+    key = key.upper()
+    if not key or geo_config_cache.get(key) == value:
+        return
+    # The config file will be reloaded after setting it, which will update geo_config_cache.
+    # This seems better than updating the cache now, since we won't try to write again if we already have the value in
+    # the cache. This allows us to keep trying to set the value until we know for sure that the file has been updated.
+    # geo("set '%s' '%s'" % (key, value))
+    (_, retcode) = geo(f"set '{key}' '{value}'", return_value_retcode_tuple=True)
+    if retcode == 0:
+        geo_config_cache[key] = value
     return value
 
 
-def set_config(key, value):
-    geo("set '%s' '%s'" % (key, value))
-    return value
-
-
-def rm_config(key):
+def rm_config(key: str):
+    key = key.upper()
+    if not key or key not in geo_config_cache:
+        return
     geo("rm '%s'" % key)
 
 
@@ -159,8 +198,8 @@ def get_geo_db_names():
         print(f'Error running get_geo_db_names(): {err}')
     names_a = [] if not names_a else names_a
     return names_a
-        
-        
+
+
 def get_running_db_name():
     cmd = 'docker container ls --filter name="geo_cli_db_" --filter status=running  -a --format="{{ .Names }}"'
     name = ''
@@ -203,7 +242,7 @@ def load_geo_config_if_required():
     global geo_config_file_modified_time
     global geo_config_cache
     global prev_config_file_str
-    print('load_geo_config_if_required')
+
     try:
         if not os.path.exists(GEO_CONFIG_FILE_PATH):
             return
@@ -238,3 +277,11 @@ def load_geo_config_if_required():
     except Exception as err:
         print(f'Error running load_geo_config(): {err}')
 
+# def get_config(key):
+#     return geo_config_cache.get(key)
+
+# def set_config(key, value):
+#     if not key or geo_config_cache.get(key) == value:
+#         return
+#     geo_config_cache[key] = value
+#     geo.s
