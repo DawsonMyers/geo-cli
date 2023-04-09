@@ -88,10 +88,14 @@ install-utils::init-gitlab-pat() {
 install-utils::install-desktop() {
     sudo ln -fs "$GEO_CLI_DIR"/src/geo-cli.sh /usr/local/bin/geo # or anywhere else in $PATH
     sudo ln -fs "$GEO_CLI_DIR"/src/py/indicator/geo_indicator.py /usr/local/bin/geo-ui # or anywhere else in $PATH
-    sudo cp res/geo-cli-logo.png /usr/share/pixmaps/geo.png
+    # Icon files aren't supposed to have extensions.
+    sudo cp res/geo-cli-logo.png /usr/share/pixmaps/geo
+    # sudo cp res/geo-cli-logo.png /usr/share/pixmaps/geo.png
     sudo desktop-file-install src/py/indicator/geo.indicator.desktop
     sudo update-desktop-database
     # sudo cp extra/logo/alacritty-term.svg /usr/share/pixmaps/Alacritty.svg
     # sudo desktop-file-install extra/linux/Alacritty.desktop
     # sudo update-desktop-database
+
+    # mkdir -p ~/.local/share/file-manager/actions
 }

@@ -1,15 +1,26 @@
 #!/usr/bin/env bats
-
+. ./../src/geo-cli.sh
 setup() {
-    # $BATS_SETUP_COMMENT$
+    # executed before each test
     echo "setup" >&3
 }
 
 teardown() {
-    # $BATS_TEARDOWN_COMMENT$
+    # executed after each test
     echo "teardown" >&3
 }
 
-@test "$test_name$" {
-    true$END$
-}
+#@test test_name {
+#    _geo_ar__copy_pgAdmin_server_config
+#    true
+#}
+
+alias ":["="cat <<__GEO_BLOCK
+eval echo "\$\(\( $* \)\)"
+"
+
+alias "]:"="
+__GEO_BLOCK
+"
+#alias "]:"="$(echo -e "\n__GEO_BLOCK\n")"
+

@@ -251,6 +251,8 @@ util::typeof () {
     local is_ref=false
     local is_defined=false
 
+    [[ $1 == --is-type && -n $2 ]] && is_type="$2" && shift && silent=true
+
     local OPTIND
     while getopts ":aAmhst:T:rd" opt; do
         case "${opt}" in
@@ -259,7 +261,7 @@ util::typeof () {
             # Type to test for and print the variable type out.
             T ) is_type="$OPTARG" ;;
             a ) is_type=array ;;
-            m ) is_type=map ;;
+            m | A | h ) is_type=map ;;
             s ) is_type=string ;;
             S ) silent=true ;;
             r ) is_ref=true ;;
@@ -504,6 +506,7 @@ util::array_to_path() {
     local -n _array_ref="$1"
     echo "${_array_ref[*]}" | tr ' ' '.'
 }
+
 util::array_concat() {
     # local join_str=' '
     local default_join_str=' '
@@ -515,6 +518,7 @@ util::array_concat() {
     [[ -z $1 || ! -v $1 ]] && log::Error "'$1' is not a valid array variable name"
     local -n _array_ref="$1"
     [[ -n $2 ]] && local join_str="${*:2}"
+    ! util::typeof --is-type 'array' $1 && echo "${1// /$join_str}"
     [[ $join_str == "$default_join_str" ]] && echo "${_array_ref[*]}" && return
 
     local str=''
@@ -566,6 +570,30 @@ util::array_push_front() {
 alias array-push-front=util::array_push_front
 alias array-shift=util::array_push_front
 
+util::str_join() {
+    local join_str=''
+    if [[ $1 =~ -j|--join|--join-on ]]; then
+        join_str="$2"
+        e join_str
+        shift 2
+        log::debug "\${*//$IFS/$join_str}"
+        echo "${*//$IFS/$join_str}"
+        return
+    fi
+    echo "$*"
+#
+#    local join_len=${#1}
+#    shift
+#    echo "${@:1}"
+#    local output=''
+#
+#    for s in "$@"; do
+#        output+="${s}${join_str}"
+#    done
+#
+#    echo "${output:0:-$join_len}"
+}
+
 # TODO: Finish dev
 util::remove_region_from_file() {
     local file="$1"
@@ -615,4 +643,20 @@ util::is_number() {
 # Checks if a command exists. Returns 0 if the command is found.
 util::has() {
   command -v "$1" 1>/dev/null 2>&1
+}
+
+has() {
+  command -v "$1" 1>/dev/null 2>&1
+}
+
+# Gets path to a temporary file, even if
+_geo_tmp_file() {
+#mkgeotmpfile() {
+  suffix="$1"
+  if has mktemp; then
+    printf "%s.%s" "$(mktemp)" "${suffix}"
+  else
+    # No really good options here--let's pick a default + hope
+    printf "/tmp/geo-cli-test.%s" "${suffix}"
+  fi
 }

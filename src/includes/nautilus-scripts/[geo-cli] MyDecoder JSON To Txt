@@ -14,5 +14,5 @@ export file="${NAUTILUS_SCRIPT_SELECTED_FILE_PATHS:0:-1}"
 
 # Open interactive terminal and run geo command.
 # the -i option makes bash run in interactive mode. This mode sources the .bashrc file, making geo for us to use.
-gnome-terminal -- bash -i -c "mydecoder ${file}; echo 'Press Enter to exit'; read"
+gnome-terminal -- bash -i -c "geo mydecoder ${file}; echo 'Press Enter to exit'; read"
 

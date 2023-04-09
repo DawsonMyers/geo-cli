@@ -1,5 +1,5 @@
 # Regex to find color control codes: (\\\[)?(\\e|\\033)\[(\d+;)*\d+m
-
+#Remove color codes: echo $txt | sed 's/\x1b\[[0-9;]*m//g'
 CHECK_MARK="\033[0;32m\xE2\x9C\x94\033[0m"
 EMOJI_CHECK_MARK=✔️
 EMOJI_CHECK_MARK_GREEN='\033[0;32m✔\033[0m'
@@ -9,19 +9,6 @@ EMOJI_RED_X_SMALL=✘
 EMOJI_RED_X_SMALL_RED='\033[0;31m✘\033[0m'
 # EMOJI_RED_X_SMALL_RED='\[\033[0;31m\]✘\[\033[0m\]'
 EMOJI_BULLET='•'
-
-# Reset
-Off='\033[0m'       # Text Reset
-
-# Regular Colors
-Black='\033[0;30m'        # Black
-Red='\033[0;31m'          # Red
-Green='\033[0;32m'        # Green
-Yellow='\033[0;33m'       # Yellow
-Blue='\033[0;34m'         # Blue
-Purple='\033[0;35m'       # Purple
-Cyan='\033[0;36m'         # Cyan
-White='\033[0;37m'        # White
 
 # 256 colors (only supported by vte terminals)
 
@@ -35,6 +22,19 @@ display_vte_colors() {
         (( i % 8 == 0 )) && echo
     done
 }
+
+# Reset
+Off='\033[0m'       # Text Reset
+
+# Regular Colors
+Black='\033[0;30m'        # Black
+Red='\033[0;31m'          # Red
+Green='\033[0;32m'        # Green
+Yellow='\033[0;33m'       # Yellow
+Blue='\033[0;34m'         # Blue
+Purple='\033[0;35m'       # Purple
+Cyan='\033[0;36m'         # Cyan
+White='\033[0;37m'        # White
 
 # Bold
 BBlack='\033[1;30m'       # Black

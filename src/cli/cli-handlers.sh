@@ -2449,11 +2449,11 @@ _geo_db__get_checkmate_dll_path() {
     local output_dir="${dev_repo}/Checkmate/bin/Debug"
     local accept_defaults=$1
     # Get full path of CheckmateServer.dll files, sorted from newest to oldest.
-    local files="$(find $output_dir -maxdepth 2 -name "CheckmateServer.dll" -print0 | xargs -r -0 ls -1 -t | tr '\n' ':')"
-    local ifs=$IFS
+    local files="$(find "$output_dir" -maxdepth 2 -name "CheckmateServer.dll" -print0 | xargs -r -0 ls -1 -t | tr '\n' ':')"
+    local ifs="$IFS"
     IFS=:
     read -r -a paths <<<"$files"
-    IFS=$ifs
+    IFS="$ifs"
     local number_of_paths=${#paths[@]}
     [[ $number_of_paths == 0 ]] && log::Error "No output directories could be found in ${output_dir}. These folders should exist and contain CheckmateServer.dll. Build MyGeotab and try again."
 
@@ -2512,11 +2512,11 @@ _geo_check_for_dev_repo_dir() {
             log::warn "The provided path does not contain the Checkmate directory"
             return 1
         fi
-        echo $dev_repo
+        # echo $dev_repo
     }
 
     if ! is_valid_repo_dir "$dev_repo" && [[ $dev_repo != -- ]]; then
-        log::status "Searching for possible repo locations..."
+        # log::status "Searching for possible repo locations..."
         _geo_init__find_myg_repo -v dev_repo
     fi
 
@@ -2531,19 +2531,116 @@ _geo_check_for_dev_repo_dir() {
     @geo_set DEV_REPO_DIR "$dev_repo"
 }
 
-populate_prev_value_if_requested() {
-    local key="$1"
-    local -n value_ref="$2"
-    [[ -z $value_ref ]] && return
-    if [[ $value_ref == - ]]; then
-        local saved_value=$(@geo_get $key)
-        [[ -z $saved_value ]] && log::Error "There is no value saved for key '$key'" && return 1
-        value_ref="$saved_value"
-        log::data "Using saved value: $(log::detail $value_ref)"
-        return
-    fi
-    @geo_set $key "$value_ref"
+# Concatenates two lines using ' ' (or what was passed in as an arg to the -d delimeter option) if they can both fit on
+# the same line (their total width doesn't exceed the width of the terminal). Otherwise, the lines will be separated by
+# a line break. Non-printable characters are temporarily removed from the two strings in order to get their true width, 
+# Arguments:
+#     [-s <start_len> | -e <end_len> | -d <delimeter>]
+#     1: String 1
+#     2: String 2
+# Returns:
+#     If total length < terminal width:
+#         string1<delimeter>string2
+#      Otherwise:
+#         string1
+#         string2
+break_lines_if_term_width_exceeded() {
+    local start_len end_len delim=' '
+    local OPTIND
+
+    while getopts ":s:e:d:" opt; do
+        case "${opt}" in
+            s) start_len="$OPTARG" ;;
+            e) end_len="$OPTARG" ;;
+            d) delim="$OPTARG" ;;
+            :) log::Error "Option '${OPTARG}' expects an argument." && return 1 ;;
+            \?) log::Error "Invalid option: ${OPTARG}" && return 1 ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+
+    local newline=$'\n'
+    local start="$1"
+    local end="$2"
+
+    # Remove non-printable character so that they don't affect line width.
+    start_clean="$(echo -n "$start" | log::strip_color_codes)"
+    : "${start_len:=${#start_clean}}"
+    end_clean="$(echo -n "$end" | log::strip_color_codes)"
+    : "${end_len:=${#end_clean}}"
+    
+    local cols msg
+    cols=$(tput cols)
+
+    # log::debug "((${#start} + ${#end} + 1 < $cols)) = $((${#start} + ${#end} + 2 < cols))"
+
+    ((start_len + end_len < cols)) \
+        && msg="${start}${delim}${end}" \
+        || msg="${start}${newline}${end}"
+    echo -n "$msg"
 }
+
+# Prompts for either reusing the previous value or entering a new one.
+# Arguments:
+#     [--no-save]: If present, the value entered will NOT be persisted.
+#     1: The key for the persisted value.
+#     2: The name of the caller variable to write the new value to.
+#     [3]: The message to show when prompting for user input.
+#     [4]: A regex that the entered value must match to be considered valid.
+#     [5]: The message to show if the value is invalid.
+prompt_for_info_with_previous_value() {
+    local persist_value=true; [[ $1 == --no-save ]] && persist_value=false && shift
+    local key="${1?$FUNCNAME 'Argument missing (#1): value for property key is required'}"
+    local value_var_ref_name="${2?$FUNCNAME 'Argument missing (#1)'}"
+    local -n value_var_ref="$2"
+    local prompt_msg="${3:-"Enter a new value for $value_var_ref_name"}"
+    local valid_regex="$4"
+    local invalid_input_msg="${5:-'Invalid input value'}"
+
+    # [[ -z $value_var_ref ]] && return
+
+    local can_reuse_previous_value=false
+    local saved_value="$(@geo_get "$key")"
+
+    # e saved_value prompt_msg
+
+    # if [[ -n $prompt_msg ]]; then
+        local newline=$'\n'
+        local stored_value_msg="$(log::detail -n Leave blank to use previous value:)"
+        local value_msg="$(log::data -n "$saved_value")"
+
+        local stored_value_prompt="$(break_lines_if_term_width_exceeded "$stored_value_msg" "$value_msg")"
+        [[ -n $saved_value ]] \
+            && log::info "$stored_value_prompt" \
+            && can_reuse_previous_value=true
+            # && log::info "Leave blank to use previous value: \n$(log::note "$saved_value")" \
+
+        prompt_for_info -v "$value_var_ref_name" "$prompt_msg"
+
+#        e $value_var_ref
+        if [[ -z $value_var_ref ]] && $can_reuse_previous_value; then
+            value_var_ref="$saved_value"
+            log::status "Using previous value"
+        elif [[ -z $value_var_ref || -n $valid_regex && ! $value_var_ref =~ $valid_regex ]]; then
+            echo "elif [[ -z $value_var_ref || -n $valid_regex && ! $value_var_ref =~ $valid_regex ]]"
+            while [[ -z $value_var_ref || -n $valid_regex && ! $value_var_ref =~ $valid_regex ]]; do
+                log::warn "$invalid_input_msg"
+                prompt_for_info -v "$value_var_ref_name" "$prompt_msg"
+            done
+    fi
+    # elif [[ $value_var_ref =~ ^-?$ ]]; then
+    #     echo "elif [[ $value_var_ref =~ ^-?$ ]]"
+    #     [[ -z $saved_value ]] && log::Error "There is no value saved for key '$key'" && return 1
+    #     value_var_ref="$saved_value"
+    #     log::data "Using saved value: $(log::detail "$value_var_ref")"
+    #     return
+    # fi
+
+    $persist_value && [[ -n $value_var_ref && $value_var_ref != $saved_value ]] \
+        && @geo_set "$key" "$value_var_ref" 
+        # || log::debug "not saving data"
+}
+# prompt_for_info_with_previous_value ppv result "enter result: " '[[:digit:]]+' 'Your input is awful'
 
 #######################################################################################################################
 @register_geo_cmd 'ar'
@@ -2598,37 +2695,40 @@ populate_prev_value_if_requested() {
         log::status -bu "Binding local port ${bind_port:-5432} to 5432 on remote host (through IAP tunnel)"
         echo
         log::info "$(txt_underline geo-cli) can configure pgAdmin to connect to Postgres over the IAP tunnel."
-        log::info "Enter your Access Request password below to update the password file for the $(txt_underline MyGeotab Over IAP) server in pgAdmin, $(txt_underline OR) leave it blank if you already have a server in pgAdmin and plan to update its password manually."
+        log::info "Enter your Access Request password below to update the password file for the $(txt_underline MyGeotab Over IAP) server in pgAdmin"
+        # log::info "$(txt_underline OR) leave it blank if you already have a server in pgAdmin and plan to update its password manually."
         echo
         log::info "The $(txt_underline MyGeotab Over IAP) server needs to be imported $(txt_underline once) into pgAdmin."
         log::info "The instructions will be shown after you enter your password."
         echo
         log::info "After the server is added, you only need to paste in your password below to have its passfile updated. Make sure to refresh the server in pgAdmin after the port is bound."
         echo
-        hint='* Leave the password empty if you will be manually updating an existing server in pgAdmin.'
-        log::hint "$(log::fmt_text_and_indent_after_first_line "$hint" 0 2)"
-        hint="* Enter '-' in any of the following inputs to re-use the last value used."
-        log::hint "$(log::fmt_text_and_indent_after_first_line "$hint" 0 2)"
+        # hint='* Leave the password empty if you will be manually updating an existing server in pgAdmin.'
+        # log::hint "$(log::fmt_text_and_indent_after_first_line "$hint" 0 2)"
+        # hint="* Enter '-' in any of the following inputs to re-use the last value used."
+        # log::hint "$(log::fmt_text_and_indent_after_first_line "$hint" 0 2)"
 
         # log::fmt_text_and_indent_after_first_line "$hint" 0 2
         # log::detail "Enter '-' in any of the following inputs to re-use the last value used."
-        iap_password_prompt="Access Request password:\n> "
-        iap_db_prompt="Database:\n> "
+        iap_password_prompt="Access Request password:"
+        # iap_db_prompt="Database:\n> "
 
-        prompt_for_info_n -v iap_password "$iap_password_prompt"
-        while ! populate_prev_value_if_requested AR_PASSWORD iap_password; do
-            prompt_for_info_n -v iap_password "$iap_password_prompt"
-        done
+        prompt_for_info_with_previous_value AR_PASSWORD iap_password "$iap_password_prompt"
+
+        # prompt_for_info_n -v iap_password "$iap_password_prompt"
+        # while ! prompt_for_info_with_previous_value AR_PASSWORD iap_password "$iap_password_prompt"; do
+        #     prompt_for_info_n -v iap_password "$iap_password_prompt"
+        # done
         # prompt_for_info_n -v iap_db "$iap_db_prompt"
-        # populate_prev_value_if_requested AR_DATABASE iap_db
-        # while ! populate_prev_value_if_requested AR_DATABASE iap_db; do
+        # prompt_for_info_with_previous_value AR_DATABASE iap_db
+        # while ! prompt_for_info_with_previous_value AR_DATABASE iap_db; do
         #     prompt_for_info_n -v iap_db "$iap_db_prompt"
         # done
 
         iap_skip_password=true
         reuse_msg_shown=true
         if [[ -n $iap_password ]]; then
-            _geo_ar__copy_pgAdmin_server_config --iap "$iap_password" "$user"
+            _geo_ar__copy_pgAdmin_server_config --iap "$iap_password" --user "$user"
             # _geo_ar__copy_pgAdmin_server_config --iap "$iap_password" "$iap_db" "$user"
         fi
     }
@@ -2637,6 +2737,9 @@ populate_prev_value_if_requested() {
     local iap_skip_password=false
     local reuse_msg_shown=false
     local caller_args='ar'
+#    local
+    local cmd="$1"
+    [[ -z $cmd ]] && log::Error "$FUNCNAME: Command argument missing" && return
     case "$1" in
         create)
             xdg-open https://myadmin.geotab.com/accessrequest/requests
@@ -2653,7 +2756,7 @@ populate_prev_value_if_requested() {
                 local bind_db_port='false'
                 local port=
                 local bind_port=
-                local user=
+                local user=$USER
 
                 caller_args+=" tunnel"
                 _geo__set_terminal_title -G "$caller_args"
@@ -2692,11 +2795,12 @@ populate_prev_value_if_requested() {
 
                 local gcloud_cmd="$*"
                 local expected_cmd_start='gcloud compute start-iap-tunnel'
-                local prompt_txt='Enter the gcloud IAP command that was copied from your MyAdmin access request:'
+                local iap_cmd_prompt_txt='Enter the gcloud IAP command that was copied from your MyAdmin access request:'
                 if [[ $prompt_for_cmd == true ]]; then
                     ! $reuse_msg_shown && log::detail "Enter '-' below to re-use the last gcloud command used."
-                    prompt_for_info -v gcloud_cmd "$prompt_txt"
-                    populate_prev_value_if_requested AR_IAP_CMD gcloud_cmd
+                    # ! $reuse_msg_shown && log::detail "Enter '-' below to re-use the last gcloud command used."
+                    # prompt_for_info -v gcloud_cmd "$iap_cmd_prompt_txt"
+                    prompt_for_info_with_previous_value AR_IAP_CMD gcloud_cmd "$iap_cmd_prompt_txt"
                 fi
 
                 if [[ $list_previous_cmds == true ]]; then
@@ -2718,13 +2822,13 @@ populate_prev_value_if_requested() {
 
                 while [[ ! $gcloud_cmd =~ ^$expected_cmd_start ]]; do
                     ! $reuse_msg_shown && log::warn -b "The command must start with 'gcloud compute start-iap-tunnel'" && reuse_msg_shown=true
-                    prompt_for_info -v gcloud_cmd "$prompt_txt"
-                    populate_prev_value_if_requested AR_IAP_CMD gcloud_cmd
+                    # prompt_for_info -v gcloud_cmd "$iap_cmd_prompt_txt"
+                    prompt_for_info_with_previous_value AR_IAP_CMD gcloud_cmd
                 done
 
                 @geo_set AR_IAP_CMD "$gcloud_cmd"
                 _geo_ar__push_cmd "$gcloud_cmd"
-                _geo__set_terminal_title -G "$caller_args" "$(_geo_ar__get_tag_from_cmd $gcloud_cmd)"
+                _geo__set_terminal_title -G "$caller_args" "$(_geo_ar__get_tag_from_cmd $gcloud_cmd)" "($port)"
 
                 local open_port=
                 if [[ -n $port ]]; then

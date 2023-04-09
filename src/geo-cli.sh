@@ -3,7 +3,10 @@
     && echo "ERROR: geo-cli.sh: MUST be run in a BASH shell environment ONLY." && exit 1
 
 # This file is sourced from ~/.bashrc to make geo cli available from any bash terminal.
-if [[ `whoami` = 'root' && -z $GEO_ALLOW_ROOT ]]; then echo 'ERROR: Do not run geo as root (sudo)'; exit; fi
+if [[ $(whoami) == 'root' && -z $GEO_ALLOW_ROOT ]]; then
+    echo 'ERROR: Do not run geo as root (sudo)'
+    exit
+fi
 
 declare -A LOADED_MODULES
 # Sources the supplied file relative to the base geo-cli repo dir.
@@ -18,9 +21,9 @@ geo-cli::import() {
     echo "eval source $geo_dir/$1"
     LOADED_MODULES[$file_name]=true
     set +e
-#    cat <<-EOL
-#        eval source $geo_dir/$1
-#EOL
+    #    cat <<-EOL
+    #        eval source $geo_dir/$1
+    #EOL
 }
 
 # echo "install.sh: \${BASH_SOURCE[0]} =  ${BASH_SOURCE[0]}"
@@ -66,10 +69,10 @@ export GEO_CLI_DIR
 
 if [[ -z $GEO_CLI_DIR || ! -f $GEO_CLI_DIR/install.sh ]]; then
     msg="cli-handlers.sh: ERROR: Can't find geo-cli repo path."
-    [[ ! -f $HOME/.geo-cli/data/geo/repo-dir ]] && echo "$msg" && exit 1;
+    [[ ! -f $HOME/.geo-cli/data/geo/repo-dir ]] && echo "$msg" && exit 1
     # Running from a symbolic link from geo-cli.sh. Try to get geo-cli from config dir.
     GEO_CLI_DIR="$(cat "$GEO_CLI_CONFIG_DIR/data/geo/repo-dir")"
-    [[ ! -f $GEO_CLI_DIR/install.sh ]] && echo "$msg" && exit 1;
+    [[ ! -f $GEO_CLI_DIR/install.sh ]] && echo "$msg" && exit 1
 
 fi
 [[ -z $GEO_CLI_SRC_DIR ]] && export GEO_CLI_SRC_DIR="${GEO_CLI_DIR}/src"
@@ -77,7 +80,7 @@ fi
 # Load environment variable files.
 [[ ! -d $GEO_CLI_CONFIG_DIR/env ]] && mkdir -p "$GEO_CLI_CONFIG_DIR/env"
 if [[ $(ls -A $GEO_CLI_CONFIG_DIR/env) ]]; then
-    for file in $GEO_CLI_CONFIG_DIR/env/*.sh ; do
+    for file in $GEO_CLI_CONFIG_DIR/env/*.sh; do
         . "$file"
     done
 fi
@@ -149,14 +152,16 @@ export GEO_API=false
 # }
 
 function geo() {
-#     set -E
-#     set -e
-#     trap "$GEO_ERR_TRAP" ERR
+    #     set -E
+    #     set -e
+    #     trap "$GEO_ERR_TRAP" ERR
     set -E
-    trap 'echo "${BASH_SOURCE[1]##*/}[${BASH_LINENO[1]}].${FUNCNAME[1]}() => ${BASH_SOURCE[0]##*/}[${BASH_LINENO[0]}].${FUNCNAME[0]}($LINENO)"' ERR
+    trap 'log::stacktrace' ERR
+    # trap 'echo "geo-cli: at ${BASH_SOURCE[0]##*/}[${BASH_LINENO[0]}].${FUNCNAME[0]}($LINENO)"' ERR
+    # trap 'echo "${BASH_SOURCE[1]##*/}[${BASH_LINENO[1]}].${FUNCNAME[1]}() => ${BASH_SOURCE[0]##*/}[${BASH_LINENO[0]}].${FUNCNAME[0]}($LINENO)"' ERR
     trap 'trap - ERR RETURN' RETURN
     # Log call.
-    [[ $(@geo_get LOG_HISTORY) == true ]] && echo "[$(date +"%Y-%m-%d_%H:%M:%S")] geo $*" >> ~/.geo-cli/history.txt
+    [[ $(@geo_get LOG_HISTORY) == true ]] && echo "[$(date +"%Y-%m-%d_%H:%M:%S")] geo $*" >>~/.geo-cli/history.txt
 
     # Suppresses some output and prompts when false, used by the ui to reduce the output/formatting of the text returned
     # by geo.
@@ -170,25 +175,25 @@ function geo() {
         # A hyphen is then concatenated to the result to account for the one that was removed.
         local opt_prefix="${1%-*}-"
         # Strips '-' or '--' option prefix.
-        local arg="${1/-?}"
+        local arg="${1/-?/}"
         arg="${arg:-$opt_prefix}"
         case "$arg" in
-             # Disabled formatted output if the --raw-output option is present.
-            raw-output | r ) GEO_RAW_OUTPUT=true ;;
-            no-update-check | U) GEO_NO_UPDATE_CHECK=true ;;
-            non-interactive | I ) GEO_INTERACTIVE=false ;;
-            api) GEO_API=true GEO_RAW_OUTPUT=true GEO_NO_UPDATE_CHECK=true GEO_INTERACTIVE=false ;;
-            # Runs the geo-cmd ina new interactive terminal.
-            launch-in-term | ui | T)
-                shift
-                gnome-terminal --title="geo ${*}" -- bash -i -c "echo ${*}; echo -e \"\nPress Enter to exit\"; read"
-                echo "Launching terminal..."
-                return
-                ;;
-            silent | s) GEO_SILENT=true ;;
-            -- )  break ;;
-            # - ) log::Error "${FUNCNAME}: '-' is not an option."; return 1 ;; # TODO: Rerun prev cmd
-            * ) break ;; # End of options.
+        # Disabled formatted output if the --raw-output option is present.
+        raw-output | r) GEO_RAW_OUTPUT=true ;;
+        no-update-check | U) GEO_NO_UPDATE_CHECK=true ;;
+        non-interactive | I) GEO_INTERACTIVE=false ;;
+        api) GEO_API=true GEO_RAW_OUTPUT=true GEO_NO_UPDATE_CHECK=true GEO_INTERACTIVE=false ;;
+        # Runs the geo-cmd ina new interactive terminal.
+        launch-in-term | ui | T)
+            shift
+            gnome-terminal --title="geo ${*}" -- bash -i -c "echo ${*}; echo -e \"\nPress Enter to exit\"; read"
+            echo "Launching terminal..."
+            return
+            ;;
+        silent | s) GEO_SILENT=true ;;
+        --) break ;;
+        # - ) log::Error "${FUNCNAME}: '-' is not an option."; return 1 ;; # TODO: Rerun prev cmd
+        *) break ;; # End of options.
         esac
         shift
     done
@@ -196,7 +201,7 @@ function geo() {
     # shift $((OPTIND - 1))
 
     # Check for updates in background process
-    ( _geo_check_for_updates >& /dev/null & )
+    (_geo_check_for_updates >&/dev/null &)
 
     # Check if the MyGeotab base repo dir has been set.
     if ! @geo_haskey DEV_REPO_DIR && [[ "$1 $2" != "init repo" ]]; then
@@ -304,7 +309,10 @@ function check_for_docker_group_membership() {
         log::warn 'You are not a member of the docker group. This is required to be able to use the "docker" command without sudo.'
         if prompt_continue "Add your username to the docker group? (Y|n): "; then
             [[ -z $docker_group ]] && sudo groupadd docker
-            sudo usermod -aG docker $USER || { log::Error "Failed to add '$USER' to the docker group"; return 1; }
+            sudo usermod -aG docker $USER || {
+                log::Error "Failed to add '$USER' to the docker group"
+                return 1
+            }
             log::success "Added $USER to the docker group"
             log::warn 'You may need to fully log out and then back in again for these changes to take effect.'
             newgrp docker
@@ -342,20 +350,21 @@ geo-cli::relative_import() {
     local relative_path="$1"
     [[ -z $relative_path ]] && log::Error "path cannot be empty."
 
-    echo  eval "$(cat <<-'EOF' | sed -E "s/@relative_path/$relative_path/g"
+    echo eval "$(
+        cat <<-'EOF' | sed -E "s/@relative_path/$relative_path/g"
     file_path=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
     echo $file_path/@relative_path
 EOF
-)"
-#    source $file_path/'"$relative_path\n"
-#    local get_filename='"$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"'
-#    cat <<-'EOF'
-#    [[ -z $# ]] && log::Error 'Relative path cannot be empty.' && return 1
-#    eval '$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)'
-#    if [[ -z \$GEO_CLI_DIR ]]; then
-#        \$(geo-cli::init_env)
-#    fi
-#EOF
+    )"
+    #    source $file_path/'"$relative_path\n"
+    #    local get_filename='"$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"'
+    #    cat <<-'EOF'
+    #    [[ -z $# ]] && log::Error 'Relative path cannot be empty.' && return 1
+    #    eval '$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)'
+    #    if [[ -z \$GEO_CLI_DIR ]]; then
+    #        \$(geo-cli::init_env)
+    #    fi
+    #EOF
 }
 
 geo-cli::init_env() {
@@ -382,7 +391,7 @@ geo-cli::get-script-dir-path() {
     cat <<-'EOF' | sed -E "$sed_pattern"
     eval  %var_name="$(echo "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")"
 EOF
-# echo "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    # echo "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     # eval  echo "\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
 }
 
@@ -402,7 +411,12 @@ wrap_in_file() {
     local input="$*"
     [[ -z $input ]] && read -r -t 0.1 input || log::Error "$FUNCNAME: No input provided"
     tmp_file=$(mktemp geo-cli_wrap-file.XXXXX)
-    echo -e "$input" > $tmp_file
+    echo -e "$input" >$tmp_file
     [[ -v $ref ]] && return
     echo "$tmp_file"
 }
+
+# Look into zenity for dialogs
+# zenity --list --column a b c --editable --text 'as sadf'
+
+# populate_prev_value_if_requested ppv result "enter result: " '[[:digit:]]+' 'Your input is aweful'

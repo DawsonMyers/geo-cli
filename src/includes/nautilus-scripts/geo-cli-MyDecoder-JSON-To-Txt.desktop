@@ -1,0 +1,19 @@
+[Desktop Entry]
+Type=Action
+Name=MyDecoder JSON To Txt
+Icon=geo.png
+Profiles=X-profile_id;X-geo
+
+[Desktop Action X-geo]
+MimeType=all/allfiles;text/json
+Exec=gnome-terminal -- bash -i -c "geo mydecoder %f; echo 'Press Enter to exit'; read"
+
+[X-Action-Profile X-profile_id]
+# MimeType=inode/directory
+MimeType=all/allfiles;text/json
+Exec=gnome-terminal -- bash -i -c "geo mydecoder %f; echo 'Press Enter to exit'; read"
+
+# sudo desktop-file-install src/py/indicator/geo.indicator.desktop
+#     sudo update-desktop-database
+
+# mkdir -p ~/.local/share/file-manager/actions

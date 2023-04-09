@@ -85,6 +85,7 @@ log::debug_out() {
 export -a log_RETURN_CODE_TO_EMOJI
 log_RETURN_CODE_TO_EMOJI[0]="$Green✔$Off"
 log_RETURN_CODE_TO_EMOJI[1]="$Red✘$Off"
+export EMOJI_FAILED_RED_X="$Red✘$Off"
 
 # Regexes for replacing old log function names.
 # (\W)(red|green|error|Error|info|detail|data|status|verbose|debug|purple|cyan|yellow|white|_stacktrace|data_header|success|prompt|prompt_n|warn)
@@ -161,7 +162,7 @@ make_logger_function() {
                     [[ -n \$func_path ]] && msg=\"\$func_path: \$msg\"
                     ;;&
                 # Prepend the message with the name of the function (for debugging).
-                *D* )
+                *d* )
                     local func_name=\${FUNCNAME[2]}
                     [[ -n \$func_name ]] && msg=\"\$func_name: \$msg\"
                     ;;&
@@ -526,6 +527,11 @@ make_logger_function_vte hint VTE_COLOR_135 # purple
 log::hint() {
     _log_hint "$@"
 }
+#354F85
+make_logger_function_vte note VTE_COLOR_212 # pink
+log::note() {
+    log::txt_italic "$(_log_note "$@")\n"
+}
 
 log::stacktrace() {
     # _stacktrace() {
@@ -580,7 +586,7 @@ log::stacktrace() {
 }
 
 # ✘❌
-make_logger_function Error BIRed
+
 # alias log::Error='log::Error_ --stub "at ${FUNCNAME}() in ${BASH_SOURCE##*/}, line:  ${BASH_LINENO}" '
 # alias log::Error='log::Error_ --stub "${BASH_SOURCE}(${BASH_LINENO})::${FUNCNAME}(${LINENO}): " '
 
@@ -588,6 +594,7 @@ make_logger_function Error BIRed
 #     log::Error_
 # }
 
+make_logger_function Error BIRed
 log::Error() {
     local calling_func_name="${FUNCNAME[1]}"
     local source_file="${BASH_SOURCE[1]##*/}"
@@ -613,6 +620,14 @@ log::Error_trace() {
 #     # echo -e "❌  ${BIRed}$@${Off}" >&2
 # }
 #
+
+log::cmd_failed() {
+    log::error -d "Failed at ${BASH_SOURCE[1]}:${BASH_LINENO[1]}"
+#    log::cmd_failed "${FUNC_NAME[1]}: Failed at line $BASH_LINENO" "$"
+}
+log::failed() {
+    log::error "$EMOJI_FAILED_RED_X $*"
+}
 log::getopts_option_expects_argument_error() {
     log::Error --ignore-stack-depth 1 "Option '${OPTARG}' expects an argument."
     return 1
@@ -965,8 +980,31 @@ log::txt_hide() {
 #   Input: /home/dawsonmyers/repos/geo-cli/src/geo-cli.sh
 #   Output: ~/repos/geo-cli/src/geo-cli.sh
 log::make_path_relative_to_user_dir() {
-    echo "$@" | sed -e "s%$HOME%~%g"
+    # eval "$(util::eval_to_enable_piped_args)"
+    # echo -n doesn't add a new line.
+    local opt
+    [[ $1 == -n ]] && opt=-n && shift
+
+    if [[ $# -eq 0 ]]; then
+        local input
+        while read -r -t 10 input; do
+            echo $opt "$input" | sed "s%$HOME/%~/%g"
+        done
+    else
+        echo $opt "$*" | sed "s%$HOME/%~/%g"
+    fi
+
+    # if (($# == 0)); then
+    #     while read -r -d $'\n' -t 3 line; do
+    #         echo $opt "$f" | sed "s%$HOME/%~/%g"
+    #     done
+    #     return
+    # fi
+    #  echo $opt "$f" | sed "s%$HOME/%~/%g"
+    # echo -n "$@" | sed -e "s%$HOME%~%g"
 }
+alias to_rel_path='log::make_path_relative_to_user_dir '
+
 # Replaces the value of $HOME in a full file path with ~, making it relative to the user's home directory.
 # Example:
 #   Input: /home/dawsonmyers/repos/geo-cli/src/geo-cli.sh
