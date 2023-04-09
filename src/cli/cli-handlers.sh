@@ -18,6 +18,18 @@ if [[ -z $GEO_CLI_DIR || ! -f $GEO_CLI_DIR/install.sh ]]; then
 
 fi
 
+geo-cli::import() {
+    [[ ! -v LOADED_MODULES ]] && declare -A LOADED_MODULES && export LOADED_MODULES
+    [[ -z $1 ]] && log::Error "geo-cli::import expects a file to import." && return 1
+    local file_name=$(basename $1)
+    [[ -n ${LOADED_MODULES[$file_name]} ]] && return
+    geo_dir=$(cat ~/.geo-cli/data/geo/repo-dir)
+    set -e
+    echo "eval source $geo_dir/$1"
+    LOADED_MODULES[$file_name]=true
+    set +e
+}
+
 kilobyte=1024
 megabyte=$(( kilobyte * 1000))
 export MAX_CONFIG_FILE_SIZE=$(( megabyte * 1000))
@@ -108,6 +120,9 @@ current_command=
     COMMAND_INFO[$cmd_name]="@geo_${cmd_name}"
     COMMAND_INFO[$cmd_name,doc]="@geo_${cmd_name}_doc"
     COMMAND_INFO[$cmd_name,source]="${BASH_SOURCE[1]}, line: ${BASH_LINENO[0]}"
+
+    # Only add once.
+    [[ ! ${COMMAND_INFO[_commands]} =~ $$cmd_name ]] && COMMAND_INFO[_commands]+=" $cmd_name"
 
     while [[ $1 == --alias && -n $2 ]]; do
         local alias_name="$2"
@@ -365,7 +380,7 @@ _geo_check_db_image_pg_version() {
 @geo_image_doc() {
     doc_cmd 'image'
     doc_cmd_desc 'Commands for working with db images.'
-    doc_cmd_sub_cmds_title
+    doc_cmd_sub_cmd_title
         doc_cmd_sub_cmd 'create [-f | -v <pg version>]'
             doc_cmd_sub_cmd_desc 'Creates the base Postgres image configured to be used with geotabdemo.'
             doc_cmd_sub_option_title
@@ -954,7 +969,8 @@ _geo_ar__copy_pgAdmin_server_config() {
     while [[ $1 =~ -+ ]]; do 
         case "$1" in
             --iap)
-                [[ -z $2 ]] && log::Error "The $1 option requires the iap password as a parameter, but none was provided" && return 1
+                geotab_username=${geotab_username:-$2}
+                [[ -z $geotab_username ]] && log::Error "The $1 option requires the iap password as a parameter, but none was provided" && return 1
         iap=true
                 ar_config_file_type=iap
         # Replace : with \: to escape it (required format for passfiles).
@@ -981,10 +997,10 @@ _geo_ar__copy_pgAdmin_server_config() {
     mkdir -p "$destination_config_dir"
     for file in "$config_file_dir"/*$ar_config_file_type*; do
             # Substitute in any environment variables and copy config files to the geo-cli config directory.
-            local path="$destination_config_dir/$file"
+        local dest_file_path="$destination_config_dir/${file##*/}"
             local text="$(envsubst < "$file")"
-            echo "$text" > "$path"
-            chmod 0600 "$path"
+        echo "$text" > "dest_file_path"
+        chmod 0600 "dest_file_path"
         done
 
     _geo_ar__update_pgpass_file
@@ -3040,7 +3056,7 @@ prompt_for_info_with_previous_value() {
                 # local iap_password_prompt="Access Request password:\n> "
                 # prompt_for_info_n -v iap_password "$iap_password_prompt"
 
-                # _geo_ar__copy_pgAdmin_server_config --iap "$iap_password" "$user"
+                _geo_ar__copy_pgAdmin_server_config --iap "$iap_password" --user "$user"
 
                 log::info -b 'Connect with pgAdmin (if not already set up)'
                 log::info "  1. Open pgAdmin"
@@ -3060,7 +3076,7 @@ prompt_for_info_with_previous_value() {
                 log::info "    Username: $user"
                 log::info "    Password: the one you got from MyAdmin when you created the Access Request"
 
-                log::hint "\nYou can also open another terminal and start an ssh session with ther server using $(txt_underline geo ar ssh)"
+                log::hint "\nYou can also open another terminal and start an ssh session with the server using $(txt_underline geo ar ssh)"
                 cmd="$bind_cmd"
             fi
 
@@ -3098,8 +3114,20 @@ prompt_for_info_with_previous_value() {
                 sleep 1
             done
             ;;
+
+        kill-iap-by-port | kill-iap | kiap)
+            local port=$2
+            [[ ! $port =~ [[:digit:]]+ ]] && log::Error "$FUNCNAME:kill-iap-by-port: '$port' is not a valid port." && return 1
+            local tunnel_pid="$(ps -ef | grep localhost:$port | grep -v grep | awk '{print $2}')"
+#            local tunnel_pid="$(ps -ef | grep localhost:$port | grep -v grep | cut -d' ' -f 2)"
+            log::debug "ps -ef | grep localhost:52879 | grep -v grep | cut -d' ' -f 2"
+            [[ ! $tunnel_pid =~ [[:digit:]]+ ]] && log::Error "$FUNCNAME:kill-iap-by-port: '$tunnel_pid' failed to find pid for IAP tunnel with port '$port'." && return 1
+            kill $tunnel_pid && log::success "IAP tunnel killed" || log::Error "Failed to kill IAP tunnel"
+            ;;
+        list-iap-processes | ls-iap) ps -ef | grep start-iap-tunnel
+            ;;
         *)
-            log::Error "Unknown subcommand '$1'"
+            log::Error "$FUNCNAME: Unknown subcommand '$1'"
             ;;
     esac
 }
@@ -3423,6 +3451,10 @@ _geo_prompt_for_ids() {
     done
 }
 
+_geo_search_for_myg_repo_dir() {
+    find "$HOME" -maxdepth ${1:-10} -type f -path '*Checkmate/MyGeotab.Core.csproj'
+}
+
 _geo_init__find_myg_repo() {
     local repo_path=
     local passed_ref=false
@@ -3430,27 +3462,53 @@ _geo_init__find_myg_repo() {
         local -n repo_path="$2"
         passed_ref=true
         shift 2
-    else
-        local repo_path=
     fi
-    # Search for possible locations for the MyG repo.
-    local possible_repos="$(find "$HOME" -maxdepth 4 -type f -name MyGeotab.Core.csproj)"
+    # [[ -f $* ]] && log::warn "The provided path MyGeotab repo path is invalid\n"
 
-    [[ -z $possible_repos ]] && return 1
+    log::status -b "Searching for MyGeotab repos..."
+
+    # Search for possible locations for the MyG repo.
+    local possible_repos="$(_geo_search_for_myg_repo_dir)"
+    # echo 1
+    # e possible_repos
+    if [[ -n $possible_repos ]]; then
+        # possible_repos="${possible_repos//\/Checkmate/MyGeotab.Core.csproj/}"
+        possible_repos="${possible_repos//\/Checkmate\/MyGeotab.Core.csproj/}"
+    else
+        log::debug "find "$HOME" -maxdepth 10 -type f -path '*Checkmate/MyGeotab.Core.csproj'\n"
+
+        log::caution "\ngeo-cli searched for the MyGeotab Development repo, but wasn't able to find it.\n"
+        log::status -b "Fix:"
+        log::info "1) Ensure you have cloned the MyGeotab repo:"
+        log::code "    git clone git@git.geotab.com:dev/Development.git"
+        log::info "2) Either re-run this command with the path to the MyGeotab repo; or"
+        log::info "3) cd into the repo directory and run this command without any arguments\n"
+        return
+    fi
+    echo 3
 
     # Strip Checkmate/MyGeotab.Core.csproj from the end of each path.
-    possible_repos="${possible_repos//\/Checkmate\/MyGeotab.Core.csproj/}"
+    # possible_repos="${possible_repos//\/Checkmate\/MyGeotab.Core.csproj/}"
 
     local path_count=$(wc -l <<<"$possible_repos")
-
+    e path_count
+#    (( path_count > 1 )) && echo '> 1'
     if ((path_count == 1)); then
         log::status "Found the following path for the MyGeotab repo:"
-        log::link "   $possible_repos"
+        log::link -r "   $possible_repos"
+
         prompt_continue "Is the above path the correct location of the MyGeotab repo? (Y/n): " || return 1
+
         repo_path="$possible_repos"
-    elif ((path_count > 1)); then
+        $passed_ref && return
+        prompt_return="$repo_path"
+        return
+    fi
+    if [[ path_count -gt 1 ]]; then
+        echo 111
         PS3="$(log::prompt 'Enter the number of the correct repo path: ')"
-        select option in $r; do
+        opts=($possible_repos)
+        select option in "${opts[@]}"; do
             [[ -z $option ]] && log::warn "Invalid option: '$REPLY'" && continue
             repo_path="$option"
             break
