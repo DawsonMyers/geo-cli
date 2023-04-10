@@ -2696,21 +2696,21 @@ prompt_for_info_with_previous_value() {
                 doc_cmd_sub_option '-L'
                     doc_cmd_sub_option_desc "Bind local port 5433 to 5432 on remote host (through IAP tunnel). You can connect to the remote Postgres database
                         using this port (5433) in pgAdmin. Note: you can also open up an ssh session to this server by opening another terminal and running
-                        $(log::green  geo ar ssh)"
+                        $(log::green  geo ar ssh)."
             # doc_cmd_sub_option_desc "Starts an SSH session to the server immediately after opening up the IAP tunnel."
         doc_cmd_sub_cmd 'ssh'
             doc_cmd_sub_cmd_desc "SSH into a server through the IAP tunnel started with $(log::green 'geo ar ssh')."
             doc_cmd_sub_option_title
                 doc_cmd_sub_option '-p <port>'
-                    doc_cmd_sub_option_desc "The port to use when connecting to the server. This value is optional since the port that the IAP tunnel was opened on using $(log::green 'geo ar ssh') is used as the default value"
+                    doc_cmd_sub_option_desc "The port to use when connecting to the server. This value is optional since the port that the IAP tunnel was opened on using $(log::green 'geo ar ssh') is used as the default value."
                 doc_cmd_sub_option '-P <port>'
                     doc_cmd_sub_option_desc "Specifies the local port to bind to port 5432 on the remote system (this can be used instead of the -L option). This port defaults to 5433. This port must be greater than 1024 and not be in use."
                 doc_cmd_sub_option '-u <user>'
-                    doc_cmd_sub_option_desc "The user to use when connecting to the server. This value is optional since the username stored in \$USER is used as the default value. The value supplied here will be stored and reused next time you call the command"
+                    doc_cmd_sub_option_desc "The user to use when connecting to the server. This value is optional since the username stored in \$USER is used as the default value. The value supplied here will be stored and reused next time you call the command."
                 doc_cmd_sub_option '-L'
                     doc_cmd_sub_option_desc "Bind local port 5433 to 5432 on remote host (through IAP tunnel). You can connect to the remote Postgres database
                         using this port (5433) in pgAdmin. Note: you can also open up an ssh session to this server by opening another terminal and running
-                        $(log::green  geo ar ssh)"
+                        $(log::green  geo ar ssh)."
     doc_cmd_examples_title
         doc_cmd_example 'geo ar tunnel -s gcloud compute start-iap-tunnel gceseropst4-20220109062647 22 --project=geotab-serverops --zone=projects/709472407379/zones/northamerica-northeast1-b'
         doc_cmd_example 'geo ar ssh'
@@ -2728,7 +2728,7 @@ prompt_for_info_with_previous_value() {
         log::info "Enter your Access Request password below to update the password file for the $(txt_underline MyGeotab Over IAP) server in pgAdmin"
         # log::info "$(txt_underline OR) leave it blank if you already have a server in pgAdmin and plan to update its password manually."
         echo
-        log::info "The $(txt_underline MyGeotab Over IAP) server needs to be imported $(txt_underline once) into pgAdmin."
+        log::info -n "The $(txt_underline MyGeotab Over IAP) server needs to be imported $(txt_underline once) into pgAdmin. "
         log::info "The instructions will be shown after you enter your password."
         echo
         log::info "After the server is added, you only need to paste in your password below to have its passfile updated. Make sure to refresh the server in pgAdmin after the port is bound."
@@ -2858,7 +2858,6 @@ prompt_for_info_with_previous_value() {
 
                 @geo_set AR_IAP_CMD "$gcloud_cmd"
                 _geo_ar__push_cmd "$gcloud_cmd"
-                _geo__set_terminal_title -G "$caller_args" "$(_geo_ar__get_tag_from_cmd $gcloud_cmd)" "($port)"
 
                 local open_port=
                 if [[ -n $port ]]; then
@@ -2878,8 +2877,12 @@ prompt_for_info_with_previous_value() {
                 [[ -z $open_port ]] && open_port=$(python3 -c "$get_open_port_python_code")
                 [[ -z $open_port ]] && log::Error 'Open port could not be found' && return 1
 
+                _geo__set_terminal_title -d -G "$caller_args" "$server_tag" "($open_port)"
+
                 echo
+
                 log::status -bu 'Opening IAP tunnel'
+
                 if [[ -n $open_port ]]; then
                     local port_arg='--local-host-port=localhost:'$open_port
 
@@ -2894,14 +2897,31 @@ prompt_for_info_with_previous_value() {
 
                 local geo_config_dir="$(@geo_get CONFIG_DIR)"
                 local geo_tmp_ar_dir="$geo_config_dir/tmp/ar"
+
                 [[ ! -d $geo_tmp_ar_dir ]] && mkdir -p "$geo_tmp_ar_dir"
+
                 local ar_request_name="${gcloud_cmd#gcloud compute start-iap-tunnel }"
                 ar_request_name="${ar_request_name% 22 --project*}"
+
                 local regex='([[:alnum:]]+-[[:digit:]]+)'
                 local connection_file=""
+
                 [[ $gcloud_cmd =~ $regex ]] && ar_request_name="${BASH_REMATCH[1]}"
                 [[ -n $open_port ]] && connection_file="$geo_tmp_ar_dir/${ar_request_name}__${open_port}"
-                local tmp_output_file="/tmp/geo-ar-tunnel-$RANDOM.txt"
+                local tmp_output_file="/tmp/geo-ar-tunnel-$(date +%s).txt"
+                touch $tmp_output_file
+
+                # Try to listen for changes in connection status.
+                monitor_tunnel_status() {
+                    log::debug "Monitoring output file for connections status changes..."
+                    tail -f $tmp_output_file | while read -d '\n' line; do
+                        local width=$((COLUMNS - 15))
+                        width=$((width < 0 ? 0 : width))
+                        log::debug "line read: ${line:0:$width}..."
+                        [[ ${line,,} =~ disconnected|terminated|error  ]] && log::error "gcloud disconnect detected"
+                    done
+                }
+                (monitor_tunnel_status) &
 
                 if [[ $start_ssh ]]; then
                     cleanup() {
@@ -2910,7 +2930,7 @@ prompt_for_info_with_previous_value() {
                         # Kill any remaining jobs.
                         for job_pid in $(jobs -p); do kill $job_pid &>/dev/null; done
                         # Remove the temporary output file if it exists.
-                        [[ -f $tmp_output_file ]] && rm $tmp_output_file
+#                        [[ -f $tmp_output_file ]] && rm $tmp_output_file
                         # Remove the connection file if it exists.
                         [[ -f $connection_file ]] && rm $connection_file
                         exit
@@ -3098,7 +3118,7 @@ prompt_for_info_with_previous_value() {
 
                 # local iap_password_prompt="Access Request password:\n> "
                 # prompt_for_info_n -v iap_password "$iap_password_prompt"
-
+                log::debug "bind_db_port: iap_password = $iap_password"
                 _geo_ar__copy_pgAdmin_server_config --iap "$iap_password" --user "$user"
 
                 log::info -b 'Connect with pgAdmin (if not already set up)'
@@ -3146,9 +3166,10 @@ prompt_for_info_with_previous_value() {
                 log::info "    - Press ENTER to SSH back into the server"
                 log::info "    - Press CTRL + C to close this tunnel (running on port: $open_port)"
                 log::info "    - Open a new terminal and run $(txt_underline geo ar ssh) to reconnect to this tunnel"
+                log::caution "If the this fails multiple times, the IAP tunnel may have bee closed. You can type 'restart' and press enter to try to restart the IAP tunnel, or you can close this window and start a new one through the geo-ui menu. If that doesn't work, then you're access request may have expired."
                 # log::status 'SSH closed. Listening to IAP tunnel again. Open a new terminal and run "geo ar ssh" to reconnect to this tunnel.'
                 read response
-                [[ $response =~ restart ]] && {
+                [[ $response =~ r.* ]] && {
                     @geo_ar "${arguments[@]}"
                     break
                 }
@@ -3379,13 +3400,6 @@ geo_is_valid_repo_dir() {
             log::status "MyGeotab base repo (Development) path set to:"
             log::link "    $repo_dir"
             ;;
-        # npmi )
-        #     (
-        #         cd ~/test
-        #         npm i || log::Error "npm install failed" && return 1
-
-        #     )
-        #     ;;
         npm)
             local close_delayed=false
             local arg="$2"
