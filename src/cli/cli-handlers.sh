@@ -969,21 +969,23 @@ _geo_ar__copy_pgAdmin_server_config() {
     while [[ $1 =~ -+ ]]; do 
         case "$1" in
             --iap)
-                geotab_username=${geotab_username:-$2}
-                [[ -z $geotab_username ]] && log::Error "The $1 option requires the iap password as a parameter, but none was provided" && return 1
+                [[ -z $2 ]] && log::Error "The $1 option requires the iap password as a parameter, but none was provided" && return 1
         iap=true
                 ar_config_file_type=iap
         # Replace : with \: to escape it (required format for passfiles).
         export iap_password="${2//:/\\:}"
+                log::debug -d "$iap_password"
                 shift
                 ;;
             -d|--db|--database)
                 [[ -z $2 ]] && log::Error "The $1 option requires a database name as a parameter, but none was provided" && return 1
                 iap_database=${2:-$iap_database}
+                shift
                 ;;
             -u|--user*) 
                 [[ -z $2 ]] && log::Error "The $1 option requires a username as a parameter, but none was provided" && return 1
                 geotab_username=${2:-$geotab_username}
+                shift
                 ;;
         esac
         shift
@@ -994,19 +996,22 @@ _geo_ar__copy_pgAdmin_server_config() {
     export passfile="${destination_config_dir}/${ar_config_file_type}.passfile"
 
     log::status "Updating credentials for pgAdmin"
+
     mkdir -p "$destination_config_dir"
+    set +f
     for file in "$config_file_dir"/*$ar_config_file_type*; do
             # Substitute in any environment variables and copy config files to the geo-cli config directory.
         local dest_file_path="$destination_config_dir/${file##*/}"
             local text="$(envsubst < "$file")"
-        echo "$text" > "dest_file_path"
-        chmod 0600 "dest_file_path"
+        echo "$text" > "$dest_file_path"
+        chmod 0600 "$dest_file_path"
         done
 
     _geo_ar__update_pgpass_file
-    $globbing_was_disabled && set -f && log::debug "$FUNCNAME: Re-disabling globbling."
+    # $globbing_was_disabled && set -f && log::debug "$FUNCNAME: Re-disabling globbling."
 }
 # _geo_ar__copy_pgAdmin_server_config --iap "=9265x|jb8)MgnW*:&zjTzL7Lr>)Ve" dawsonmyers
+# _geo_ar__copy_pgAdmin_server_config --iap '4g6Yqy|dgp*)1(ZlD$q39x}Is2r8KN'
 
 _geo_ar__update_pgpass_file() {
     local destination_config_dir="${GEO_CLI_CONFIG_DIR}/data/db"
@@ -1022,12 +1027,21 @@ _geo_ar__update_pgpass_file() {
             [[ -f $user_pgpass_file && ! -f $user_pgpass_file.bac ]] \
             && log::status "Making backup of existing .pgpass -> .pgpass.bac" \
             && cp "$user_pgpass_file"{,.bac}
-
-        cp "$passfile" "$HOME/.pgpass" && log::success ".pgpass updated" || log::failed "Failed to update .pgpass"
+        local new_creds="$(tail -1 "$passfile")"
+        local old_creds="$(tail -1 "$HOME/.pgpass")"
+        if [[ $old_creds != $new_creds ]]; then
+            log::debug ".pgpass"
+            log::debug "   OLD: $old_creds"
+            log::debug "   NEW: $new_creds"
+            cp -f "$passfile" "$HOME/.pgpass" && log::success ".pgpass updated" || log::failed "Failed to update .pgpass"
+        else
+            log::status ".pgpass was already up to date"
+        fi
     else
         log::warn "passfile wasn't found. Unable to update ~/.pgpass with IAP credentials."
         fi
 }
+# _geo_ar__update_pgpass_file
 
 _geo_show_repo_dir_reminder() {
     local dev_repo=$(@geo_get DEV_REPO_DIR)
@@ -2907,7 +2921,7 @@ prompt_for_info_with_previous_value() {
                     # Find the port by opening the IAP tunnel without specifying the port, then get the port number from the output of the gcloud command.
                     if [[ -z $open_port ]]; then
                         log::status "Finding open port..."
-
+                        log::debug "Using log file: $tmp_output_file"
                         $gcloud_cmd &> >(tee -a $tmp_output_file) &
                         local attempts=0
 
@@ -2937,18 +2951,46 @@ prompt_for_info_with_previous_value() {
                         sleep 1
                         echo
                     else
+
+                        # Set up to test precess substitution:
+                        # load the following functions in a terminal
+                        # f() { 
+                        #     local i=0;
+                        #     while true; do
+                        #         echo $((i++));
+                        #         sleep 5;
+                        #     done
+                        # }
+                        # g() { 
+                        #     while true; do
+                        #         read input;
+                        #         [[ -n $input ]] && echo "Received: $input";
+                        #         sleep 2;
+                        #     done
+                        # }
+                        # Start them using:
+                        # { f  || echo FAIL; } &>  >(tee -a test/procsub.log )
+                        # 
+                        # Open another terminal to see that f is piping to g, who inturn pipes the tee, which pipes to both the terminal and the log file.
+                        # tail -f test/procsub.log
+
+
                         # log::status -bu '\nOpening IAP tunnel'
                         # Start up IAP tunnel in the background.
                         if [[ -n $connection_file ]]; then
                             # log::debug 'running in loc'
-                            run_command_with_lock_file "$connection_file" "$open_port" $gcloud_cmd $port_arg \
+                            # Run command with a lock file and capture all of its output the the log file.
+                            {
+                                run_command_with_lock_file "$connection_file" "$open_port" $gcloud_cmd $port_arg  \
                                 || {
                                     log::Error "failed to start IAP tunnel"
                                     return 1
-                                } &
+                                    } 
+                            } &> >(tee -a $tmp_output_file) &
+                                # { f  || echo FAIL; }>  >(tee -a test/procsub.log )
                         else
                             # log::debug 'NOT running in loc'
-                            $gcloud_cmd $port_arg &
+                            $gcloud_cmd $port_arg  &> >(tee -a $tmp_output_file) &
                         fi
                     fi
 
@@ -2968,6 +3010,7 @@ prompt_for_info_with_previous_value() {
                     local username_option=
                     [[ -n $user ]] && username_option=" -u $user "
 
+                    echo
                     # Continuously ask the user to re-open the ssh session (until ctrl + C is pressed, killing the tunnel).
                     # This allows users to easily re-connect to the server after the session times out.
                     # The -n option tells geo ar ssh not to store the port; the -p option specifies the ssh port.
@@ -3309,22 +3352,24 @@ geo_is_valid_repo_dir() {
         doc_cmd_example 'geo init git-hook'
 }
 @geo_init() {
-    if [[ $1 == '--' ]]; then shift; fi
+    local ui_mode=false
+    [[ $1 == '--' ]] && shift
+    [[ $1 == --ui ]] && ui_mode=true && shift
 
     case $1 in
         'repo' | '')
             local repo_dir=$(pwd)
             [[ $1 == repo && -n $2 ]] && repo_dir="$2"
             if ! geo_is_valid_repo_dir "$repo_dir"; then
-                log::warn "MyGeotab repo not found in:"
-                log::link "$repo_dir"
-                log::status "Searching for possible repo locations..."
+                log::warn "MyGeotab repo not found in current directory:"
+                log::link "$repo_dir\n"
+                # log::status "Searching for possible repo locations..."
                 _geo_init__find_myg_repo -v repo_dir
-                [[ -z $repo_dir ]] && log::log::Error "Failed to locate the MyGeotab repo directory." && return 1
+                [[ -z $repo_dir ]] && log::log::Error "\nFailed to locate the MyGeotab repo directory." && return 1
             fi
             local current_repo_dir=$(@geo_get DEV_REPO_DIR)
             if [[ -n $current_repo_dir ]]; then
-                log::info -b "The current Development repo directory is:"
+                log::info -b "Current Mygeotab Development repo directory is:"
                 log::info "    $current_repo_dir"
                 if ! prompt_continue "Would you like to replace that with the current directory? (Y|n): "; then
                     return
@@ -3814,6 +3859,7 @@ _geo_init__is_pat_valid() {
     local shifted='config'
 #    [[ $1 == -s ]] && show_status=true && shift
 
+    [[ -v GEO_CONFIG_LOG ]] && log::debug "@geo_set: $*"
     local OPTIND
     while getopts ":sp" opt; do
         case "${opt}" in
@@ -3889,6 +3935,7 @@ _geo_init__is_pat_valid() {
     doc_cmd_example 'geo get DEV_REPO_DIR'
 }
 @geo_get() {
+    [[ -v GEO_CONFIG_LOG ]] && log::debug "@geo_get: $*"
     # Get value of env var.
     local key="${1^^}"
     [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
@@ -3928,6 +3975,9 @@ _geo_init__is_pat_valid() {
     doc_cmd_example 'geo rm DEV_REPO_DIR'
 }
 @geo_rm() {
+    [[ -v GEO_CONFIG_LOG ]] && log::debug "$FUNCNAME: $*"
+
+    [[ $# -gt 1 ]] && log::Error "$FUNCNAME takes exactly one argument, the name of the key that is to be removed from geo-cli's config data. Did you mean to run 'geo db rm [list of dbs to remove]' instead?"
     # Get value of env var.
     local key="${1^^}"
     [[ ! $key =~ ^GEO_CLI_ ]] && key="GEO_CLI_${key}"
@@ -4181,7 +4231,7 @@ _geo_jq_set() {
     # Function to set json using jq. It will either be called with or without locking the file.
     run_jq() {
         local updated_json="$(_geo_jq_set_value "$key" "$value" "$json")"
-        log::code "Updated JSON: $updated_json"
+        [[ -n $GEO_JSON_DEBUG ]] && log::code "Updated JSON: $updated_json"
         # Something went wrong with jq if not even an empty object was returned for the updated json. Don't write this back to the json file.
         if [[ ${#updated_json} -lt 2 ]]; then
             log::Error "jq failed to set value in json file."
@@ -5563,7 +5613,8 @@ _geo_indicator__check_dependencies() {
     doc_cmd_desc 'Prints out help for all commands.'
 }
 @geo_help() {
-    for cmd in $(util::array_sort COMMANDS); do
+    local cmds=$(echo ${COMMAND_INFO[_commands]}  | tr ' ' $'\n'  | sort)
+    for cmd in $(util::array_sort cmds); do
         $(_geo_get_cmd_func_name --doc $cmd)
     done
 }
@@ -5868,7 +5919,7 @@ remove_unused_lock_files_in_current_directory() {
             print_test_definition() {
                 echo
                 log::code ...
-                log::code "$(grep -B 3 -e " $testname(" $file)"
+                log::code "$(grep -n -B 3 -e " $testname(" $file)"
                 log::code ...
                 echo
             }
@@ -7016,8 +7067,7 @@ _geo_parse_long_options() {
 # 1: the command to check
 _geo__is_registered_cmd() {
     local cmd_name=$1
-#    echo "${COMMAND_INFO[$cmd_name]}"
-    [[ -n ${COMMAND_INFO[$cmd_name]} ]]
+    [[ -n $cmd_name && -n ${COMMAND_INFO[$cmd_name]} ]]
 }
 
 # Checks if a command exists (i.e. docker, code).
