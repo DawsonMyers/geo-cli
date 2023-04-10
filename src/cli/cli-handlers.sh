@@ -2856,6 +2856,7 @@ prompt_for_info_with_previous_value() {
                     prompt_for_info_with_previous_value AR_IAP_CMD gcloud_cmd
                 done
 
+                local server_tag="$(_geo_ar__get_tag_from_cmd $gcloud_cmd)"
                 @geo_set AR_IAP_CMD "$gcloud_cmd"
                 _geo_ar__push_cmd "$gcloud_cmd"
 
@@ -6641,8 +6642,8 @@ _geo__set_terminal_title() {
 
     local title=
     [[ -n $geo_title ]] && title="$geo_title"
-    [[ $# -gt 0 ]] && title+=" - $*"
-    [[ -n $date_str ]] && title="$title - $date_str"
+    [[ $# -gt 0 ]] && title+=" | $*"
+    [[ -n $date_str ]] && title="$title | $date_str"
     echo -ne "\033]0;${title}${msg}\007"
 }
 
