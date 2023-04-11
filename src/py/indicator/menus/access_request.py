@@ -106,10 +106,13 @@ class OpenIapTunnelMenuItem(Gtk.MenuItem):
         self.menu = Gtk.Menu()
         sshItem = Gtk.MenuItem('SSH')
         bindItem = Gtk.MenuItem('Bind Port 5433 to 5432 (for pgAdmin)')
+        stop = Gtk.MenuItem('Stop')
         sshItem.connect('activate', lambda _: geo.run_in_terminal(f'ar ssh -p {iap_port}'))
         bindItem.connect('activate', lambda _: geo.run_in_terminal(f'ar ssh -Lp {iap_port}'))
+        stop.connect('activate', lambda _: geo.run_in_terminal(f'ar kill-iap {iap_port}', stay_open_after=False))
         self.menu.append(sshItem)
         self.menu.append(bindItem)
+        self.menu.append(stop)
         self.menu.show_all()
         self.set_submenu(self.menu)
 
@@ -139,7 +142,12 @@ class OpenIapTunnelMenu(Gtk.MenuItem):
     def monitor(self):
         try:
             open_tunnels_str=geo.run('dev open-iap-tunnels')
-
+            if open_tunnels_str:
+                self.show()
+            else:
+                self.hide()
+                return True
+                
             # This is needed so that multiple instances of this class render correctly; the menu needs to be built twice (for some reason).
             if self.prev_tunnel_str and not self.init_rebuild or (self.empty_item in self.items and not self.init_rebuild):
                 self.prev_tunnel_str = ''
@@ -147,6 +155,7 @@ class OpenIapTunnelMenu(Gtk.MenuItem):
                 self.init_rebuild = True
             cur_tunnels = set(open_tunnels_str.split('|'))
             if not cur_tunnels or cur_tunnels == self.prev_tunnels:
+                # self.hide()
                 return True
             # print(f'{open_tunnels_str} == {self.prev_tunnel_str} = {open_tunnels_str == self.prev_tunnel_str}')
             self.prev_tunnels = cur_tunnels

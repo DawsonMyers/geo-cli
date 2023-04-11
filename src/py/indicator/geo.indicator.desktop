@@ -1,4 +1,5 @@
 # Install handled by install-utils::install-desktop and geo_indicator enable
+## .desktop files MUST be executable to function correctly
 [Desktop Entry]
 Type=Application
 Version=1.0
@@ -10,12 +11,13 @@ TryExec=geo-ui
 #Exec=geo-indicator.sh
 Exec=geo_indicator.py
 
-Icon=/usr/share/pixmaps/geo.png
+Icon=/usr/share/pixmaps/geo
 # Icon=geo.png
 # Icon=$geo_indicator_app_dir/res/geo-cli-logo.png
 Categories=Development
-MimeType=text/plain
+# MimeType=text/plain
 X-GNOME-UsesNotifications=true
+X-GNOME-SingleWindow=true
 # Terminal=true
 # DBusActivatable=true
 

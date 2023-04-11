@@ -24,6 +24,7 @@ APPINDICATOR_ID = 'geo.indicator'
 # Check for updates every 10 minutes.
 UPDATE_INTERVAL = 10*60*1000
 
+log = util.mklog(APPINDICATOR_ID)
 
 class IndicatorApp(object):
     notification = None
@@ -413,7 +414,9 @@ def main():
     retry = True
     delay = 5
     # Gtk.init()
-
+    if not os.environ.get('DISPLAY'):
+        log('Shutting down since the "DISPLAY" environment variable isn\'t set (no display server available)')
+        quit()
     show_startup_notification=True
     while retry and retry_count < 20:
         try:

@@ -7,3 +7,6 @@ sudo apt-get install sox ffmpeg libcairo2 libcairo2-dev
 sudo apt install libpython3.9-dev
 sudo apt install libgirepository1.0-dev
 sudo apt-get install python3-tk
+
+sudo apt install pkg-config libcairo2-dev gcc python3-dev libgirepository1.0-dev
+pip install PyGObject

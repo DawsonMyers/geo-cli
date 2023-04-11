@@ -60,7 +60,6 @@ def geo(arg_str, return_error=False, return_all=False, terminal=False, return_su
     if terminal:
         run_in_terminal(arg_str)
         return
-    log(f'geo: arg_str: {arg_str}')
     geo_path = config.GEO_SRC_DIR + '/geo-cli.sh '
     cmd = geo_path + ' --api ' + arg_str
     # cmd = geo_path + ' --raw-output --no-update-check ' + arg_str

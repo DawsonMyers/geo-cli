@@ -22,6 +22,7 @@ class MyGeotabMenuItem(Gtk.MenuItem):
     submenu = None
     running_items = set()
     stopped_items = set()
+    
     def __init__(self, app: IndicatorApp):
         super().__init__(label='🌎 MyGeotab')
         self.app = app
@@ -60,6 +61,7 @@ class MyGeotabMenuItem(Gtk.MenuItem):
         clean_item.connect('activate', lambda _: geo.run_in_terminal('myg clean --interactive', stay_open_after=False))
         run_with_gateway_item = Gtk.MenuItem(label='Run with Gateway')
         run_with_gateway_item.connect('activate', lambda _: geo.run_in_terminal('myg gw', title=self.make_titles('MyGeotab', include_version=True)))
+        
         submenu.append(start_item)
         submenu.append(build_item)
         submenu.append(build_sln_item)
@@ -70,6 +72,9 @@ class MyGeotabMenuItem(Gtk.MenuItem):
         submenu.append(restart_item)
         submenu.append(browser_item)
         submenu.append(api_item)
+        
+        self.app.add_menu_item(submenu, 'Set Repo Directory', lambda _: geo.run_in_terminal('init repo', stay_open_after=True))
+        
         self.set_submenu(submenu)
         submenu.show_all()
         self.items = {
