@@ -4,10 +4,10 @@
 #
 # This is a geo-cli command file. It is automatically executed from cli-handlers.sh when geo-cli is loaded into each
 # new terminal.
-# 
+#
 # Author: dawsonmyers@geotab.com
-# Created: 2023-03-17
-# 
+# Created: 2023-03-18
+#
 # All of the exported constants and functions available to geo-cli are available here.
 #
 # * NOTE: Most of the logic for geo-cli is in src/commands/cli-handlers.sh. Make sure to check it out for command
@@ -16,14 +16,14 @@
 
 # DO NOT REMOVE THESE CONSTANTS! They are used by other commands.
 # The full path to this file.
-export repo_command_file_path="${BASH_SOURCE[0]}"
-# The full path to the directory that this file is in.
-export repo_command_directory_path="$(dirname "${BASH_SOURCE[0]}")"
+export myg_down_command_file_path="${BASH_SOURCE[0]}"
+# The full_path to the directory that this file is in.
+export myg_down_command_directory_path="$(dirname "${BASH_SOURCE[0]}")"
 
 #######################################################################################################################
 # Global Constants and Functions
 #######################################################################################################################
-# [Path Constants]  
+# [Path Constants]
 # GEO_CLI_DIR         The full path to the geo-cli repo.
 # GEO_CLI_SRC_DIR     The full path to the geo-cli src dir, located in the root of the repo (geo-cli/src).
 # GEO_CLI_CONFIG_DIR  The full path to the geo-cli config dir, located at $HOME/.geo-cli.
@@ -53,9 +53,9 @@ export repo_command_directory_path="$(dirname "${BASH_SOURCE[0]}")"
 #   log::warn                   log::file
 #   log::data_header            log::info
 #   log::green                  log::txt_invert
-#   log::white                  log::prompt                 
-#   log::debug                  log::success                    
-  
+#   log::white                  log::prompt
+#   log::debug                  log::success
+
 #######################################################################################################################
 #### Create a new command (e.g. 'geo <some_new_command>')
 #######################################################################################################################
@@ -69,9 +69,9 @@ export repo_command_directory_path="$(dirname "${BASH_SOURCE[0]}")"
 #        - This function is run when the user requests help via 'geo <command> --help'. Also, these functions are called
 #          for every command in the COMMANDS array when the user runs 'geo help' or 'geo -h'.
 #   3. Command function
-#       - The actual command that gets executed when the user runs 'geo <your_command>'. All the arguments passed to 
+#       - The actual command that gets executed when the user runs 'geo <your_command>'. All the arguments passed to
 #         geo following the command name will be passed to this function as positional arguments (e.g.. $1, $2, ...).
-# 
+#
 # The three parts above have the following structure:
 #   @register_geo_cmd 'command'
 #   @geo_command_doc() {...}
@@ -130,53 +130,58 @@ export repo_command_directory_path="$(dirname "${BASH_SOURCE[0]}")"
 # The register_geo_cmd function is defined in cli-handlers.sh. It adds the new command name to the COMMANDS array, which
 # allows geo to check if a command exits when a user runs a geo command (i.e. 'geo <command>').
 # .
-@register_geo_cmd  'repo'
-@geo_repo_doc() {
+@register_geo_cmd  'myg-down'
+@geo_myg-down_doc() {
     # Replace the following template documentation with relevant info about the command.
-  doc_cmd 'repo'
+  doc_cmd 'myg-down'
       doc_cmd_desc 'Command description. Explain what the command does and how to use it.'
-      
+
       doc_cmd_sub_cmd_title
-      
+
       doc_cmd_sub_cmd 'test [options] <arg>'
           doc_cmd_sub_cmd_desc 'This subcommand takes options and arguments'
           doc_cmd_sub_option_title
               doc_cmd_sub_option '-a'
-                  doc_cmd_sub_option_desc "An option that doesn't take an argument."
+                  doc_cmd_sub_option_desc "An option that doesn't take an agrument."
               doc_cmd_sub_option '-b <option_arg>'
-                  doc_cmd_sub_option_desc "An option that requires an argument."
+                  doc_cmd_sub_option_desc "An option that requires an agrument."
 
     doc_cmd_sub_cmd 'subcommand1'
-          doc_cmd_sub_cmd_desc 'An example subcommand with its own function called _geo_repo_subcommand1'
+          doc_cmd_sub_cmd_desc 'An example subcommand with its own function called _geo_myg-down_subcommand1'
     doc_cmd_sub_cmd 'subcommand1'
-          doc_cmd_sub_cmd_desc 'Another example subcommand with its own function called _geo_repo_subcommand2'
+          doc_cmd_sub_cmd_desc 'Another example subcommand with its own function called _geo_myg-down_subcommand2'
     doc_cmd_sub_cmd 'edit'
           doc_cmd_sub_cmd_desc "Opens up the command file for this command in VS Code."
-    
+
       doc_cmd_examples_title
-          doc_cmd_example 'geo repo test -a "some_argument"'
-          doc_cmd_example 'geo repo test -b "option argument" "subcommand argument"'
-          doc_cmd_example 'geo repo subcommand1'
-          doc_cmd_example 'geo repo edit'
+          doc_cmd_example 'geo myg-down test -a "some_argument"'
+          doc_cmd_example 'geo myg-down test -b "option armument" "subcommand armument"'
+          doc_cmd_example 'geo myg-down subcommand1'
+          doc_cmd_example 'geo myg-down edit'
 }
-@geo_repo() {
+@geo_myg-down() {
     local option_a_supplied=false
     local option_b_argument
-    
+
     log::caution "Command is unimplemented"
 
-    # Add the options to the getopts "<options to parse>" string. Append ":" to the option if it takes an argument. 
-    # For example 'getopts "b:"' will require the -b option to take an arg: 'geo repo -b 22 ...'.
-    # The argument will be available below in the $OPTARG variable.
+    # Add the options to the getopts "<options to parse, AKA optstring>" string. Append ":" to the option if it takes an argument.
+    # For example 'getopts "b:"' will require the -b option to take an arg: 'geo myg-down -b 22 ...'.
+    # The argument will be available below in the $OPTARG variable for one iteration of the while loop.
     # google 'bash getopts' for more info on parsing options.
+    # Note: The optstring is prefixed with ':' to tell getopts that we will handle the error messages, so it shouldn't write any.
+    #     Errors are handled by the :) and \?) cases below. opt will be set to ':' if an option expected an argument,
+    #     but didn't get one, or it will be set to  '?' if the option wasn't listed in the optstring
+    #       => ALWAYS REMEMBER TO ADD NEW OPTIONS TO THE OPTSTRING!.
     local OPTIND
+    #              ⬇⬇⤋
     while getopts ":ab:" opt; do
         case "${opt}" in
-            a ) 
+            a )
                 option_a_supplied=true
                 log::debug "Option 'a' was supplied."
                 ;;
-            b ) 
+            b )
                 option_b_argument=$OPTARG
                 log::debug "Option 'b' was supplied with the following argument: $option_b_argument."
                  ;;
@@ -191,37 +196,37 @@ export repo_command_directory_path="$(dirname "${BASH_SOURCE[0]}")"
     local cmd="$1"
     shift
 
-    # 
+    #
     if [[ -z $cmd ]]; then
          log::caution "No arguments provided."
-         geo_repo_doc
+         geo_myg-down_doc
          prompt_continue "Edit command now in VS Code? (Y|n): " \
-            && code "$repo_file_path"
+            && code "$myg-down_file_path"
          return 1
     fi
 
-    # This case statement runs the command's subcommand based on what was passed in by the user (e.g. geo repo test).
+    # This case statement runs the command's subcommand based on what was passed in by the user (e.g. geo myg-down test).
     case "$cmd" in
         test )
-            log::success "Command 'repo' is now available in geo-cli. Add your logic to the command file at $repo_command_file_path"
-            prompt_continue "Edit your command now in VS Code? (Y|n): " && code $repo_command_file_path
+            log::success "Command 'myg-down' is now available in geo-cli. Add your logic to the command file at $myg-down_command_file_path"
+            prompt_continue "Edit your command now in VS Code? (Y|n): " && code $myg-down_command_file_path
             ;;
         subcommand1 | subcmd1 )
-            # Passes all remaining arguments to the _geo_repo__subcommand1 subcommand function to keep things easy to read.
+            # Passes all remaining arguments to the _geo_myg-down__subcommand1 subcommand function to keep things easy to read.
             # "$@" passes the remaining arguments just as they were passed in here.
             # "$*" concatenates all remaining arguments as a single argument to the subcommand function.
-            _geo_repo__subcommand1 "$@"
+            _geo_myg-down__subcommand1 "$@"
             ;;
         subcommand2 | subcmd2 )
-            _geo_repo_subcommand2 "$@"
+            _geo_myg-down_subcommand2 "$@"
             ;;
         edit )
-            _geo_cmd__edit repo
+            _geo_cmd__edit myg-down
             ;;
-        * ) 
+        * )
             # Standard error handling.
-            [[ -z $cmd ]] && log::Error "No arguments provided" && return 1 
-            log::Error "The following command is unknown: $cmd" && return 1 
+            [[ -z $cmd ]] && log::Error "No arguments provided" && return 1
+            log::Error "The following command is unknown: $cmd" && return 1
             ;;
     esac
 }
@@ -245,15 +250,19 @@ export repo_command_directory_path="$(dirname "${BASH_SOURCE[0]}")"
 # Arguments:
 #   1: arg description
 #   2: arg description
-_geo_repo__subcommand1() {
+# Returns:
+#   None
+_geo_myg-down__subcommand1() {
     # Access positional arguments like this: $1, $2, etc.
-    log::debug "_geo_repo__subcommand1 $@"
+    log::debug "_geo_myg-down__subcommand1 $*"
 }
 
 # <Function description>
 # Arguments:
 #   1: arg description
 #   2: arg description
-_geo_repo_subcommand2() {
-    log::debug "_geo_repo_subcommand2 $@"
+# Returns:
+#   None
+_geo_myg-down_subcommand2() {
+    log::debug "_geo_myg-down_subcommand2 $*"
 }

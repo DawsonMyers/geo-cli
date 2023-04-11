@@ -518,6 +518,10 @@ make_logger_function white White
 log::white() {
     _log_white "$@"
 }
+make_logger_function blue Blue
+log::blue() {
+    _log_blue "$@"
+}
 export LOG_COLOUR_FOR_CODE="$VTE_COLOR_115"
 make_logger_function_vte code VTE_COLOR_115 # greenish blue
 log::code() {

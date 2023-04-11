@@ -966,14 +966,14 @@ _geo_ar__copy_pgAdmin_server_config() {
     # Unset the f option using set +f.
     [[ $- =~ f ]] && globbing_was_disabled=true && set +f
 
-    while [[ $1 =~ -+ ]]; do 
+    while [[ $1 =~ -+ ]]; do
         case "$1" in
             --iap)
                 [[ -z $2 ]] && log::Error "The $1 option requires the iap password as a parameter, but none was provided" && return 1
-        iap=true
+                iap=true
                 ar_config_file_type=iap
-        # Replace : with \: to escape it (required format for passfiles).
-        export iap_password="${2//:/\\:}"
+                # Replace : with \: to escape it (required format for passfiles).
+                export iap_password="${2//:/\\:}"
                 log::debug -d "$iap_password"
                 shift
                 ;;
@@ -982,7 +982,7 @@ _geo_ar__copy_pgAdmin_server_config() {
                 iap_database=${2:-$iap_database}
                 shift
                 ;;
-            -u|--user*) 
+            -u|--user*)
                 [[ -z $2 ]] && log::Error "The $1 option requires a username as a parameter, but none was provided" && return 1
                 geotab_username=${2:-$geotab_username}
                 shift
@@ -1000,12 +1000,12 @@ _geo_ar__copy_pgAdmin_server_config() {
     mkdir -p "$destination_config_dir"
     set +f
     for file in "$config_file_dir"/*$ar_config_file_type*; do
-            # Substitute in any environment variables and copy config files to the geo-cli config directory.
+        # Substitute in any environment variables and copy config files to the geo-cli config directory.
         local dest_file_path="$destination_config_dir/${file##*/}"
-            local text="$(envsubst < "$file")"
+        local text="$(envsubst < "$file")"
         echo "$text" > "$dest_file_path"
         chmod 0600 "$dest_file_path"
-        done
+    done
 
     _geo_ar__update_pgpass_file
     # $globbing_was_disabled && set -f && log::debug "$FUNCNAME: Re-disabling globbling."
@@ -1016,15 +1016,15 @@ _geo_ar__copy_pgAdmin_server_config() {
 _geo_ar__update_pgpass_file() {
     local destination_config_dir="${GEO_CLI_CONFIG_DIR}/data/db"
     local passfile="${destination_config_dir}/iap.passfile"
-        local user_pgpass_file="$HOME/.pgpass"
+    local user_pgpass_file="$HOME/.pgpass"
 
     log::status -b "Updating IAP credentials for Rider"
     # shopt -s extglob
     # e user_pgpass_file passfile
-        # Required for Rider to be able to use it to connect to the db.
+    # Required for Rider to be able to use it to connect to the db.
     if [[ -f $passfile && $passfile =~ iap ]]; then
-            # Make a copy of the existing file.
-            [[ -f $user_pgpass_file && ! -f $user_pgpass_file.bac ]] \
+        # Make a copy of the existing file.
+        [[ -f $user_pgpass_file && ! -f $user_pgpass_file.bac ]] \
             && log::status "Making backup of existing .pgpass -> .pgpass.bac" \
             && cp "$user_pgpass_file"{,.bac}
         local new_creds="$(tail -1 "$passfile")"
@@ -1039,7 +1039,7 @@ _geo_ar__update_pgpass_file() {
         fi
     else
         log::warn "passfile wasn't found. Unable to update ~/.pgpass with IAP credentials."
-        fi
+    fi
 }
 # _geo_ar__update_pgpass_file
 
@@ -2657,7 +2657,7 @@ prompt_for_info_with_previous_value() {
                 log::warn "$invalid_input_msg"
                 prompt_for_info -v "$value_var_ref_name" "$prompt_msg"
             done
-    fi
+        fi
     # elif [[ $value_var_ref =~ ^-?$ ]]; then
     #     echo "elif [[ $value_var_ref =~ ^-?$ ]]"
     #     [[ -z $saved_value ]] && log::Error "There is no value saved for key '$key'" && return 1
@@ -2827,8 +2827,6 @@ prompt_for_info_with_previous_value() {
                 local expected_cmd_start='gcloud compute start-iap-tunnel'
                 local iap_cmd_prompt_txt='Enter the gcloud IAP command that was copied from your MyAdmin access request:'
                 if [[ $prompt_for_cmd == true ]]; then
-                    ! $reuse_msg_shown && log::detail "Enter '-' below to re-use the last gcloud command used."
-                    # ! $reuse_msg_shown && log::detail "Enter '-' below to re-use the last gcloud command used."
                     # prompt_for_info -v gcloud_cmd "$iap_cmd_prompt_txt"
                     prompt_for_info_with_previous_value AR_IAP_CMD gcloud_cmd "$iap_cmd_prompt_txt"
                 fi
@@ -2859,7 +2857,7 @@ prompt_for_info_with_previous_value() {
                 local server_tag="$(_geo_ar__get_tag_from_cmd $gcloud_cmd)"
                 @geo_set AR_IAP_CMD "$gcloud_cmd"
                 _geo_ar__push_cmd "$gcloud_cmd"
-
+                
                 local open_port=
                 if [[ -n $port ]]; then
                     local port_open_check_python_code='import socket; s=socket.socket(); s.bind(("", '$port')); s.close()'
@@ -3003,9 +3001,9 @@ prompt_for_info_with_previous_value() {
                             # Run command with a lock file and capture all of its output the the log file.
                             {
                                 run_command_with_lock_file "$connection_file" "$open_port" $gcloud_cmd $port_arg  \
-                                || {
-                                    log::Error "failed to start IAP tunnel"
-                                    return 1
+                                    || {
+                                        log::Error "failed to start IAP tunnel"
+                                        return 1
                                     } 
                             } &> >(tee -a $tmp_output_file) &
                                 # { f  || echo FAIL; }>  >(tee -a test/procsub.log )
@@ -3457,15 +3455,15 @@ _geo_init__auto_switch() {
     (
         cd "$dev_repo_dir"
         local myg_branches="$(git branch -r | sed 's/  //g' | grep --color=never -P '^origin/(release/\d+\.0|main)$')"
-        local branches=(${myg_branches[@]})
-        if [[ -z ${branches[@]} ]]; then
+        local branches=("${myg_branches[@]}")
+        if [[ -z ${branches[*]} ]]; then
             log::Error "Counldn't find any release branches in repo root: "
             log::link "$dev_repo_dir"
             return 1
         fi
 
         log::data_header "$(printf '%-4s %-42s\n' ID Release)"
-        for branchId in ${!branches[@]}; do
+        for branchId in "${!branches[@]}"; do
             branch="${branches[branchId]}"
             printf '%-4d %-42s\n' $branchId "${branch#origin/}"
         done
@@ -3550,9 +3548,7 @@ _geo_init__find_myg_repo() {
     # Strip Checkmate/MyGeotab.Core.csproj from the end of each path.
     # possible_repos="${possible_repos//\/Checkmate\/MyGeotab.Core.csproj/}"
 
-    local path_count=$(wc -l <<<"$possible_repos")
-    e path_count
-#    (( path_count > 1 )) && echo '> 1'
+    local path_count="$(wc -l <<<"$possible_repos")"
     if ((path_count == 1)); then
         log::status "Found the following path for the MyGeotab repo:"
         log::link -r "   $possible_repos"
@@ -3567,6 +3563,8 @@ _geo_init__find_myg_repo() {
     if [[ path_count -gt 1 ]]; then
         echo 111
         PS3="$(log::prompt 'Enter the number of the correct repo path: ')"
+        # ! TODO: Separate lines in a way that accounts for the word splitting that occurs when possible_repos is created.
+        # Files with space in there names will be split.
         opts=($possible_repos)
         select option in "${opts[@]}"; do
             [[ -z $option ]] && log::warn "Invalid option: '$REPLY'" && continue
@@ -3841,6 +3839,7 @@ _geo_init__is_pat_valid() {
                 awk -F= '{ gsub("GEO_CLI_","",$1); printf "%s ",$1 } ' $GEO_CLI_CONF_FILE | sort
                 return
             fi
+            # Alternative way: column -s '=' --table -l 2 -N Key,Value -T Value .geo-cli/.geo.conf
             local header=$(printf "%-26s %-26s\n" 'Variable' 'Value')
             local env_vars=$(awk -F= '{ gsub("GEO_CLI_","",$1); printf "%-26s %-26s\n",$1,$2 } ' $GEO_CLI_CONF_FILE | sort)
             log::info -b "$header"
@@ -3875,6 +3874,7 @@ _geo_init__is_pat_valid() {
 #    [[ $1 == -s ]] && show_status=true && shift
 
     [[ -v GEO_CONFIG_LOG ]] && log::debug "@geo_set: $*"
+
     local OPTIND
     while getopts ":sp" opt; do
         case "${opt}" in
@@ -5920,6 +5920,14 @@ remove_unused_lock_files_in_current_directory() {
             # Prefix with line number.
             # local match=grep -n -e " $testname(" $file
 
+
+            #! TODO: - Confirm that the test def that we found is the right one before adding the attributes to it.
+            #!       - Check if there is a Theory or Fact attribute  
+            #!       - Add an undo feature to remove the tags.
+            #!       - Add syntax highlighting to print_test_definition
+            #!       - Store gcloud cmd and password in json to allow them to be easily reconnected to later. Add a date as well and mark ones older that 9 hours as expired.
+            #!       - 
+            #!       - 
             # Match the test line and the previous 3 lines.
             match=$(grep -B 3 -e " $testname(" $file)
             if [[ -z $match ]]; then
@@ -5933,11 +5941,21 @@ remove_unused_lock_files_in_current_directory() {
 
             print_test_definition() {
                 echo
-                log::code ...
-                log::code "$(grep -n -B 3 -e " $testname(" $file)"
-                log::code ...
+                log::warn -b ".\n..\n...\n"
+                log::code  "$(grep -n -B 3 -e " $testname(" $file)"
+                log::warn -b "...\n..\n."
                 echo
             }
+
+# lg() {
+# echo
+# log::$1 -b ".\n..\n..."
+# log::code  '    [Fact]
+#     [Trait("TestCategory", "Quarantine")]
+#     [Trait("QuarantinedTestTicketLink", "")]
+#     public void NearestVehicles_DispatzchVehicleOnPanelTest()'
+# log::$1 -b "...\n..\n."
+# }
 
             # Check to see if the test already has quarantine attributes.
             local attribute_text_check='"TestCategory", "Quarantine"|QuarantinedTestTicketLink'
@@ -7428,7 +7446,7 @@ doc_cmd_sub_cmd_title() {
     # log::data -b "$txt"
 }
 doc_cmd_sub_cmd() {
-    doc_handle_subcommand "$1"
+        doc_handle_subcommand "$1"
     local indent=12
     local txt=$(log::fmt_text --x "$@" $indent)
     log::verbose -b "$txt"
@@ -7794,7 +7812,7 @@ _geo_complete() {
             # echo "2: SUBCOMMAND_COMPLETIONS[$prev] = ${SUBCOMMAND_COMPLETIONS[$prev]}" >> ~/bcompletions.txt
             # echo "$prevprev/$prev/$cur"
             if [[ -v SUBCOMMAND_COMPLETIONS[$prev] ]]; then
-                # echo "SUBCOMMANDS[$cur]: ${SUBCOMMANDS[$prev]}" >> bcompletions.txt
+                    # echo "SUBCOMMANDS[$cur]: ${SUBCOMMANDS[$prev]}" >> bcompletions.txt
                 COMPREPLY=($(compgen -W "${SUBCOMMAND_COMPLETIONS[$prev]}" -- ${cur}))
                 case $prev in
                     get | set | rm) COMPREPLY=($(compgen -W "$(@geo_env ls keys)" -- ${cur^^})) ;;

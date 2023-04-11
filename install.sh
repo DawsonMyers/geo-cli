@@ -79,6 +79,7 @@ EOF
     # used in any terminal.
     # Substitute the env vars into init file text and append to .bashrc.
     envsubst < "$GEO_CLI_DIR"/src/init/bashrc.sh >> ~/.bashrc
+    
     # Add geo to the .zshrc file if it exists.
     [[ -f $HOME/.zshrc ]] && sed "s+GEO_CLI_SRC_DIR+$GEO_CLI_SRC_DIR+" $GEO_CLI_SRC_DIR/init/zshrc.sh >> ~/.zshrc
 

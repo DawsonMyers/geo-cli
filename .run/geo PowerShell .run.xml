@@ -1,0 +1,6 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="geo PowerShell " type="PowerShellRunType" factoryName="PowerShell" scriptUrl="$PROJECT_DIR$/src/includes/pwsh/geo.ps1" workingDirectory="$USER_HOME$" executablePath="/usr/bin/pwsh">
+    <envs />
+    <method v="2" />
+  </configuration>
+</component>

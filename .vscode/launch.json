@@ -5,6 +5,12 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "command": "npm start",
+            "name": "Run npm start",
+            "request": "launch",
+            "type": "node-terminal"
+        },
+        {
             "name": "Python: geo-ui",
             "type": "python",
             "request": "launch",
@@ -24,7 +30,8 @@
             "type": "bashdb",
             "request": "launch",
             "name": "Bash-Debug (simplest configuration)",
-            "program": "${file}"
+            "program": "${file}",
+            "env": {"GEO_CONFIG_LOG": true},
         },
         {
             "type": "bashdb",

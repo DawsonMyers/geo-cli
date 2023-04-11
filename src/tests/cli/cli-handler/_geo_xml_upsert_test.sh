@@ -1,9 +1,8 @@
-pwd
-echo $(cd ./../../../ && pwd)
-geo_dir=$(cat ~/.geo-cli/data/geo/repo-dir)
-#. ./../../../geo-cli.sh
-. $geo_dir/src/geo-cli.sh
-
+# pwd
+# #. ./../../../geo-cli.sh
+# echo $(cd ./../../../ && pwd)
+geo_dir=$(cat ~/.geo-cli/data/geo/repo-dir) && . "$geo_dir/src/geo-cli.sh"
+#. "$(cat ~/.geo-cli/data/geo/repo-dir)"
 
 _geo_validate_server_config() {
     ! _geo_terminal_cmd_exists xmlstarlet && return 1
@@ -72,7 +71,8 @@ _geo_xml_upsert() {
     fi
 }
 
-test_function() {
+# @test
+ test_function() {
     server_config=$(get_tmpfile xml)
     echo "$test_server_config_xml" > $server_config
     xpath=//WebServerSettings/WebPort
