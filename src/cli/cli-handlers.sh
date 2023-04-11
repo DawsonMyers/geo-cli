@@ -7384,15 +7384,81 @@ ord() {
 
 # Documentation helpers
 #######################################################################################################################
+declare -A doc_call_lookup
+
+remove_doc_tags() {
+    local _var_ref
+    [[ $1 == -v ]] && local -n _var_ref="$2" && shift 2
+    local result=${*//[<>\]\[]*/}
+    result="${result//[,|]/ }"
+    # e result _var_ref
+    # util::is_ref_var _var_ref && echo isREF || echo NOT REF
+    util::is_ref_var _var_ref && _var_ref="$result" && return
+    echo "$result"
+    # e result var_ref
+}
+
+doc_add_cmd_info() {
+    local unique=true append=true
+}
+
+doc_set_cmds() {
+    CURRENT_COMMAND=${1:-$CURRENT_COMMAND}
+    CURRENT_SUBCOMMAND=${2:-$CURRENT_SUBCOMMAND}
+}
+
+doc_add_item() {
+    set -x
+    [[ -v GEO_TEST_DICT ]] && local -n COMMAND_INFO=GEO_TEST_DICT
+    local doc_type=$1 && shift
+    local doc
+    remove_doc_tags -v doc "$*"
+    local key=$CURRENT_COMMAND
+    [[ -z $key ]] && log::Error "CURRENT_COMMAND was empty"
+
+    case "$doc_type" in
+        subcmd)
+            [[ ! ${COMMAND_INFO[$key._subcmds]} =~ $doc ]] \
+                && COMMAND_INFO[$key._subcmds]+=" $doc"
+            ;;
+        option)
+            [[ ! ${COMMAND_INFO[$key._options]} =~ $doc ]]
+            COMMAND_INFO[$key._options]+=" $doc"
+            # && COMMAND_INFO[$key.${value}]="$cmd"
+            ;;
+        *) key+=.$CURRENT_SUBCOMMAND ;;&
+        subcmd2)
+            [[ ! ${COMMAND_INFO[$key._subcmds]} =~ $doc ]] \
+                && COMMAND_INFO[$key._subcmds]+=" $doc"
+            ;;
+
+        option2)
+            [[ ! ${COMMAND_INFO[$key._options]} =~ $doc ]] \
+                && COMMAND_INFO[$key._options]+=" $doc"
+                ;;
+        # subcmd2) ;;
+        # *) key+=.$CURRENT_SUBSUBCOMMAND ;;&
+        # cmd3) ;;
+        # option3) ;;
+        # subcmd3) ;;
+    esac
+
+[[ -v GEO_TEST_DICT ]] && e GEO_TEST_DICT
+    set +x
+}
 
 # The name of a command
 doc_cmd() {
+    # CURRENT_COMMAND="$1"
     local top_level_geo_cmd="$1"
     doc_handle_command "$top_level_geo_cmd"
     local indent=4
     local txt=$(log::fmt_text --x "$@" $indent)
     # detail_u "$txt"
     log::detail -b "$txt"
+#     local key="$CURRENT_COMMAND" \
+#         && COMMAND_INFO[$key]="$1" \
+#         && COMMAND_INFO[_commands]+=" $1"
 }
 
 # Command description
@@ -7400,6 +7466,9 @@ doc_cmd_desc() {
     local indent=6
     local txt=$(log::fmt_text --x "$@" $indent)
     log::data -t "$txt"
+    # COMMAND_INFO[$CURRENT_COMMAND]="$1" \
+    #     && COMMAND_INFO[$CURRENT_COMMAND.description]+=" $1" \
+    #     && COMMAND_INFO[$CURRENT_COMMAND.desc]+=" $1"
 }
 
 doc_cmd_desc_note() {
@@ -7428,10 +7497,20 @@ doc_cmd_options_title() {
     # log::data -b "$txt"
 }
 doc_cmd_option() {
+    if [[ -n $GEO_GEN_DOCS ]]; then
+        doc_add_item option "$*"
+        return
+    fi
     # doc_handle_subcommand "$1"
     local indent=12
     local txt=$(log::fmt_text --x "$@" $indent)
     log::verbose -bt "$txt"
+
+    # doc_add_item option "$*"
+    # remove_doc_tags -v option "$*"
+    # [[ -n $CURRENT_COMMAND ]] \
+    #     && local key="$CURRENT_COMMAND" \
+    #     && COMMAND_INFO[$key._options]+=" $option"
 }
 doc_cmd_option_desc() {
     local indent=16
@@ -7445,8 +7524,20 @@ doc_cmd_sub_cmd_title() {
     log::info -t "$txt"
     # log::data -b "$txt"
 }
+
 doc_cmd_sub_cmd() {
+    if [[ -n $GEO_GEN_DOCS ]]; then
         doc_handle_subcommand "$1"
+        local value="$CURRENT_SUBCOMMAND" #"$(remove_doc_tags "$*")"
+        local path=$CURRENT_COMMAND
+    # CURRENT_SUBCOMMAND="$1"
+        doc_add_item subcmd "$*"
+        return
+    fi
+    # remove_doc_tags cmd "$*"
+    # [[ ! ${COMMAND_INFO[${path}._subcmds]} =~ $cmd ]] \
+    #     && COMMAND_INFO[${path}._subcmds]+=" $cmd" \
+    #     && COMMAND_INFO[${path}.${value}]="$cmd"
     local indent=12
     local txt=$(log::fmt_text --x "$@" $indent)
     log::verbose -b "$txt"
@@ -7464,9 +7555,23 @@ doc_cmd_sub_sub_cmds_title() {
     # log::data -b "$txt"
 }
 doc_cmd_sub_sub_cmd() {
+    # CURRENT_SUBCOMMAND="$1"
+    if [[ -n $GEO_GEN_DOCS ]]; then
+        doc_add_item subcmd2 "$*"
+        return
+    fi
     local indent=20
     local txt=$(log::fmt_text --x "$@" $indent)
     log::verbose "$txt"
+
+    # # remove_doc_tags "$*"
+    # [[ -z $CURRENT_COMMAND || -z $CURRENT_SUBCOMMAND ]] && log::Error "Missing doc command path: CURRENT_COMMAND = $CURRENT_COMMAND, CURRENT_SUBCOMMAND = $CURRENT_SUBCOMMAND" return 1
+    # local key="$CURRENT_COMMAND.$CURRENT_SUBCOMMAND"
+    # for cmd in $(remove_doc_tags "$*"); do
+    #     COMMAND_INFO[$key._subcmds]+=" $cmd"
+    #     COMMAND_INFO[$key.$cmd]="$cmd"
+    #     echo '${COMMAND_INFO['$key.$cmd']} = '"${COMMAND_INFO[$key.$cmd]}"
+    # done
 }
 doc_cmd_sub_sub_cmd_desc() {
     local indent=22
@@ -7481,9 +7586,22 @@ doc_cmd_sub_option_title() {
     # log::data -b "$txt"
 }
 doc_cmd_sub_option() {
+    if [[ -n $GEO_GEN_DOCS ]]; then
+        doc_add_item option2 "$*"
+        return
+    fi
     local indent=20
     local txt=$(log::fmt_text --x "$@" $indent)
     log::verbose "$txt"
+    # [[ -n $CURRENT_COMMAND ]] \
+    #     && local key="$CURRENT_COMMAND.$CURRENT_SUBCOMMAND" \
+    #     && COMMAND_INFO[$key._options]+=" $1"
+    # [[ -n $CURRENT_COMMAND && -n $CURRENT_SUBCOMMAND ]] && log::Error "Missing doc command path" return 1
+    # local key="$CURRENT_COMMAND.$CURRENT_SUBCOMMAND"
+    # for cmd in $(remove_doc_tags "$*"); do
+    #     COMMAND_INFO[$key._options]+=" $cmd"
+    #     # COMMAND_INFO[$key]="$cmd"
+    # done
 }
 doc_cmd_sub_option_desc() {
     local indent=22
@@ -7787,7 +7905,6 @@ _geo_complete() {
     # Prevent inherited ERR trap funciton from running.
     trap -- ERR
     # Uncomment line below to enable debug output
-    # echo "_geo_complete: $*" >&3
     local cur prev
     # echo "COMP_WORDS: ${COMP_WORDS[@]}" >> $HOME/.geo-cli/bcompletions.txt
     # echo "COMP_CWORD: $COMP_CWORD" >> bcompletions.txt
@@ -7796,13 +7913,17 @@ _geo_complete() {
     prev=${COMP_WORDS[COMP_CWORD - 1]}
     prevprev=${COMP_WORDS[COMP_CWORD - 2]}
     local full_cmd="${COMP_WORDS[@]}"
+    echo "_geo_complete[$COMP_CWORD]: $full_cmd" >> /tmp/geo-complete
     # echo "prev: $prev"  >> bcompletions.txt
-
+    local cmd_key="${full_cmd// /.}"
+    cmd_key=${cmd_key:0:-1}
+    e cmd_key  >> /tmp/geo-complete
     case ${COMP_CWORD} in
         0) COMPREPLY=($(compgen -W "geo geo-cli" -- ${cur})) ;;
         # e.g., geo
         1)
-            local cmds="${COMMANDS[*]}"
+            local cmds="${COMMAND_INFO[_commands]}"
+            # local cmds="${COMMANDS[*]}"
 
             COMPREPLY=($(compgen -W "$cmds" -- ${cur}))
             ;;
@@ -7811,8 +7932,14 @@ _geo_complete() {
             # echo "2: $prevprev/$prev/$cur" >> ~/bcompletions.txt
             # echo "2: SUBCOMMAND_COMPLETIONS[$prev] = ${SUBCOMMAND_COMPLETIONS[$prev]}" >> ~/bcompletions.txt
             # echo "$prevprev/$prev/$cur"
-            if [[ -v SUBCOMMAND_COMPLETIONS[$prev] ]]; then
+            if [[ -n ${COMMAND_INFO[$cmd_key]} ]]; then
+                if [[ $cur =~ ^- && -n ${COMMAND_INFO[$cmd_key.options]} ]]; then
+                    COMPREPLY=($(compgen -W "${COMMAND_INFO[$cmd_key.options]}" -- ${cur}))
+                elif [[ -n ${COMMAND_INFO[$cmd_key._subcmds]}  ]]; then
                     # echo "SUBCOMMANDS[$cur]: ${SUBCOMMANDS[$prev]}" >> bcompletions.txt
+                    COMPREPLY=($(compgen -W "${COMMAND_INFO[$cmd_key._subcmds]}" -- ${cur}))
+                fi
+            elif [[ -v SUBCOMMAND_COMPLETIONS[$prev] ]]; then
                 COMPREPLY=($(compgen -W "${SUBCOMMAND_COMPLETIONS[$prev]}" -- ${cur}))
                 case $prev in
                     get | set | rm) COMPREPLY=($(compgen -W "$(@geo_env ls keys)" -- ${cur^^})) ;;
