@@ -5021,8 +5021,8 @@ _geo_check_if_feature_branch_merged() {
     local msg=
     number_re='^[0-9]+$'
 
-    # If the imput is wrapped in quotes (e.g. "123") or other invalid characters, remove them.
-    arg="${arg//[\"\n\']/}"
+    # Remove invalid characters (quotes, new lines).
+    arg="$(echo "$arg" | tr -d "\n'\"")"
 
     convert_id() {
         local silent=false
