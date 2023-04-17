@@ -969,11 +969,13 @@ _geo_ar__copy_pgAdmin_server_config() {
     while [[ $1 =~ -+ ]]; do
         case "$1" in
             --iap)
-                [[ -z $2 ]] && log::Error "The $1 option requires the iap password as a parameter, but none was provided" && return 1
+                [[ -z $2 && -z $GEO_AR_IAP_PASSWORD ]] && log::Error "The $1 option requires the iap password as a parameter, but none was provided" && return 1
                 iap=true
                 ar_config_file_type=iap
                 # Replace : with \: to escape it (required format for passfiles).
-                export iap_password="${2//:/\\:}"
+                export iap_password
+                iap_password=${2:-$GEO_AR_IAP_PASSWORD}
+                iap_password="${iap_password//:/\\:}"
                 log::debug -d "$iap_password"
                 shift
                 ;;
@@ -2563,7 +2565,7 @@ _geo_check_for_dev_repo_dir() {
 
 # Concatenates two lines using ' ' (or what was passed in as an arg to the -d delimeter option) if they can both fit on
 # the same line (their total width doesn't exceed the width of the terminal). Otherwise, the lines will be separated by
-# a line break. Non-printable characters are temporarily removed from the two strings in order to get their true width, 
+# a line break. Non-printable characters are temporarily removed from the two strings in order to get their true width,
 # Arguments:
 #     [-s <start_len> | -e <end_len> | -d <delimeter>]
 #     1: String 1
@@ -2598,7 +2600,7 @@ break_lines_if_term_width_exceeded() {
     : "${start_len:=${#start_clean}}"
     end_clean="$(echo -n "$end" | log::strip_color_codes)"
     : "${end_len:=${#end_clean}}"
-    
+
     local cols msg
     cols=$(tput cols)
 
@@ -2667,7 +2669,7 @@ prompt_for_info_with_previous_value() {
     # fi
 
     $persist_value && [[ -n $value_var_ref && $value_var_ref != $saved_value ]] \
-        && @geo_set "$key" "$value_var_ref" 
+        && @geo_set "$key" "$value_var_ref"
         # || log::debug "not saving data"
 }
 # prompt_for_info_with_previous_value ppv result "enter result: " '[[:digit:]]+' 'Your input is awful'
@@ -2719,6 +2721,7 @@ prompt_for_info_with_previous_value() {
         doc_cmd_example 'geo ar ssh -u dawsonmyers -p 12345'
 }
 @geo_ar() {
+    export GEO_AR_IAP_PASSWORD=
     local arguments=("$@")
     # ssh -L 127.0.0.1:5433:localhost:5432 -N <username>@127.0.0.1 -p <port from IAP>
     show_iap_password_prompt_message() {
@@ -2758,6 +2761,7 @@ prompt_for_info_with_previous_value() {
         iap_skip_password=true
         reuse_msg_shown=true
         if [[ -n $iap_password ]]; then
+            GEO_AR_IAP_PASSWORD="$iap_password"
             _geo_ar__copy_pgAdmin_server_config --iap "$iap_password" --user "$user"
             # _geo_ar__copy_pgAdmin_server_config --iap "$iap_password" "$iap_db" "$user"
         fi
@@ -2857,7 +2861,7 @@ prompt_for_info_with_previous_value() {
                 local server_tag="$(_geo_ar__get_tag_from_cmd $gcloud_cmd)"
                 @geo_set AR_IAP_CMD "$gcloud_cmd"
                 _geo_ar__push_cmd "$gcloud_cmd"
-                
+
                 local open_port=
                 if [[ -n $port ]]; then
                     local port_open_check_python_code='import socket; s=socket.socket(); s.bind(("", '$port')); s.close()'
@@ -2973,14 +2977,14 @@ prompt_for_info_with_previous_value() {
 
                         # Set up to test precess substitution:
                         # load the following functions in a terminal
-                        # f() { 
+                        # f() {
                         #     local i=0;
                         #     while true; do
                         #         echo $((i++));
                         #         sleep 5;
                         #     done
                         # }
-                        # g() { 
+                        # g() {
                         #     while true; do
                         #         read input;
                         #         [[ -n $input ]] && echo "Received: $input";
@@ -2989,7 +2993,7 @@ prompt_for_info_with_previous_value() {
                         # }
                         # Start them using:
                         # { f  || echo FAIL; } &>  >(tee -a test/procsub.log )
-                        # 
+                        #
                         # Open another terminal to see that f is piping to g, who inturn pipes the tee, which pipes to both the terminal and the log file.
                         # tail -f test/procsub.log
 
@@ -3004,7 +3008,7 @@ prompt_for_info_with_previous_value() {
                                     || {
                                         log::Error "failed to start IAP tunnel"
                                         return 1
-                                    } 
+                                    }
                             } &> >(tee -a $tmp_output_file) &
                                 # { f  || echo FAIL; }>  >(tee -a test/procsub.log )
                         else
@@ -5922,12 +5926,12 @@ remove_unused_lock_files_in_current_directory() {
 
 
             #! TODO: - Confirm that the test def that we found is the right one before adding the attributes to it.
-            #!       - Check if there is a Theory or Fact attribute  
+            #!       - Check if there is a Theory or Fact attribute
             #!       - Add an undo feature to remove the tags.
             #!       - Add syntax highlighting to print_test_definition
             #!       - Store gcloud cmd and password in json to allow them to be easily reconnected to later. Add a date as well and mark ones older that 9 hours as expired.
-            #!       - 
-            #!       - 
+            #!       -
+            #!       -
             # Match the test line and the previous 3 lines.
             match=$(grep -B 3 -e " $testname(" $file)
             if [[ -z $match ]]; then

@@ -205,12 +205,12 @@ make_logger_function() {
             # echo interprets '-e' as a command line switch, so a space is added to it so that it will actually be printed.
             local re='^ *-e$'
             [[ \$msg =~ \$re ]] && msg+=' '
-            [[ \$GEO_RAW_OUTPUT == true ]] && echo -n \"\$msg\" && set +f && return
+#            [[ \$GEO_RAW_OUTPUT == true ]] && echo -n \"\$msg\" && set +f && return
             local line=( \"\${format_tokens}\${!color_name}\${msg}\${Off}\")
 #            local line=(echo \"-\${opts}\" \"\${format_tokens}\${!color_name}\${msg}\${Off}\")
-            local log_line=\"\$(expand_full '\${line[*]}')\"
-            [[ -n \$redirect ]] \
-                && eval echo \"\$log_line\" | log::debug_out && set +f && return
+#            local log_line=\"\$(expand_full '\${line[*]}')\"
+#            [[ -n \$redirect ]] \
+#                && eval echo \"\$log_line\" | log::debug_out && set +f && return
 #                && eval echo \"\$(expand_full '\${line[*]}')\" | log::debug_out \
 #                || eval echo \"\$log_line\"
 #                || eval echo \"\$(expand_full '\${line[*]}')\"
