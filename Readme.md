@@ -1,3 +1,7 @@
+> Note: This repo was uploaded to GitHub in order to showcase the feature-rich Bash CLI utility (with a Python app indicator system service) that I spent houdreds of hours of personal time working on as a side project over 3 years while working at GEOTAB. This tool saw widespread adoption and praise by developers at the company, with it becoming standard software for houndreds of developers and being said by management to have "significantly increased the productivity of the entire Development department". It was based on a CLI project that I developed while studying in university, which was essentially a framework for building Bash CLI utilitys.
+
+> This branch is the unrealeased version of what would have been `geo-cli 3.0`, the next major release of the utility. The massive changes in the codebase and feature-set is comparable to the differences between Python 2 and Python 3 (huge changes/improvments, around 20,000 changes from the previous version). Unfortunantly, I didn't have time to finish it before leaving the company in 2023.
+
 # `geo-cli`
 
 A tool that makes MyGeotab development easier. Specifically, this tool aims to simplify cross-release development by managing various versions of `geotabdemo` Postgres database containers. This allows developers to easily switch between release branches without having to worry about database compatibility.
